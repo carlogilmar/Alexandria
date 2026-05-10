@@ -1,14 +1,39 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
+mod commands;
+mod db;
+mod error;
+
+use commands::AppState;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .setup(|app| {
+            let path = db::default_db_path()?;
+            let pool = tauri::async_runtime::block_on(db::open_pool(&path))?;
+            app.manage(AppState { pool });
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::lists::list_today,
+            commands::lists::list_by_id,
+            commands::lists::list_all,
+            commands::lists::create_list,
+            commands::lists::rename_list,
+            commands::lists::archive_list,
+            commands::lists::restore_list,
+            commands::todos::list_todos,
+            commands::todos::create_todo,
+            commands::todos::update_todo,
+            commands::todos::toggle_todo,
+            commands::todos::delete_todo,
+            commands::todos::reorder_todos,
+            commands::tags::list_tags,
+            commands::tags::tags_for_todo,
+            commands::tags::add_tag_to_todo,
+            commands::tags::remove_tag_from_todo,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
