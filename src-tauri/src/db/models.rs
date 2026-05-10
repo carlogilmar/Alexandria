@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct List {
     pub id: i64,
     pub title: String,
@@ -12,6 +13,7 @@ pub struct List {
 }
 
 #[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct ListSummary {
     pub id: i64,
     pub title: String,
@@ -22,6 +24,7 @@ pub struct ListSummary {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct Todo {
     pub id: i64,
     pub list_id: i64,
@@ -34,7 +37,7 @@ pub struct Todo {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default)]
+#[serde(default, rename_all = "camelCase")]
 pub struct TodoPatch {
     pub text: Option<String>,
     pub notes: Option<String>,
@@ -42,6 +45,7 @@ pub struct TodoPatch {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct Tag {
     pub id: i64,
     pub name: String,
