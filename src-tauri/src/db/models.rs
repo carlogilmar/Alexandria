@@ -50,3 +50,22 @@ pub struct Tag {
     pub id: i64,
     pub name: String,
 }
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct TodoHit {
+    pub id: i64,
+    pub list_id: i64,
+    pub list_title: String,
+    pub list_date: String,
+    pub text: String,
+    pub completed: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Stats {
+    pub total_lists: i64,
+    pub total_todos: i64,
+    pub streak: i64,
+}

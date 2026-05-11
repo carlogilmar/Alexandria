@@ -40,6 +40,21 @@ export type Tag = {
   name: string;
 };
 
+export type TodoHit = {
+  id: number;
+  listId: number;
+  listTitle: string;
+  listDate: string;
+  text: string;
+  completed: boolean;
+};
+
+export type Stats = {
+  totalLists: number;
+  totalTodos: number;
+  streak: number;
+};
+
 // Lists
 export const listToday = () => invoke<List>("list_today");
 export const listById = (id: number) => invoke<List>("list_by_id", { id });
@@ -75,3 +90,16 @@ export const addTagToTodo = (todoId: number, name: string) =>
   invoke<Tag>("add_tag_to_todo", { todoId, name });
 export const removeTagFromTodo = (todoId: number, tagId: number) =>
   invoke<void>("remove_tag_from_todo", { todoId, tagId });
+
+// Search + stats
+export const searchTodos = (query: string, completed: boolean | null) =>
+  invoke<TodoHit[]>("search_todos", { query, completed });
+export const getStats = () => invoke<Stats>("get_stats");
+
+// Export
+export const exportListMd = (id: number) =>
+  invoke<string>("export_list_md", { id });
+export const exportRangeMd = (from: string | null, to: string | null) =>
+  invoke<string>("export_range_md", { from, to });
+export const saveTextFile = (path: string, content: string) =>
+  invoke<void>("save_text_file", { path, content });

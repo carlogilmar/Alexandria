@@ -3,12 +3,21 @@
 
   type Props = {
     todo: Todo;
+    selected?: boolean;
     onToggle: () => void;
     onEdit: (text: string) => void;
     onDelete: () => void;
+    onOpenDetails: () => void;
   };
 
-  let { todo, onToggle, onEdit, onDelete }: Props = $props();
+  let {
+    todo,
+    selected = false,
+    onToggle,
+    onEdit,
+    onDelete,
+    onOpenDetails,
+  }: Props = $props();
 
   let editing = $state(false);
   let draft = $state("");
@@ -41,6 +50,8 @@
 
 <div
   class="group flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-neutral-200/40 dark:hover:bg-neutral-700/30"
+  class:bg-blue-100={selected}
+  class:dark:bg-blue-900={selected}
 >
   <span
     class="cursor-grab text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-neutral-600"
@@ -97,6 +108,21 @@
       {todo.text}
     </button>
   {/if}
+
+  <button
+    type="button"
+    class="rounded p-1 text-neutral-400 opacity-0 transition-opacity hover:bg-neutral-200/60 hover:text-neutral-700 group-hover:opacity-100 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-200"
+    aria-label="Show details"
+    onclick={onOpenDetails}
+  >
+    <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+      <path
+        fill-rule="evenodd"
+        d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+        clip-rule="evenodd"
+      />
+    </svg>
+  </button>
 
   <button
     type="button"

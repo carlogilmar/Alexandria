@@ -1,6 +1,7 @@
 mod commands;
 mod db;
 mod error;
+mod markdown;
 
 use commands::AppState;
 use tauri::Manager;
@@ -9,6 +10,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let path = db::default_db_path()?;
             let pool = tauri::async_runtime::block_on(db::open_pool(&path))?;
@@ -33,6 +35,11 @@ pub fn run() {
             commands::tags::tags_for_todo,
             commands::tags::add_tag_to_todo,
             commands::tags::remove_tag_from_todo,
+            commands::export::export_list_md,
+            commands::export::export_range_md,
+            commands::export::save_text_file,
+            commands::search::search_todos,
+            commands::search::get_stats,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -7,6 +7,7 @@
   let quickAddText = $state("");
   let dragId = $state<number | null>(null);
   let qaInput: HTMLInputElement | undefined = $state();
+  let exportMenuOpen = $state(false);
 
   let total = $derived(app.todos.length);
   let done = $derived(app.todos.filter((t) => t.completed).length);
@@ -116,11 +117,101 @@
           {prettyDate} · {app.selected.date}
         </p>
       </div>
-      {#if total > 0}
-        <p class="ml-4 shrink-0 text-sm text-neutral-500 dark:text-neutral-400">
-          {done} / {total} done
-        </p>
-      {/if}
+      <div class="ml-4 flex shrink-0 items-center gap-3">
+        {#if total > 0}
+          <p class="text-sm text-neutral-500 dark:text-neutral-400">
+            {done} / {total} done
+          </p>
+        {/if}
+        <button
+          type="button"
+          class="rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-neutral-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+          aria-label="Delete this list"
+          onclick={() => app.deleteSelected()}
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+            <path
+              fill-rule="evenodd"
+              d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zm-1 6a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 112 0v6a1 1 0 11-2 0V8z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </button>
+        <div class="relative">
+          <button
+            type="button"
+            class="rounded-md px-2 py-1 text-xs font-medium text-neutral-500 transition-colors hover:bg-neutral-200/40 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700/30 dark:hover:text-neutral-200"
+            onclick={() => (exportMenuOpen = !exportMenuOpen)}
+          >
+            Export…
+          </button>
+          {#if exportMenuOpen}
+            <button
+              type="button"
+              class="fixed inset-0 z-10 cursor-default"
+              aria-label="Close menu"
+              onclick={() => (exportMenuOpen = false)}
+            ></button>
+            <div
+              class="absolute right-0 z-20 mt-1 w-60 overflow-hidden rounded-lg border border-neutral-200/80 bg-white/95 py-1 text-sm shadow-lg backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-900/95"
+            >
+              <button
+                type="button"
+                class="flex w-full items-center justify-between px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                onclick={() => {
+                  exportMenuOpen = false;
+                  app.copyCurrent();
+                }}
+              >
+                Copy current list
+                <span class="text-[11px] text-neutral-400">⌘⇧C</span>
+              </button>
+              <button
+                type="button"
+                class="flex w-full items-center justify-between px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                onclick={() => {
+                  exportMenuOpen = false;
+                  app.saveCurrent();
+                }}
+              >
+                Save current list…
+                <span class="text-[11px] text-neutral-400">⌘E</span>
+              </button>
+              <div class="my-1 border-t border-neutral-200/70 dark:border-neutral-700/70"></div>
+              <button
+                type="button"
+                class="block w-full px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                onclick={() => {
+                  exportMenuOpen = false;
+                  app.saveThisWeek();
+                }}
+              >
+                Save this week…
+              </button>
+              <button
+                type="button"
+                class="block w-full px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                onclick={() => {
+                  exportMenuOpen = false;
+                  app.saveThisMonth();
+                }}
+              >
+                Save this month…
+              </button>
+              <button
+                type="button"
+                class="block w-full px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                onclick={() => {
+                  exportMenuOpen = false;
+                  app.saveEverything();
+                }}
+              >
+                Save everything…
+              </button>
+            </div>
+          {/if}
+        </div>
+      </div>
     </header>
 
     <form onsubmit={handleQuickAdd} class="mb-4">
@@ -153,9 +244,11 @@
           >
             <TodoRow
               {todo}
+              selected={app.selectedTodoId === todo.id}
               onToggle={() => app.toggle(todo)}
               onEdit={(text) => app.editTodo(todo, text)}
               onDelete={() => app.removeTodo(todo)}
+              onOpenDetails={() => app.selectTodo(todo.id)}
             />
           </li>
         {/each}
