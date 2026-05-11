@@ -55,6 +55,12 @@ export type Stats = {
   streak: number;
 };
 
+export type DayStats = {
+  date: string; // YYYY-MM-DD
+  total: number;
+  done: number;
+};
+
 // Lists
 export const listToday = () => invoke<List>("list_today");
 export const listById = (id: number) => invoke<List>("list_by_id", { id });
@@ -95,6 +101,8 @@ export const removeTagFromTodo = (todoId: number, tagId: number) =>
 export const searchTodos = (query: string, completed: boolean | null) =>
   invoke<TodoHit[]>("search_todos", { query, completed });
 export const getStats = () => invoke<Stats>("get_stats");
+export const getDailyStats = (from: string | null, to: string | null) =>
+  invoke<DayStats[]>("get_daily_stats", { from, to });
 
 // Export
 export const exportListMd = (id: number) =>

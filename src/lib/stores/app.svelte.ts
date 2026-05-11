@@ -17,9 +17,11 @@ import {
   saveTextFile,
   searchTodos,
   getStats,
+  getDailyStats,
   tagsForTodo,
   addTagToTodo,
   removeTagFromTodo,
+  type DayStats,
   type List,
   type ListSummary,
   type Stats,
@@ -53,16 +55,19 @@ function firstOfMonthIso(): string {
 }
 
 class AppStore {
+  view = $state<"home" | "list">("home");
   lists = $state<ListSummary[]>([]);
   selected = $state<List | null>(null);
   todos = $state<Todo[]>([]);
   loading = $state(true);
   error = $state<string | null>(null);
   flash = $state<string | null>(null);
+  helpOpen = $state(false);
 
   searchQuery = $state("");
   searchResults = $state<TodoHit[]>([]);
   stats = $state<Stats>({ totalLists: 0, totalTodos: 0, streak: 0 });
+  dailyStats = $state<DayStats[]>([]);
 
   selectedTodoId = $state<number | null>(null);
   selectedTodoTags = $state<Tag[]>([]);
@@ -85,11 +90,12 @@ class AppStore {
     this.loading = true;
     this.error = null;
     try {
-      const today = await listToday();
-      this.selected = today;
-      this.todos = await listTodos(today.id);
+      // Touch today's list so it exists in the sidebar, but the welcome
+      // page is what the user sees on app launch.
+      await listToday();
       this.lists = await listAll();
       this.stats = await getStats();
+      this.dailyStats = await getDailyStats(null, null);
     } catch (e) {
       this.error = String(e);
     } finally {
@@ -97,7 +103,22 @@ class AppStore {
     }
   }
 
+  async goHome() {
+    this.view = "home";
+    this.selectedTodoId = null;
+    this.selectedTodoTags = [];
+    // Defensive: refresh stats + daily grid so the welcome page always
+    // reflects the latest state, even if some mutation slipped past.
+    try {
+      this.stats = await getStats();
+      this.dailyStats = await getDailyStats(null, null);
+    } catch (e) {
+      this.error = String(e);
+    }
+  }
+
   async select(id: number) {
+    this.view = "list";
     if (this.selected?.id === id) return;
     try {
       this.selected = await listById(id);
@@ -112,6 +133,7 @@ class AppStore {
   async refreshLists() {
     this.lists = await listAll();
     this.stats = await getStats();
+    this.dailyStats = await getDailyStats(null, null);
   }
 
   // ---- Search ----
@@ -162,6 +184,14 @@ class AppStore {
     this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t));
   }
 
+  async updateSelectedText(text: string) {
+    if (this.selectedTodoId === null) return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const updated = await updateTodo(this.selectedTodoId, { text: trimmed });
+    this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t));
+  }
+
   async addTagToSelected(name: string) {
     if (this.selectedTodoId === null) return;
     const trimmed = name.trim();
@@ -180,6 +210,11 @@ class AppStore {
     const created = await createList(title, todayIso());
     await this.refreshLists();
     await this.select(created.id);
+  }
+
+  async selectToday() {
+    const today = await listToday();
+    await this.select(today.id);
   }
 
   async renameSelected(title: string) {

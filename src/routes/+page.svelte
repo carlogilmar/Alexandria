@@ -5,6 +5,8 @@
   import Sidebar from "$lib/components/Sidebar.svelte";
   import ListView from "$lib/components/ListView.svelte";
   import Inspector from "$lib/components/Inspector.svelte";
+  import Welcome from "$lib/components/Welcome.svelte";
+  import HelpModal from "$lib/components/HelpModal.svelte";
 
   let sidebar: Sidebar | undefined = $state();
   let inspectorTodo = $derived(app.selectedTodo());
@@ -12,6 +14,13 @@
   onMount(() => {
     app.init();
   });
+
+  function isTypingInEditable(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    if (target.isContentEditable) return true;
+    const tag = target.tagName;
+    return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+  }
 
   function handleKeydown(e: KeyboardEvent) {
     const mod = e.metaKey || e.ctrlKey;
@@ -21,8 +30,18 @@
       return;
     }
     if (!mod) {
-      if (e.key === "Escape" && app.selectedTodoId !== null) {
-        app.selectTodo(null);
+      if (e.key === "Escape") {
+        if (app.helpOpen) {
+          app.helpOpen = false;
+        } else if (app.selectedTodoId !== null) {
+          app.selectTodo(null);
+        }
+        return;
+      }
+      // Only intercept "?" when the user isn't typing in a field.
+      if (e.key === "?" && !isTypingInEditable(e.target)) {
+        e.preventDefault();
+        app.helpOpen = !app.helpOpen;
       }
       return;
     }
@@ -31,10 +50,10 @@
       app.newList();
     } else if (e.key === "e" && !e.shiftKey) {
       e.preventDefault();
-      app.saveCurrent();
+      if (app.view === "list") app.saveCurrent();
     } else if (e.shiftKey && (e.key === "C" || e.key === "c")) {
       e.preventDefault();
-      app.copyCurrent();
+      if (app.view === "list") app.copyCurrent();
     }
   }
 </script>
@@ -53,16 +72,22 @@
         <p class="font-medium">Something went wrong.</p>
         <p class="mt-1 text-xs">{app.error}</p>
       </div>
+    {:else if app.view === "home"}
+      <Welcome />
     {:else}
       <ListView />
     {/if}
   </div>
-  {#if inspectorTodo}
+  {#if app.view === "list" && inspectorTodo}
     {#key inspectorTodo.id}
       <Inspector todo={inspectorTodo} />
     {/key}
   {/if}
 </div>
+
+{#if app.helpOpen}
+  <HelpModal />
+{/if}
 
 {#if app.flash}
   <div

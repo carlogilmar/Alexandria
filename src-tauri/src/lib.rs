@@ -40,6 +40,7 @@ pub fn run() {
             commands::export::save_text_file,
             commands::search::search_todos,
             commands::search::get_stats,
+            commands::search::get_daily_stats,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -79,6 +79,23 @@
     />
   </div>
 
+  <button
+    type="button"
+    class="mb-2 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors"
+    class:bg-neutral-300={app.view === "home"}
+    class:dark:bg-neutral-700={app.view === "home"}
+    class:hover:bg-neutral-200={app.view !== "home"}
+    class:dark:hover:bg-neutral-800={app.view !== "home"}
+    onclick={() => app.goHome()}
+  >
+    <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 text-neutral-500 dark:text-neutral-400">
+      <path
+        d="M10 2l8 7h-2v8a1 1 0 01-1 1h-3v-5H8v5H5a1 1 0 01-1-1V9H2l8-7z"
+      />
+    </svg>
+    <span class="font-medium text-neutral-800 dark:text-neutral-200">Home</span>
+  </button>
+
   <nav class="flex-1 overflow-y-auto">
     {#if isSearching}
       <div class="mb-2 px-2 pt-1">
@@ -221,5 +238,13 @@
         {app.stats.streak === 1 ? "day" : "days"}
       </span>
     </div>
+    <button
+      type="button"
+      class="mt-1.5 flex w-full items-center justify-between rounded px-1 py-1 text-left text-neutral-400 transition-colors hover:bg-neutral-200/60 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-200"
+      onclick={() => (app.helpOpen = true)}
+    >
+      <span>Shortcuts</span>
+      <span class="font-mono text-[10px]">?</span>
+    </button>
   </div>
 </aside>

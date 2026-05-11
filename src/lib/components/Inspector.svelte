@@ -5,21 +5,28 @@
   type Props = { todo: Todo };
   let { todo }: Props = $props();
 
+  let textDraft = $state("");
   let notesDraft = $state("");
   let tagInput = $state("");
 
-  // Sync the editable draft from the prop. The Inspector is wrapped in {#key}
-  // on the parent, so this effectively runs once per selected todo.
+  // Sync drafts from the prop. The Inspector is wrapped in {#key} on the
+  // parent so this effectively runs once per selected todo.
   $effect(() => {
+    textDraft = todo.text;
     notesDraft = todo.notes ?? "";
   });
 
-  function notesDirty() {
-    return (notesDraft ?? "") !== (todo.notes ?? "");
+  async function commitText() {
+    const next = textDraft.trim();
+    if (!next || next === todo.text) {
+      textDraft = todo.text;
+      return;
+    }
+    await app.updateSelectedText(next);
   }
 
   async function commitNotes() {
-    if (!notesDirty()) return;
+    if ((notesDraft ?? "") === (todo.notes ?? "")) return;
     await app.updateSelectedNotes(notesDraft);
   }
 
@@ -58,14 +65,27 @@
     </button>
   </header>
 
-  <div class="mb-4">
-    <p
-      class="text-sm leading-snug text-neutral-800 dark:text-neutral-200"
-      class:line-through={todo.completed}
-      class:text-neutral-400={todo.completed}
+  <div class="mb-5">
+    <label
+      class="mb-1 block text-[11px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500"
+      for="inspector-text"
     >
-      {todo.text}
-    </p>
+      Task
+    </label>
+    <input
+      id="inspector-text"
+      bind:value={textDraft}
+      onblur={commitText}
+      onkeydown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        else if (e.key === "Escape") {
+          textDraft = todo.text;
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+      class="w-full rounded-md border border-neutral-200/60 bg-white/60 px-2 py-1.5 text-sm leading-snug outline-none placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+      class:line-through={todo.completed}
+    />
   </div>
 
   <div class="mb-5">

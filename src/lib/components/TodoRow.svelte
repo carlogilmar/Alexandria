@@ -5,57 +5,45 @@
     todo: Todo;
     selected?: boolean;
     onToggle: () => void;
-    onEdit: (text: string) => void;
     onDelete: () => void;
     onOpenDetails: () => void;
+    onDragStart: (e: DragEvent) => void;
   };
 
   let {
     todo,
     selected = false,
     onToggle,
-    onEdit,
     onDelete,
     onOpenDetails,
+    onDragStart,
   }: Props = $props();
 
-  let editing = $state(false);
-  let draft = $state("");
-  let input: HTMLInputElement | undefined = $state();
+  let rowEl: HTMLDivElement | undefined = $state();
 
-  function startEdit() {
-    draft = todo.text;
-    editing = true;
-    queueMicrotask(() => input?.focus());
-  }
-
-  function commitEdit() {
-    const next = draft.trim();
-    editing = false;
-    if (next && next !== todo.text) {
-      onEdit(next);
+  function handleDragStart(e: DragEvent) {
+    if (rowEl && e.dataTransfer) {
+      // Use the full row as the drag preview, not just the tiny handle.
+      e.dataTransfer.setDragImage(rowEl, 12, 16);
     }
-  }
-
-  function cancelEdit() {
-    editing = false;
-    draft = todo.text;
-  }
-
-  function onKey(e: KeyboardEvent) {
-    if (e.key === "Enter") commitEdit();
-    else if (e.key === "Escape") cancelEdit();
+    onDragStart(e);
   }
 </script>
 
 <div
-  class="group flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-neutral-200/40 dark:hover:bg-neutral-700/30"
+  bind:this={rowEl}
+  class="group flex items-center gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-neutral-200/40 dark:hover:bg-neutral-700/30"
   class:bg-blue-100={selected}
   class:dark:bg-blue-900={selected}
 >
   <span
-    class="cursor-grab text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-neutral-600"
-    aria-hidden="true"
+    draggable="true"
+    role="button"
+    tabindex="-1"
+    ondragstart={handleDragStart}
+    aria-label="Drag to reorder"
+    title="Drag to reorder"
+    class="select-none cursor-grab text-neutral-400 hover:text-neutral-700 active:cursor-grabbing dark:text-neutral-500 dark:hover:text-neutral-200"
   >
     ⋮⋮
   </span>
@@ -72,7 +60,10 @@
     class:dark:border-neutral-200={todo.completed}
     class:dark:bg-neutral-200={todo.completed}
     aria-label={todo.completed ? "Mark as incomplete" : "Mark as complete"}
-    onclick={onToggle}
+    onclick={(e) => {
+      e.stopPropagation();
+      onToggle();
+    }}
   >
     {#if todo.completed}
       <svg
@@ -88,47 +79,25 @@
     {/if}
   </button>
 
-  {#if editing}
-    <input
-      bind:this={input}
-      bind:value={draft}
-      onblur={commitEdit}
-      onkeydown={onKey}
-      class="flex-1 rounded border-none bg-transparent px-1 py-0.5 outline-none ring-2 ring-blue-500/40 focus:ring-blue-500"
-    />
-  {:else}
-    <button
-      type="button"
-      class="flex-1 text-left text-[15px] leading-tight transition-colors"
-      class:text-neutral-400={todo.completed}
-      class:dark:text-neutral-500={todo.completed}
-      class:line-through={todo.completed}
-      onclick={startEdit}
-    >
-      {todo.text}
-    </button>
-  {/if}
-
   <button
     type="button"
-    class="rounded p-1 text-neutral-400 opacity-0 transition-opacity hover:bg-neutral-200/60 hover:text-neutral-700 group-hover:opacity-100 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-200"
-    aria-label="Show details"
+    class="flex-1 cursor-pointer text-left text-[15px] leading-tight transition-colors"
+    class:text-neutral-400={todo.completed}
+    class:dark:text-neutral-500={todo.completed}
+    class:line-through={todo.completed}
     onclick={onOpenDetails}
   >
-    <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
-      <path
-        fill-rule="evenodd"
-        d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-        clip-rule="evenodd"
-      />
-    </svg>
+    {todo.text}
   </button>
 
   <button
     type="button"
     class="rounded p-1 text-neutral-400 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 dark:hover:bg-red-950/40 dark:hover:text-red-400"
     aria-label="Delete todo"
-    onclick={onDelete}
+    onclick={(e) => {
+      e.stopPropagation();
+      onDelete();
+    }}
   >
     <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
       <path

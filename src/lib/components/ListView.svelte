@@ -11,6 +11,8 @@
 
   let total = $derived(app.todos.length);
   let done = $derived(app.todos.filter((t) => t.completed).length);
+  let progressPct = $derived(total === 0 ? 0 : Math.round((done / total) * 100));
+  let allDone = $derived(total > 0 && done === total);
 
   let prettyDate = $derived(
     app.selected
@@ -119,8 +121,14 @@
       </div>
       <div class="ml-4 flex shrink-0 items-center gap-3">
         {#if total > 0}
-          <p class="text-sm text-neutral-500 dark:text-neutral-400">
-            {done} / {total} done
+          <p
+            class="text-sm font-medium"
+            class:text-green-600={allDone}
+            class:dark:text-green-400={allDone}
+            class:text-neutral-500={!allDone}
+            class:dark:text-neutral-400={!allDone}
+          >
+            {done} / {total}
           </p>
         {/if}
         <button
@@ -214,6 +222,19 @@
       </div>
     </header>
 
+    {#if total > 0}
+      <div
+        class="mb-5 h-1 w-full overflow-hidden rounded-full bg-neutral-200/70 dark:bg-neutral-700/50"
+      >
+        <div
+          class="h-full rounded-full transition-all duration-300"
+          class:bg-green-500={allDone}
+          class:bg-blue-500={!allDone}
+          style="width: {progressPct}%"
+        ></div>
+      </div>
+    {/if}
+
     <form onsubmit={handleQuickAdd} class="mb-4">
       <input
         bind:this={qaInput}
@@ -237,8 +258,6 @@
             in:fade={{ duration: 150 }}
             out:fade={{ duration: 120 }}
             class:opacity-40={dragId === todo.id}
-            draggable="true"
-            ondragstart={(e) => handleDragStart(todo.id, e)}
             ondragover={(e) => handleDragOver(todo.id, e)}
             ondragend={handleDragEnd}
           >
@@ -246,9 +265,9 @@
               {todo}
               selected={app.selectedTodoId === todo.id}
               onToggle={() => app.toggle(todo)}
-              onEdit={(text) => app.editTodo(todo, text)}
               onDelete={() => app.removeTodo(todo)}
               onOpenDetails={() => app.selectTodo(todo.id)}
+              onDragStart={(e) => handleDragStart(todo.id, e)}
             />
           </li>
         {/each}

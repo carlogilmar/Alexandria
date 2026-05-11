@@ -1,5 +1,5 @@
 use crate::commands::AppState;
-use crate::db::models::{Stats, TodoHit};
+use crate::db::models::{DayStats, Stats, TodoHit};
 use crate::error::AppResult;
 use sqlx::SqlitePool;
 use tauri::State;
@@ -86,6 +86,30 @@ pub(crate) async fn stats(pool: &SqlitePool) -> AppResult<Stats> {
     })
 }
 
+pub(crate) async fn daily_stats(
+    pool: &SqlitePool,
+    from: Option<&str>,
+    to: Option<&str>,
+) -> AppResult<Vec<DayStats>> {
+    sqlx::query_as::<_, DayStats>(
+        "SELECT l.date,
+                COUNT(t.id) AS total,
+                COALESCE(SUM(t.completed), 0) AS done
+           FROM lists l
+           LEFT JOIN todos t ON t.list_id = l.id
+          WHERE l.archived = 0
+            AND (?1 IS NULL OR l.date >= ?1)
+            AND (?2 IS NULL OR l.date <= ?2)
+          GROUP BY l.date
+          ORDER BY l.date ASC",
+    )
+    .bind(from)
+    .bind(to)
+    .fetch_all(pool)
+    .await
+    .map_err(Into::into)
+}
+
 // ---------- Tauri command surface ----------
 
 #[tauri::command]
@@ -100,6 +124,15 @@ pub async fn search_todos(
 #[tauri::command]
 pub async fn get_stats(state: State<'_, AppState>) -> AppResult<Stats> {
     stats(&state.pool).await
+}
+
+#[tauri::command]
+pub async fn get_daily_stats(
+    state: State<'_, AppState>,
+    from: Option<String>,
+    to: Option<String>,
+) -> AppResult<Vec<DayStats>> {
+    daily_stats(&state.pool, from.as_deref(), to.as_deref()).await
 }
 
 // ---------- Tests ----------
@@ -301,6 +334,64 @@ mod tests {
             .unwrap();
         }
         assert_eq!(stats(&pool).await.unwrap().streak, 2);
+    }
+
+    #[tokio::test]
+    async fn daily_stats_aggregates_per_date() {
+        let pool = test_pool().await;
+        let a = lists::create(&pool, "morning", "2026-05-10").await.unwrap();
+        let b = lists::create(&pool, "evening", "2026-05-10").await.unwrap();
+        let c = lists::create(&pool, "weekend", "2026-05-09").await.unwrap();
+        let t1 = todos::create(&pool, a.id, "x").await.unwrap();
+        todos::create(&pool, a.id, "y").await.unwrap();
+        todos::create(&pool, b.id, "z").await.unwrap();
+        todos::create(&pool, c.id, "w").await.unwrap();
+        todos::update(
+            &pool,
+            t1.id,
+            &TodoPatch {
+                completed: Some(true),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        let rows = daily_stats(&pool, None, None).await.unwrap();
+        assert_eq!(rows.len(), 2);
+        let row_09 = rows.iter().find(|r| r.date == "2026-05-09").unwrap();
+        let row_10 = rows.iter().find(|r| r.date == "2026-05-10").unwrap();
+        assert_eq!(row_09.total, 1);
+        assert_eq!(row_09.done, 0);
+        assert_eq!(row_10.total, 3); // 2 from morning + 1 from evening
+        assert_eq!(row_10.done, 1);
+    }
+
+    #[tokio::test]
+    async fn daily_stats_excludes_archived() {
+        let pool = test_pool().await;
+        let live = lists::create(&pool, "live", "2026-05-10").await.unwrap();
+        let gone = lists::create(&pool, "gone", "2026-05-09").await.unwrap();
+        todos::create(&pool, live.id, "a").await.unwrap();
+        todos::create(&pool, gone.id, "b").await.unwrap();
+        lists::set_archived(&pool, gone.id, true).await.unwrap();
+
+        let rows = daily_stats(&pool, None, None).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].date, "2026-05-10");
+    }
+
+    #[tokio::test]
+    async fn daily_stats_respects_range() {
+        let pool = test_pool().await;
+        lists::create(&pool, "early", "2026-04-30").await.unwrap();
+        lists::create(&pool, "mid", "2026-05-05").await.unwrap();
+        lists::create(&pool, "late", "2026-05-15").await.unwrap();
+        let r = daily_stats(&pool, Some("2026-05-01"), Some("2026-05-10"))
+            .await
+            .unwrap();
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].date, "2026-05-05");
     }
 
     #[tokio::test]

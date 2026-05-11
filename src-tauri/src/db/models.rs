@@ -69,3 +69,11 @@ pub struct Stats {
     pub total_todos: i64,
     pub streak: i64,
 }
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct DayStats {
+    pub date: String,
+    pub total: i64,
+    pub done: i64,
+}

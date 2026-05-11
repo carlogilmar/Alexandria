@@ -70,6 +70,49 @@ Drag it into `/Applications`. The build is unsigned, so the first time you open 
 
 ---
 
+## Upgrading an installed copy
+
+Once you've installed the app to `/Applications`, here's how to push code changes through to it.
+
+**Your data is safe.** The SQLite database lives at `~/Library/Application Support/com.alertmedia.bigpicture/todos.db` — *outside* the `.app` bundle. Replacing the bundle never touches it. If you want a clean slate, delete that file before relaunching.
+
+### Manual (Finder)
+
+1. Quit the running app with `⌘Q`. macOS will refuse to overwrite a running `.app`.
+2. Rebuild from the project root:
+   ```bash
+   pnpm tauri build --bundles app
+   ```
+3. In Finder, open `src-tauri/target/release/bundle/macos/`, drag `AlertMediaBigPicture.app` onto `/Applications`, and pick **Replace** when prompted.
+4. Open the new copy. Because the bundle identifier (`com.alertmedia.bigpicture`) is unchanged, macOS usually skips the Gatekeeper prompt; if it shows up, right-click → **Open** like the first install.
+
+### One-liner
+
+Same flow, scripted:
+
+```bash
+pnpm tauri build --bundles app && \
+  osascript -e 'quit app "AlertMediaBigPicture"' 2>/dev/null; \
+  sleep 1 && \
+  rm -rf /Applications/AlertMediaBigPicture.app && \
+  cp -R src-tauri/target/release/bundle/macos/AlertMediaBigPicture.app /Applications/ && \
+  open /Applications/AlertMediaBigPicture.app
+```
+
+`osascript` asks the app to quit cleanly (rather than `killall`, which would force-terminate it).
+
+### Schema changes
+
+If your changes add or alter SQLite tables, add a **new** migration file under `src-tauri/migrations/` (e.g. `0002_add_column.sql`) — don't edit `0001_initial.sql`. sqlx records which migrations have already run on each database, so existing installs will pick up the new file automatically on next launch and your stored todos survive the upgrade.
+
+If a migration breaks data (renames a column, drops a table), test it against a copy of your real db first:
+```bash
+cp ~/Library/Application\ Support/com.alertmedia.bigpicture/todos.db /tmp/before.db
+# run the new build, then diff if you want to inspect
+```
+
+---
+
 ## Using the app
 
 The app opens to today's list (auto-created on first open of each day). Past lists stay in the sidebar, grouped by month.
