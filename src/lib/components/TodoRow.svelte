@@ -6,22 +6,9 @@
     onToggle: () => void;
     onEdit: (text: string) => void;
     onDelete: () => void;
-    onDragStart: (e: DragEvent) => void;
-    onDragOver: (e: DragEvent) => void;
-    onDragEnd: () => void;
-    isDragging: boolean;
   };
 
-  let {
-    todo,
-    onToggle,
-    onEdit,
-    onDelete,
-    onDragStart,
-    onDragOver,
-    onDragEnd,
-    isDragging,
-  }: Props = $props();
+  let { todo, onToggle, onEdit, onDelete }: Props = $props();
 
   let editing = $state(false);
   let draft = $state("");
@@ -52,16 +39,11 @@
   }
 </script>
 
-<li
-  class="group flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-neutral-100/70"
-  class:opacity-40={isDragging}
-  draggable="true"
-  ondragstart={onDragStart}
-  ondragover={onDragOver}
-  ondragend={onDragEnd}
+<div
+  class="group flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-neutral-200/40 dark:hover:bg-neutral-700/30"
 >
   <span
-    class="cursor-grab text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100"
+    class="cursor-grab text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-neutral-600"
     aria-hidden="true"
   >
     ⋮⋮
@@ -72,13 +54,20 @@
     class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
     class:border-neutral-300={!todo.completed}
     class:hover:border-neutral-500={!todo.completed}
+    class:dark:border-neutral-500={!todo.completed}
+    class:dark:hover:border-neutral-300={!todo.completed}
     class:border-neutral-700={todo.completed}
     class:bg-neutral-700={todo.completed}
+    class:dark:border-neutral-200={todo.completed}
+    class:dark:bg-neutral-200={todo.completed}
     aria-label={todo.completed ? "Mark as incomplete" : "Mark as complete"}
     onclick={onToggle}
   >
     {#if todo.completed}
-      <svg viewBox="0 0 20 20" fill="white" class="h-3 w-3">
+      <svg
+        viewBox="0 0 20 20"
+        class="h-3 w-3 fill-white dark:fill-neutral-900"
+      >
         <path
           fill-rule="evenodd"
           d="M16.704 5.29a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.42 0l-3.5-3.5a1 1 0 011.42-1.42L8.5 12.08l6.79-6.79a1 1 0 011.414 0z"
@@ -99,14 +88,11 @@
   {:else}
     <button
       type="button"
-      class="flex-1 text-left text-[15px] leading-tight"
+      class="flex-1 text-left text-[15px] leading-tight transition-colors"
       class:text-neutral-400={todo.completed}
+      class:dark:text-neutral-500={todo.completed}
       class:line-through={todo.completed}
-      ondblclick={startEdit}
-      onclick={(e) => {
-        // single click on the text (not the checkbox) opens edit mode after a brief grace
-        if (e.detail === 1) startEdit();
-      }}
+      onclick={startEdit}
     >
       {todo.text}
     </button>
@@ -114,7 +100,7 @@
 
   <button
     type="button"
-    class="rounded p-1 text-neutral-400 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+    class="rounded p-1 text-neutral-400 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 dark:hover:bg-red-950/40 dark:hover:text-red-400"
     aria-label="Delete todo"
     onclick={onDelete}
   >
@@ -126,4 +112,4 @@
       />
     </svg>
   </button>
-</li>
+</div>

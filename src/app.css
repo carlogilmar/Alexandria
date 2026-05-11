@@ -6,6 +6,8 @@
     "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
+/* Vibrancy is provided by the native NSVisualEffectView underneath the
+   webview; the body must be transparent for it to show through. */
 html,
 body {
   height: 100%;
@@ -13,14 +15,13 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f6f6f6;
+  background-color: transparent;
   color: #0f0f0f;
 }
 
 @media (prefers-color-scheme: dark) {
   html,
   body {
-    background-color: #1c1c1e;
     color: #f5f5f7;
   }
 }
