@@ -12,6 +12,7 @@
 
   let query = $state("");
   let searchInput: HTMLInputElement | undefined = $state();
+  let logoFailed = $state(false);
 
   // Debounced search
   $effect(() => {
@@ -69,6 +70,27 @@
   class="flex h-screen w-60 shrink-0 flex-col border-r border-neutral-300/40 px-3 pb-2 pt-12 dark:border-neutral-700/40"
   data-tauri-drag-region
 >
+  <div class="mb-3 flex h-7 items-center px-1">
+    {#if !logoFailed}
+      <picture class="pointer-events-none">
+        <source srcset="/logo-dark.png" media="(prefers-color-scheme: dark)" />
+        <img
+          src="/logo.png"
+          alt="AlertMediaBigPicture"
+          class="pointer-events-none h-6 w-auto max-w-full select-none"
+          draggable="false"
+          onerror={() => (logoFailed = true)}
+        />
+      </picture>
+    {:else}
+      <span
+        class="text-xs font-semibold tracking-tight text-neutral-700 dark:text-neutral-200"
+      >
+        AlertMediaBigPicture
+      </span>
+    {/if}
+  </div>
+
   <div class="mb-2 px-1">
     <input
       bind:this={searchInput}

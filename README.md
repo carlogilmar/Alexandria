@@ -113,6 +113,47 @@ cp ~/Library/Application\ Support/com.alertmedia.bigpicture/todos.db /tmp/before
 
 ---
 
+## Custom icons and branding
+
+There are two visually distinct things to customize: the **macOS app icon** (square, used in Dock / Launchpad / Finder) and the **in-app logo** (rectangular wordmark shown at the top of the sidebar).
+
+### macOS app icon
+
+You don't need to make every size by hand. Provide one source PNG and let Tauri regenerate everything:
+
+```bash
+pnpm tauri icon path/to/your-icon.png
+```
+
+- **Source format:** square PNG, ideally **1024×1024** with transparency.
+- The command **overwrites** every file in `src-tauri/icons/` — all PNG sizes, `icon.icns` (the only file macOS actually packages), `icon.ico` (Windows), and the `Square*.png` Windows variants.
+- Don't pre-apply rounded corners; macOS adds its own squircle mask. Draw to the edges of the canvas.
+- After regenerating, rebuild and reinstall:
+  ```bash
+  pnpm tauri build --bundles app
+  ```
+  Follow the **Upgrading an installed copy** section to push the new icon into `/Applications`.
+
+### In-app logo (sidebar top)
+
+The Sidebar looks for two files in `static/`:
+
+```
+static/logo.png        used in light mode (and as fallback)
+static/logo-dark.png   used when the system is in dark mode  (optional)
+```
+
+If neither file exists, the sidebar falls back to the app name in plain text — so the app still ships without any logo, the slot is just blank text.
+
+- **Aspect ratio:** roughly **4:1 to 5:1** wordmark (e.g. 400×100 PNG). Anything wider than ~200px or taller than ~24px will be scaled down.
+- **Format:** PNG with transparent background. The strip sits over the window's vibrancy effect, so a solid-background image will look like a sticker.
+- **Display height:** 24px. Provide a 2× asset (e.g. 480×120) for crisp rendering on Retina displays — the image is scaled by `width: auto; height: 24px`.
+- **Light + dark:** if you only ship one image, pick neutral tones that read on both backgrounds (mid-gray often works). For maximum polish, ship both `logo.png` and `logo-dark.png`.
+
+Drop the file(s) into `static/` and reload — Vite picks them up immediately. No build step required for the in-app logo.
+
+---
+
 ## Using the app
 
 The app opens to today's list (auto-created on first open of each day). Past lists stay in the sidebar, grouped by month.
