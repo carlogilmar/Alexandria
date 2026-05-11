@@ -61,6 +61,30 @@ export type DayStats = {
   done: number;
 };
 
+export type Workflow = {
+  id: number;
+  title: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorkflowSummary = {
+  id: number;
+  title: string;
+  stepCount: number;
+};
+
+export type WorkflowStep = {
+  id: number;
+  workflowId: number;
+  parentStepId: number | null;
+  text: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 // Lists
 export const listToday = () => invoke<List>("list_today");
 export const listById = (id: number) => invoke<List>("list_by_id", { id });
@@ -103,6 +127,49 @@ export const searchTodos = (query: string, completed: boolean | null) =>
 export const getStats = () => invoke<Stats>("get_stats");
 export const getDailyStats = (from: string | null, to: string | null) =>
   invoke<DayStats[]>("get_daily_stats", { from, to });
+
+// Workflows
+export const listWorkflows = () =>
+  invoke<WorkflowSummary[]>("list_workflows");
+export const workflowById = (id: number) =>
+  invoke<Workflow>("workflow_by_id", { id });
+export const createWorkflow = (title: string) =>
+  invoke<Workflow>("create_workflow", { title });
+export const renameWorkflow = (id: number, title: string) =>
+  invoke<Workflow>("rename_workflow", { id, title });
+export const updateWorkflowDescription = (
+  id: number,
+  description: string | null,
+) =>
+  invoke<Workflow>("update_workflow_description", { id, description });
+export const deleteWorkflow = (id: number) =>
+  invoke<void>("delete_workflow", { id });
+export const listWorkflowSteps = (workflowId: number) =>
+  invoke<WorkflowStep[]>("list_workflow_steps", { workflowId });
+export const createWorkflowStep = (
+  workflowId: number,
+  text: string,
+  parentStepId: number | null = null,
+) =>
+  invoke<WorkflowStep>("create_workflow_step", {
+    workflowId,
+    text,
+    parentStepId,
+  });
+export const updateWorkflowStep = (id: number, text: string) =>
+  invoke<WorkflowStep>("update_workflow_step", { id, text });
+export const deleteWorkflowStep = (id: number) =>
+  invoke<void>("delete_workflow_step", { id });
+export const reorderWorkflowSteps = (
+  workflowId: number,
+  parentStepId: number | null,
+  orderedIds: number[],
+) =>
+  invoke<void>("reorder_workflow_steps", {
+    workflowId,
+    parentStepId,
+    orderedIds,
+  });
 
 // Export
 export const exportListMd = (id: number) =>

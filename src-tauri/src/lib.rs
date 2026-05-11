@@ -41,6 +41,17 @@ pub fn run() {
             commands::search::search_todos,
             commands::search::get_stats,
             commands::search::get_daily_stats,
+            commands::workflows::list_workflows,
+            commands::workflows::workflow_by_id,
+            commands::workflows::create_workflow,
+            commands::workflows::rename_workflow,
+            commands::workflows::update_workflow_description,
+            commands::workflows::delete_workflow,
+            commands::workflows::list_workflow_steps,
+            commands::workflows::create_workflow_step,
+            commands::workflows::update_workflow_step,
+            commands::workflows::delete_workflow_step,
+            commands::workflows::reorder_workflow_steps,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

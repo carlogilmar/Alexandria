@@ -22,6 +22,16 @@ import {
   listTags,
   addTagToTodo,
   removeTagFromTodo,
+  listWorkflows,
+  workflowById,
+  createWorkflow as createWorkflowIpc,
+  renameWorkflow as renameWorkflowIpc,
+  deleteWorkflow as deleteWorkflowIpc,
+  listWorkflowSteps,
+  createWorkflowStep,
+  updateWorkflowStep,
+  deleteWorkflowStep,
+  reorderWorkflowSteps,
   type DayStats,
   type List,
   type ListSummary,
@@ -29,6 +39,9 @@ import {
   type Tag,
   type Todo,
   type TodoHit,
+  type Workflow,
+  type WorkflowStep,
+  type WorkflowSummary,
 } from "$lib/ipc";
 
 export function todayIso(): string {
@@ -56,7 +69,7 @@ function firstOfMonthIso(): string {
 }
 
 class AppStore {
-  view = $state<"home" | "list">("home");
+  view = $state<"home" | "list" | "workflow">("home");
   lists = $state<ListSummary[]>([]);
   selected = $state<List | null>(null);
   todos = $state<Todo[]>([]);
@@ -64,6 +77,10 @@ class AppStore {
   error = $state<string | null>(null);
   flash = $state<string | null>(null);
   helpOpen = $state(false);
+
+  workflows = $state<WorkflowSummary[]>([]);
+  selectedWorkflow = $state<Workflow | null>(null);
+  workflowSteps = $state<WorkflowStep[]>([]);
 
   searchQuery = $state("");
   searchResults = $state<TodoHit[]>([]);
@@ -99,6 +116,7 @@ class AppStore {
       this.stats = await getStats();
       this.dailyStats = await getDailyStats(null, null);
       this.allTags = await listTags();
+      this.workflows = await listWorkflows();
     } catch (e) {
       this.error = String(e);
     } finally {
@@ -106,10 +124,95 @@ class AppStore {
     }
   }
 
+  // ---- Workflows ----
+
+  async refreshWorkflows() {
+    this.workflows = await listWorkflows();
+  }
+
+  async selectWorkflow(id: number) {
+    try {
+      this.view = "workflow";
+      this.selected = null;
+      this.selectedTodoId = null;
+      this.selectedTodoTags = [];
+      this.selectedWorkflow = await workflowById(id);
+      this.workflowSteps = await listWorkflowSteps(id);
+    } catch (e) {
+      this.error = String(e);
+    }
+  }
+
+  async newWorkflow(title = "New workflow") {
+    const created = await createWorkflowIpc(title);
+    await this.refreshWorkflows();
+    await this.selectWorkflow(created.id);
+  }
+
+  async renameSelectedWorkflow(title: string) {
+    if (!this.selectedWorkflow) return;
+    const updated = await renameWorkflowIpc(this.selectedWorkflow.id, title);
+    this.selectedWorkflow = updated;
+    await this.refreshWorkflows();
+  }
+
+  async deleteSelectedWorkflow() {
+    if (!this.selectedWorkflow) return;
+    const ok = await confirm(
+      `"${this.selectedWorkflow.title}" and all its steps will be permanently removed.`,
+      { title: "Delete this workflow?", kind: "warning" },
+    );
+    if (!ok) return;
+    await deleteWorkflowIpc(this.selectedWorkflow.id);
+    this.selectedWorkflow = null;
+    this.workflowSteps = [];
+    this.view = "home";
+    await this.refreshWorkflows();
+    this.setFlash("Workflow deleted");
+  }
+
+  async addWorkflowStep(text: string) {
+    if (!this.selectedWorkflow) return;
+    const created = await createWorkflowStep(this.selectedWorkflow.id, text, null);
+    this.workflowSteps = [...this.workflowSteps, created];
+    await this.refreshWorkflows();
+  }
+
+  async editWorkflowStep(id: number, text: string) {
+    const updated = await updateWorkflowStep(id, text);
+    this.workflowSteps = this.workflowSteps.map((s) =>
+      s.id === updated.id ? updated : s,
+    );
+  }
+
+  async removeWorkflowStep(id: number) {
+    await deleteWorkflowStep(id);
+    this.workflowSteps = this.workflowSteps.filter((s) => s.id !== id);
+    await this.refreshWorkflows();
+  }
+
+  reorderWorkflowStepsLocal(orderedIds: number[]) {
+    const byId = new Map(this.workflowSteps.map((s) => [s.id, s] as const));
+    this.workflowSteps = orderedIds
+      .map((id) => byId.get(id))
+      .filter((s): s is WorkflowStep => s !== undefined);
+  }
+
+  async commitWorkflowReorder() {
+    if (!this.selectedWorkflow) return;
+    await reorderWorkflowSteps(
+      this.selectedWorkflow.id,
+      null,
+      this.workflowSteps.filter((s) => s.parentStepId === null).map((s) => s.id),
+    );
+  }
+
   async goHome() {
     this.view = "home";
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
+    this.selectedWorkflow = null;
+    this.workflowSteps = [];
     // Defensive: refresh stats + daily grid so the welcome page always
     // reflects the latest state, even if some mutation slipped past.
     try {
@@ -122,6 +225,8 @@ class AppStore {
 
   async select(id: number) {
     this.view = "list";
+    this.selectedWorkflow = null;
+    this.workflowSteps = [];
     if (this.selected?.id === id) return;
     try {
       this.selected = await listById(id);

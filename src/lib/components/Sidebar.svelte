@@ -63,6 +63,10 @@
     return app.selected?.id === id;
   }
 
+  function isWorkflowSelected(id: number): boolean {
+    return app.view === "workflow" && app.selectedWorkflow?.id === id;
+  }
+
   let isSearching = $derived(query.trim().length > 0);
 </script>
 
@@ -154,7 +158,54 @@
         </button>
       {/each}
     {:else}
-      <div class="mb-2 flex items-center justify-between px-2">
+      <div class="mb-1 flex items-center justify-between px-2">
+        <h2
+          class="text-xs font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500"
+        >
+          Workflows
+        </h2>
+        <button
+          type="button"
+          class="rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-200/60 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-200"
+          aria-label="New workflow"
+          onclick={() => app.newWorkflow()}
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+            <path
+              fill-rule="evenodd"
+              d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <div class="mb-3">
+        {#each app.workflows as w (w.id)}
+          <button
+            type="button"
+            class="w-full rounded-md px-2 py-1 text-left transition-colors"
+            class:bg-neutral-300={isWorkflowSelected(w.id)}
+            class:dark:bg-neutral-700={isWorkflowSelected(w.id)}
+            class:hover:bg-neutral-200={!isWorkflowSelected(w.id)}
+            class:dark:hover:bg-neutral-800={!isWorkflowSelected(w.id)}
+            onclick={() => app.selectWorkflow(w.id)}
+          >
+            <div class="flex items-center justify-between">
+              <span class="truncate text-sm text-neutral-700 dark:text-neutral-300">
+                {w.title}
+              </span>
+              {#if w.stepCount > 0}
+                <span class="ml-2 shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">
+                  {w.stepCount}
+                </span>
+              {/if}
+            </div>
+          </button>
+        {/each}
+      </div>
+
+      <div class="mb-1 flex items-center justify-between px-2">
         <h2
           class="text-xs font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500"
         >
