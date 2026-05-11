@@ -7,7 +7,7 @@
     onToggle: () => void;
     onDelete: () => void;
     onOpenDetails: () => void;
-    onDragStart: (e: DragEvent) => void;
+    onHandlePointerDown: (e: PointerEvent) => void;
   };
 
   let {
@@ -16,33 +16,21 @@
     onToggle,
     onDelete,
     onOpenDetails,
-    onDragStart,
+    onHandlePointerDown,
   }: Props = $props();
-
-  let rowEl: HTMLDivElement | undefined = $state();
-
-  function handleDragStart(e: DragEvent) {
-    if (rowEl && e.dataTransfer) {
-      // Use the full row as the drag preview, not just the tiny handle.
-      e.dataTransfer.setDragImage(rowEl, 12, 16);
-    }
-    onDragStart(e);
-  }
 </script>
 
 <div
-  bind:this={rowEl}
   class="group flex items-center gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-neutral-200/40 dark:hover:bg-neutral-700/30"
   class:bg-blue-100={selected}
   class:dark:bg-blue-900={selected}
 >
   <span
-    draggable="true"
     role="button"
     tabindex="-1"
-    ondragstart={handleDragStart}
     aria-label="Drag to reorder"
     title="Drag to reorder"
+    onpointerdown={onHandlePointerDown}
     class="select-none cursor-grab text-neutral-400 hover:text-neutral-700 active:cursor-grabbing dark:text-neutral-500 dark:hover:text-neutral-200"
   >
     ⋮⋮

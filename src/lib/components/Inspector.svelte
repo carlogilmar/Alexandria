@@ -1,19 +1,61 @@
 <script lang="ts">
+  import MarkdownIt from "markdown-it";
+  import { openUrl } from "@tauri-apps/plugin-opener";
   import { app } from "$lib/stores/app.svelte";
-  import type { Todo } from "$lib/ipc";
+  import type { Tag, Todo } from "$lib/ipc";
 
   type Props = { todo: Todo };
   let { todo }: Props = $props();
 
+  const md = new MarkdownIt({
+    html: false,
+    linkify: true,
+    breaks: true,
+    typographer: false,
+  });
+  // Mark every link so we can intercept clicks and force them through the
+  // OS opener (otherwise they'd try to navigate the WKWebView).
+  const defaultLinkOpen =
+    md.renderer.rules.link_open ??
+    ((tokens, idx, opts, _env, self) => self.renderToken(tokens, idx, opts));
+  md.renderer.rules.link_open = (tokens, idx, opts, env, self) => {
+    const t = tokens[idx];
+    if (t.attrIndex("target") < 0) t.attrPush(["target", "_blank"]);
+    if (t.attrIndex("rel") < 0) t.attrPush(["rel", "noopener noreferrer"]);
+    return defaultLinkOpen(tokens, idx, opts, env, self);
+  };
+
   let textDraft = $state("");
   let notesDraft = $state("");
   let tagInput = $state("");
+  let highlightIdx = $state(0);
+  let notesTextarea: HTMLTextAreaElement | undefined = $state();
+  let tagListEl: HTMLUListElement | undefined = $state();
 
-  // Sync drafts from the prop. The Inspector is wrapped in {#key} on the
+  // Sync drafts from the prop. Inspector is wrapped in {#key} on the
   // parent so this effectively runs once per selected todo.
   $effect(() => {
     textDraft = todo.text;
     notesDraft = todo.notes ?? "";
+  });
+
+  let renderedNotes = $derived(notesDraft.trim() ? md.render(notesDraft) : "");
+
+  let suggestions = $derived.by<Tag[]>(() => {
+    const q = tagInput.trim().toLowerCase();
+    if (!q) return [];
+    const already = new Set(app.selectedTodoTags.map((t) => t.name));
+    return app.allTags
+      .filter(
+        (t) => !already.has(t.name) && t.name.toLowerCase().includes(q),
+      )
+      .slice(0, 5);
+  });
+
+  $effect(() => {
+    if (suggestions.length === 0) highlightIdx = 0;
+    else if (highlightIdx >= suggestions.length)
+      highlightIdx = suggestions.length - 1;
   });
 
   async function commitText() {
@@ -30,18 +72,54 @@
     await app.updateSelectedNotes(notesDraft);
   }
 
-  async function onTagKey(e: KeyboardEvent) {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    const name = tagInput.trim();
-    if (!name) return;
-    await app.addTagToSelected(name);
+  async function commitTag(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    await app.addTagToSelected(trimmed);
     tagInput = "";
+    highlightIdx = 0;
+  }
+
+  async function onTagKey(e: KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (suggestions.length > 0) {
+        const chosen = suggestions[highlightIdx] ?? suggestions[0];
+        await commitTag(chosen.name);
+      } else if (tagInput.trim()) {
+        await commitTag(tagInput);
+      }
+    } else if (e.key === "ArrowDown") {
+      if (suggestions.length === 0) return;
+      e.preventDefault();
+      highlightIdx = (highlightIdx + 1) % suggestions.length;
+    } else if (e.key === "ArrowUp") {
+      if (suggestions.length === 0) return;
+      e.preventDefault();
+      highlightIdx =
+        (highlightIdx - 1 + suggestions.length) % suggestions.length;
+    } else if (e.key === "Escape") {
+      if (tagInput) {
+        e.preventDefault();
+        tagInput = "";
+      }
+    }
+  }
+
+  function onNotesPreviewClick(e: MouseEvent) {
+    const anchor = (e.target as HTMLElement).closest("a");
+    if (anchor) {
+      e.preventDefault();
+      const href = anchor.getAttribute("href");
+      if (href && /^https?:\/\//.test(href)) {
+        openUrl(href).catch((err) => app.setFlash(`Couldn't open link: ${err}`));
+      }
+    }
   }
 </script>
 
 <aside
-  class="flex h-screen w-72 shrink-0 flex-col border-l border-neutral-300/40 px-4 pb-5 pt-12 dark:border-neutral-700/40"
+  class="flex h-screen w-72 shrink-0 flex-col overflow-y-auto border-l border-neutral-300/40 px-4 pb-5 pt-12 dark:border-neutral-700/40"
 >
   <header class="mb-4 flex items-center justify-between">
     <h2
@@ -94,18 +172,33 @@
       for="inspector-notes"
     >
       Notes
+      <span class="ml-2 normal-case tracking-normal text-neutral-300 dark:text-neutral-600">
+        markdown · <code>- item</code> for bullets, <code>[text](url)</code> for links
+      </span>
     </label>
     <textarea
       id="inspector-notes"
+      bind:this={notesTextarea}
       bind:value={notesDraft}
       onblur={commitNotes}
       placeholder="Add notes…"
-      rows="6"
-      class="w-full resize-none rounded-md border border-neutral-200/60 bg-white/60 px-2 py-1.5 text-sm leading-snug outline-none placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+      rows="5"
+      class="w-full resize-none rounded-md border border-neutral-200/60 bg-white/60 px-2 py-1.5 font-mono text-[13px] leading-snug outline-none placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
     ></textarea>
+    {#if renderedNotes}
+      <!-- markdown-it has html:false so the rendered output is safe to inject. -->
+      <div
+        class="markdown-preview mt-2 rounded-md border border-neutral-200/40 bg-neutral-50/60 px-3 py-2 text-sm leading-snug text-neutral-700 dark:border-neutral-700/40 dark:bg-neutral-900/30 dark:text-neutral-200"
+        role="presentation"
+        onclick={onNotesPreviewClick}
+        onkeydown={() => {}}
+      >
+        {@html renderedNotes}
+      </div>
+    {/if}
   </div>
 
-  <div>
+  <div class="relative">
     <label
       class="mb-1 block text-[11px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500"
       for="inspector-tags"
@@ -134,7 +227,77 @@
       bind:value={tagInput}
       onkeydown={onTagKey}
       placeholder="Add tag and press Enter"
+      autocomplete="off"
       class="w-full rounded-md border border-neutral-200/60 bg-white/60 px-2 py-1 text-xs outline-none placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
     />
+    {#if suggestions.length > 0}
+      <ul
+        bind:this={tagListEl}
+        class="absolute bottom-full left-0 right-0 z-10 mb-1 overflow-hidden rounded-md border border-neutral-200/80 bg-white/95 py-1 text-xs shadow-lg backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-900/95"
+      >
+        {#each suggestions as s, i (s.id)}
+          <li>
+            <button
+              type="button"
+              class="block w-full px-2 py-1 text-left text-neutral-700 dark:text-neutral-200"
+              class:bg-blue-100={highlightIdx === i}
+              class:dark:bg-blue-900={highlightIdx === i}
+              onmouseenter={() => (highlightIdx = i)}
+              onclick={() => commitTag(s.name)}
+            >
+              #{s.name}
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
   </div>
 </aside>
+
+<style>
+  .markdown-preview :global(ul) {
+    list-style: disc;
+    padding-left: 1.25rem;
+    margin: 0.25rem 0;
+  }
+  .markdown-preview :global(ol) {
+    list-style: decimal;
+    padding-left: 1.25rem;
+    margin: 0.25rem 0;
+  }
+  .markdown-preview :global(li) {
+    margin: 0.15rem 0;
+  }
+  .markdown-preview :global(p) {
+    margin: 0.25rem 0;
+  }
+  .markdown-preview :global(a) {
+    color: #2563eb;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+  @media (prefers-color-scheme: dark) {
+    .markdown-preview :global(a) {
+      color: #60a5fa;
+    }
+  }
+  .markdown-preview :global(code) {
+    background: rgba(0, 0, 0, 0.06);
+    padding: 0 0.25rem;
+    border-radius: 3px;
+    font-size: 0.85em;
+  }
+  @media (prefers-color-scheme: dark) {
+    .markdown-preview :global(code) {
+      background: rgba(255, 255, 255, 0.08);
+    }
+  }
+  .markdown-preview :global(strong) {
+    font-weight: 600;
+  }
+  .markdown-preview :global(em) {
+    font-style: italic;
+  }
+</style>

@@ -31,7 +31,58 @@
     }
   });
 
-  // Inline title rename
+  // ----- Pointer-based reorder -----
+  // HTML5 drag-and-drop is unreliable in WKWebView, especially when the
+  // drag source is inside an interactive element. We use pointer events
+  // and elementFromPoint to find the row under the cursor.
+  function handlePointerDown(id: number, e: PointerEvent) {
+    if (e.button !== 0) return; // left button only
+    e.preventDefault();
+    dragId = id;
+  }
+
+  function findRowIdUnderPointer(x: number, y: number): number | null {
+    const el = document.elementFromPoint(x, y);
+    const li = el?.closest("li[data-todo-id]");
+    if (!li) return null;
+    const id = Number(li.getAttribute("data-todo-id"));
+    return Number.isFinite(id) ? id : null;
+  }
+
+  function handlePointerMove(e: PointerEvent) {
+    if (dragId === null) return;
+    const targetId = findRowIdUnderPointer(e.clientX, e.clientY);
+    if (targetId === null || targetId === dragId) return;
+    const fromIdx = app.todos.findIndex((t) => t.id === dragId);
+    const toIdx = app.todos.findIndex((t) => t.id === targetId);
+    if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+    const next = app.todos.slice();
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    app.reorderLocal(next.map((t) => t.id));
+  }
+
+  async function handlePointerUp() {
+    if (dragId === null) return;
+    dragId = null;
+    await app.commitReorder();
+  }
+
+  $effect(() => {
+    if (dragId === null) return;
+    const onMove = (e: PointerEvent) => handlePointerMove(e);
+    const onUp = () => handlePointerUp();
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  });
+
+  // ----- Title rename -----
   let editingTitle = $state(false);
   let titleDraft = $state("");
   let titleInput: HTMLInputElement | undefined = $state();
@@ -65,32 +116,6 @@
     if (!text) return;
     await app.addTodo(text);
     quickAddText = "";
-  }
-
-  function handleDragStart(id: number, e: DragEvent) {
-    dragId = id;
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", String(id));
-    }
-  }
-
-  function handleDragOver(targetId: number, e: DragEvent) {
-    e.preventDefault();
-    if (dragId === null || dragId === targetId) return;
-    const fromIdx = app.todos.findIndex((t) => t.id === dragId);
-    const toIdx = app.todos.findIndex((t) => t.id === targetId);
-    if (fromIdx < 0 || toIdx < 0) return;
-    const next = app.todos.slice();
-    const [moved] = next.splice(fromIdx, 1);
-    next.splice(toIdx, 0, moved);
-    app.reorderLocal(next.map((t) => t.id));
-  }
-
-  async function handleDragEnd() {
-    if (dragId === null) return;
-    dragId = null;
-    await app.commitReorder();
   }
 </script>
 
@@ -254,12 +279,11 @@
       <ul class="flex flex-col gap-0.5">
         {#each app.todos as todo (todo.id)}
           <li
+            data-todo-id={todo.id}
             animate:flip={{ duration: 200 }}
             in:fade={{ duration: 150 }}
             out:fade={{ duration: 120 }}
             class:opacity-40={dragId === todo.id}
-            ondragover={(e) => handleDragOver(todo.id, e)}
-            ondragend={handleDragEnd}
           >
             <TodoRow
               {todo}
@@ -267,7 +291,7 @@
               onToggle={() => app.toggle(todo)}
               onDelete={() => app.removeTodo(todo)}
               onOpenDetails={() => app.selectTodo(todo.id)}
-              onDragStart={(e) => handleDragStart(todo.id, e)}
+              onHandlePointerDown={(e) => handlePointerDown(todo.id, e)}
             />
           </li>
         {/each}

@@ -19,6 +19,7 @@ import {
   getStats,
   getDailyStats,
   tagsForTodo,
+  listTags,
   addTagToTodo,
   removeTagFromTodo,
   type DayStats,
@@ -71,6 +72,7 @@ class AppStore {
 
   selectedTodoId = $state<number | null>(null);
   selectedTodoTags = $state<Tag[]>([]);
+  allTags = $state<Tag[]>([]);
 
   private flashToken = 0;
   setFlash(msg: string, ms = 2000) {
@@ -96,6 +98,7 @@ class AppStore {
       this.lists = await listAll();
       this.stats = await getStats();
       this.dailyStats = await getDailyStats(null, null);
+      this.allTags = await listTags();
     } catch (e) {
       this.error = String(e);
     } finally {
@@ -198,6 +201,8 @@ class AppStore {
     if (!trimmed) return;
     await addTagToTodo(this.selectedTodoId, trimmed);
     await this.refreshSelectedTags();
+    // Refresh allTags so the autocomplete includes the newly-created tag.
+    this.allTags = await listTags();
   }
 
   async removeTagFromSelected(tagId: number) {
@@ -206,8 +211,8 @@ class AppStore {
     await this.refreshSelectedTags();
   }
 
-  async newList(title = "New list") {
-    const created = await createList(title, todayIso());
+  async newList(title = "New list", date?: string) {
+    const created = await createList(title, date ?? todayIso());
     await this.refreshLists();
     await this.select(created.id);
   }
