@@ -120,11 +120,11 @@
 
   async function createForSelectedDay() {
     if (!selectedDate) return;
-    await app.newList("New list", selectedDate);
+    await app.newList(undefined, selectedDate);
   }
 
   async function createForToday() {
-    await app.newList("New list", today);
+    await app.newList(undefined, today);
   }
 </script>
 

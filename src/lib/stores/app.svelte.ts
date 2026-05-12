@@ -26,6 +26,7 @@ import {
   workflowById,
   createWorkflow as createWorkflowIpc,
   renameWorkflow as renameWorkflowIpc,
+  updateWorkflowDescription,
   deleteWorkflow as deleteWorkflowIpc,
   listWorkflowSteps,
   createWorkflowStep,
@@ -50,6 +51,15 @@ export function todayIso(): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+export function defaultListTitleForDate(dateIso: string): string {
+  return new Date(dateIso + "T00:00:00").toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function safeFilename(s: string): string {
@@ -154,6 +164,18 @@ class AppStore {
     const updated = await renameWorkflowIpc(this.selectedWorkflow.id, title);
     this.selectedWorkflow = updated;
     await this.refreshWorkflows();
+  }
+
+  async updateSelectedDescription(description: string) {
+    if (!this.selectedWorkflow) return;
+    const trimmed = description.trim();
+    const next = trimmed.length === 0 ? null : trimmed;
+    if ((this.selectedWorkflow.description ?? null) === next) return;
+    const updated = await updateWorkflowDescription(
+      this.selectedWorkflow.id,
+      next,
+    );
+    this.selectedWorkflow = updated;
   }
 
   async deleteSelectedWorkflow() {
@@ -316,8 +338,10 @@ class AppStore {
     await this.refreshSelectedTags();
   }
 
-  async newList(title = "New list", date?: string) {
-    const created = await createList(title, date ?? todayIso());
+  async newList(title?: string, date?: string) {
+    const targetDate = date ?? todayIso();
+    const finalTitle = title ?? defaultListTitleForDate(targetDate);
+    const created = await createList(finalTitle, targetDate);
     await this.refreshLists();
     await this.select(created.id);
   }

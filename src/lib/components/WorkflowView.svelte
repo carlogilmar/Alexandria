@@ -41,6 +41,37 @@
     }
   }
 
+  // ----- Description (always-editable textarea) -----
+  // Sync the local draft whenever the visible workflow changes, but leave it
+  // alone while the user is typing on a single workflow.
+  let descriptionDraft = $state("");
+  let lastSyncedWorkflowId = $state<number | null>(null);
+
+  $effect(() => {
+    const id = app.selectedWorkflow?.id ?? null;
+    if (id !== lastSyncedWorkflowId) {
+      descriptionDraft = app.selectedWorkflow?.description ?? "";
+      lastSyncedWorkflowId = id;
+    }
+  });
+
+  async function commitDescription() {
+    await app.updateSelectedDescription(descriptionDraft);
+  }
+
+  // ----- Last updated -----
+  // SQLite datetime('now') returns "YYYY-MM-DD HH:MM:SS" in UTC.
+  function formatUpdatedAt(raw: string): string {
+    const d = new Date(raw.replace(" ", "T") + "Z");
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
   // ----- Add step -----
   $effect(() => {
     if (app.selectedWorkflow) {
@@ -106,16 +137,62 @@
   });
 
   // ----- Inline step edit -----
-  async function commitStepText(step: WorkflowStep, draft: string) {
+  let editingStepId = $state<number | null>(null);
+  let editingStepInput: HTMLInputElement | undefined = $state();
+
+  function startStepEdit(id: number) {
+    editingStepId = id;
+    queueMicrotask(() => {
+      editingStepInput?.focus();
+      editingStepInput?.select();
+    });
+  }
+
+  async function commitStepEdit(step: WorkflowStep, draft: string) {
+    editingStepId = null;
     const next = draft.trim();
     if (!next || next === step.text) return;
     await app.editWorkflowStep(step.id, next);
+  }
+
+  function onStepKey(step: WorkflowStep, e: KeyboardEvent) {
+    if (e.key === "Enter") {
+      (e.target as HTMLInputElement).blur();
+    } else if (e.key === "Escape") {
+      (e.target as HTMLInputElement).value = step.text;
+      editingStepId = null;
+    }
+  }
+
+  // ----- Backtick-tag parser -----
+  // "review `Q2 budget` with `Sam`" → [text, tag, text, tag]
+  type Segment = { type: "text" | "tag"; value: string };
+
+  function parseSegments(text: string): Segment[] {
+    const segments: Segment[] = [];
+    const regex = /`([^`]+)`/g;
+    let lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(text)) !== null) {
+      if (m.index > lastIndex) {
+        segments.push({ type: "text", value: text.slice(lastIndex, m.index) });
+      }
+      segments.push({ type: "tag", value: m[1] });
+      lastIndex = regex.lastIndex;
+    }
+    if (lastIndex < text.length) {
+      segments.push({ type: "text", value: text.slice(lastIndex) });
+    }
+    if (segments.length === 0) {
+      segments.push({ type: "text", value: text });
+    }
+    return segments;
   }
 </script>
 
 {#if app.selectedWorkflow}
   <main class="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-8 py-10">
-    <header class="mb-8 flex items-start justify-between gap-4">
+    <header class="mb-6 flex items-start justify-between gap-4">
       <div class="min-w-0 flex-1">
         <p
           class="mb-1 text-[11px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500"
@@ -139,9 +216,13 @@
             {app.selectedWorkflow.title}
           </button>
         {/if}
-        <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
-          {topLevelSteps.length}
-          {topLevelSteps.length === 1 ? "step" : "steps"}
+        <p class="mt-1 flex items-center gap-2 text-xs text-neutral-400 dark:text-neutral-500">
+          <span>
+            {topLevelSteps.length}
+            {topLevelSteps.length === 1 ? "step" : "steps"}
+          </span>
+          <span aria-hidden="true">·</span>
+          <span>Updated {formatUpdatedAt(app.selectedWorkflow.updatedAt)}</span>
         </p>
       </div>
       <button
@@ -160,12 +241,24 @@
       </button>
     </header>
 
+    <textarea
+      bind:value={descriptionDraft}
+      onblur={commitDescription}
+      placeholder="Describe what this workflow is for…"
+      rows="2"
+      class="mb-8 w-full resize-y rounded-md border border-neutral-200/60 bg-white/60 px-3 py-2 text-sm leading-relaxed text-neutral-700 outline-none placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-200 dark:placeholder:text-neutral-500"
+    ></textarea>
+
     {#if topLevelSteps.length === 0}
       <div
         class="mb-6 rounded-xl border border-dashed border-neutral-300/60 px-6 py-8 text-center text-neutral-400 dark:border-neutral-700/60 dark:text-neutral-500"
       >
         <p class="text-sm">No steps yet.</p>
-        <p class="mt-1 text-xs">Add the first link in the chain below.</p>
+        <p class="mt-1 text-xs">
+          Add the first link in the chain below. Wrap words in
+          <code class="rounded bg-neutral-200/60 px-1 dark:bg-neutral-700/60">`backticks`</code>
+          to render them as tags.
+        </p>
       </div>
     {:else}
       <ol class="chain mb-6">
@@ -190,19 +283,31 @@
               {i + 1}
             </span>
             <div class="min-w-0 flex-1 pt-1">
-              <input
-                value={step.text}
-                onblur={(e) =>
-                  commitStepText(step, (e.target as HTMLInputElement).value)}
-                onkeydown={(e) => {
-                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                  else if (e.key === "Escape") {
-                    (e.target as HTMLInputElement).value = step.text;
-                    (e.target as HTMLInputElement).blur();
-                  }
-                }}
-                class="w-full rounded-md border-none bg-transparent px-1 py-0.5 text-[15px] leading-snug text-neutral-800 outline-none transition-colors hover:bg-neutral-200/30 focus:bg-white/60 focus:ring-2 focus:ring-blue-500/30 dark:text-neutral-100 dark:hover:bg-neutral-700/30 dark:focus:bg-neutral-900/40"
-              />
+              {#if editingStepId === step.id}
+                <input
+                  bind:this={editingStepInput}
+                  value={step.text}
+                  onblur={(e) =>
+                    commitStepEdit(step, (e.target as HTMLInputElement).value)}
+                  onkeydown={(e) => onStepKey(step, e)}
+                  class="w-full rounded-md border-none bg-transparent px-1 py-0.5 text-[15px] leading-snug text-neutral-800 outline-none ring-2 ring-blue-500/30 focus:ring-blue-500/50 dark:text-neutral-100"
+                />
+              {:else}
+                <button
+                  type="button"
+                  onclick={() => startStepEdit(step.id)}
+                  class="block w-full rounded-md px-1 py-0.5 text-left text-[15px] leading-snug text-neutral-800 transition-colors hover:bg-neutral-200/30 dark:text-neutral-100 dark:hover:bg-neutral-700/30"
+                >
+                  {#each parseSegments(step.text) as seg, j (j)}
+                    {#if seg.type === "tag"}
+                      <span
+                        class="mx-0.5 inline-flex items-center rounded-md bg-blue-100/70 px-1.5 py-0.5 text-[13px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                        >{seg.value}</span
+                      >
+                    {:else}<span>{seg.value}</span>{/if}
+                  {/each}
+                </button>
+              {/if}
             </div>
             <button
               type="button"
@@ -233,7 +338,7 @@
         bind:this={newStepInput}
         bind:value={newStepText}
         type="text"
-        placeholder="Add a step…"
+        placeholder="Add a step… (wrap parts in `backticks` to tag them)"
         class="flex-1 rounded-md border border-neutral-200/60 bg-white/60 px-3 py-2 text-[15px] outline-none placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
       />
     </form>
