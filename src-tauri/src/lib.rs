@@ -62,6 +62,7 @@ pub fn run() {
             commands::notes::delete_note,
             commands::notes::get_index_doc,
             commands::notes::update_index_doc,
+            commands::images::save_image,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

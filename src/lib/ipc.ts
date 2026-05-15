@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 
 export type List = {
   id: number;
@@ -210,6 +210,16 @@ export const deleteNote = (id: number) =>
 export const getIndexDoc = () => invoke<IndexDoc>("get_index_doc");
 export const updateIndexDoc = (body: string) =>
   invoke<IndexDoc>("update_index_doc", { body });
+
+// Images
+export async function saveImageFile(file: File): Promise<string> {
+  const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
+  const fromName = file.name.includes(".") ? file.name.split(".").pop() ?? "" : "";
+  const fromType = file.type.startsWith("image/") ? file.type.slice(6) : "";
+  const extension = (fromName || fromType || "png").toLowerCase();
+  const path = await invoke<string>("save_image", { bytes, extension });
+  return convertFileSrc(path);
+}
 
 // Export
 export const exportListMd = (id: number) =>

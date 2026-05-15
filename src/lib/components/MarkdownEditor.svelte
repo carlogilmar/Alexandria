@@ -2,6 +2,7 @@
   import MarkdownIt from "markdown-it";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { app } from "$lib/stores/app.svelte";
+  import { saveImageFile } from "$lib/ipc";
 
   type Props = {
     value: string;
@@ -85,18 +86,111 @@
       (e.target as HTMLTextAreaElement).blur();
     }
   }
+
+  function insertAtCursor(snippet: string) {
+    const ta = textarea;
+    if (!ta) {
+      draft = (draft ?? "") + snippet;
+      return;
+    }
+    const start = ta.selectionStart ?? draft.length;
+    const end = ta.selectionEnd ?? draft.length;
+    draft = draft.slice(0, start) + snippet + draft.slice(end);
+    // Restore cursor after the inserted snippet on the next tick.
+    queueMicrotask(() => {
+      ta.focus();
+      const pos = start + snippet.length;
+      ta.setSelectionRange(pos, pos);
+    });
+  }
+
+  async function onPaste(e: ClipboardEvent) {
+    const items = e.clipboardData?.items;
+    if (!items || items.length === 0) return;
+    const imageFiles: File[] = [];
+    for (const item of items) {
+      if (item.kind === "file" && item.type.startsWith("image/")) {
+        const f = item.getAsFile();
+        if (f) imageFiles.push(f);
+      }
+    }
+    if (imageFiles.length === 0) return;
+    e.preventDefault();
+    try {
+      const parts: string[] = [];
+      for (const f of imageFiles) {
+        const url = await saveImageFile(f);
+        parts.push(`![pasted image](${url})`);
+      }
+      // Stay on its own line(s) so the renderer treats it as a block image.
+      const before = draft.length > 0 && !draft.endsWith("\n") ? "\n\n" : "";
+      insertAtCursor(before + parts.join("\n\n") + "\n");
+    } catch (err) {
+      app.setFlash(`Couldn't paste image: ${err}`);
+    }
+  }
+
+  async function pickAndInsertImage() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.multiple = true;
+    input.onchange = async () => {
+      const files = Array.from(input.files ?? []);
+      if (files.length === 0) return;
+      try {
+        const parts: string[] = [];
+        for (const f of files) {
+          const url = await saveImageFile(f);
+          parts.push(`![${f.name}](${url})`);
+        }
+        // The file dialog can blur the textarea — fall back to appending
+        // to whichever source is most current and re-enter edit mode.
+        const base = editing ? draft : value;
+        const before = base.length > 0 && !base.endsWith("\n") ? "\n\n" : "";
+        const next = base + before + parts.join("\n\n") + "\n";
+        editing = true;
+        draft = next;
+        queueMicrotask(() => textarea?.focus());
+      } catch (err) {
+        app.setFlash(`Couldn't insert image: ${err}`);
+      }
+    };
+    input.click();
+  }
 </script>
 
 {#if editing}
-  <textarea
-    bind:this={textarea}
-    bind:value={draft}
-    onblur={commit}
-    onkeydown={onTextareaKey}
-    {placeholder}
-    style="min-height: {minHeight};"
-    class="w-full resize-y rounded-md border border-neutral-200/60 bg-white/60 px-3 py-2 font-mono text-[13px] leading-relaxed outline-none placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-  ></textarea>
+  <div class="flex flex-col gap-1.5">
+    <div class="flex items-center justify-end gap-2 text-[11px] text-neutral-400 dark:text-neutral-500">
+      <span class="italic">paste an image here to embed it</span>
+      <button
+        type="button"
+        onmousedown={(e) => e.preventDefault()}
+        onclick={pickAndInsertImage}
+        class="inline-flex items-center gap-1 rounded-md border border-neutral-200/70 bg-white/60 px-2 py-0.5 text-[11px] text-neutral-600 transition-colors hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/40 dark:text-neutral-300 dark:hover:bg-neutral-800"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3">
+          <path
+            fill-rule="evenodd"
+            d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l3-4 2 3 3-5 4 6z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        Insert image
+      </button>
+    </div>
+    <textarea
+      bind:this={textarea}
+      bind:value={draft}
+      onblur={commit}
+      onkeydown={onTextareaKey}
+      onpaste={onPaste}
+      {placeholder}
+      style="min-height: {minHeight};"
+      class="w-full resize-y rounded-md border border-neutral-200/60 bg-white/60 px-3 py-2 font-mono text-[13px] leading-relaxed outline-none placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+    ></textarea>
+  </div>
 {:else if rendered}
   <div
     role="presentation"
