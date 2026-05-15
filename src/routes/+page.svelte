@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
   import { app } from "$lib/stores/app.svelte";
+  import { theme } from "$lib/stores/theme.svelte";
   import Sidebar from "$lib/components/Sidebar.svelte";
   import ListView from "$lib/components/ListView.svelte";
   import Inspector from "$lib/components/Inspector.svelte";
@@ -15,6 +16,7 @@
   let inspectorTodo = $derived(app.selectedTodo());
 
   onMount(() => {
+    theme.init();
     app.init();
   });
 

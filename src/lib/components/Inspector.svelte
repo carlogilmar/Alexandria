@@ -272,10 +272,8 @@
     font-size: 0.85em;
     margin: 0.25rem 0;
   }
-  @media (prefers-color-scheme: dark) {
-    .markdown-preview :global(pre) {
-      background: rgba(255, 255, 255, 0.06);
-    }
+  :global(html.dark) .markdown-preview :global(pre) {
+    background: rgba(255, 255, 255, 0.06);
   }
   .markdown-preview :global(img) {
     max-width: 100%;
@@ -309,10 +307,8 @@
     text-underline-offset: 2px;
     cursor: pointer;
   }
-  @media (prefers-color-scheme: dark) {
-    .markdown-preview :global(a) {
-      color: #60a5fa;
-    }
+  :global(html.dark) .markdown-preview :global(a) {
+    color: #60a5fa;
   }
   .markdown-preview :global(code) {
     background: rgba(0, 0, 0, 0.06);
@@ -320,10 +316,8 @@
     border-radius: 3px;
     font-size: 0.85em;
   }
-  @media (prefers-color-scheme: dark) {
-    .markdown-preview :global(code) {
-      background: rgba(255, 255, 255, 0.08);
-    }
+  :global(html.dark) .markdown-preview :global(code) {
+    background: rgba(255, 255, 255, 0.08);
   }
   .markdown-preview :global(strong) {
     font-weight: 600;

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app } from "$lib/stores/app.svelte";
+  import { theme } from "$lib/stores/theme.svelte";
 
   let query = $state("");
   let searchInput: HTMLInputElement | undefined = $state();
@@ -49,16 +50,13 @@
       class="flex h-full flex-1 items-center rounded-md px-1 transition-colors hover:bg-neutral-200/40 dark:hover:bg-neutral-700/30"
     >
       {#if !logoFailed}
-        <picture class="pointer-events-none">
-          <source srcset="/logo-dark.png" media="(prefers-color-scheme: dark)" />
-          <img
-            src="/logo.png"
-            alt="AlertMediaBigPicture"
-            class="pointer-events-none h-12 w-auto max-w-full select-none"
-            draggable="false"
-            onerror={() => (logoFailed = true)}
-          />
-        </picture>
+        <img
+          src={theme.resolved === "dark" ? "/logo-dark.png" : "/logo.png"}
+          alt="AlertMediaBigPicture"
+          class="pointer-events-none h-12 w-auto max-w-full select-none"
+          draggable="false"
+          onerror={() => (logoFailed = true)}
+        />
       {:else}
         <span
           class="text-sm font-semibold tracking-tight text-neutral-700 dark:text-neutral-200"
@@ -89,6 +87,37 @@
           clip-rule="evenodd"
         />
       </svg>
+    </button>
+    <button
+      type="button"
+      onclick={() => theme.cycle()}
+      aria-label="Switch theme"
+      title={`Theme: ${theme.preference} — click to switch`}
+      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-200 dark:text-neutral-400 dark:hover:bg-neutral-700"
+    >
+      {#if theme.preference === "dark"}
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+          <path
+            d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"
+          />
+        </svg>
+      {:else if theme.preference === "light"}
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+          <path
+            fill-rule="evenodd"
+            d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.95 2.05a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-2.05 4.95a1 1 0 01-1.414 0l-.707-.707a1 1 0 011.414-1.414l.707.707a1 1 0 010 1.414zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.95-.464a1 1 0 010-1.414l.707-.707a1 1 0 011.414 1.414l-.707.707a1 1 0 01-1.414 0zM4 10a1 1 0 01-1 1H2a1 1 0 110-2h1a1 1 0 011 1zm.464-5.95a1 1 0 011.414 0l.707.707A1 1 0 015.171 6.17l-.707-.707a1 1 0 010-1.414zM10 6a4 4 0 100 8 4 4 0 000-8z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      {:else}
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+          <path
+            fill-rule="evenodd"
+            d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-3v2h2a1 1 0 110 2H8a1 1 0 110-2h2v-2H5a2 2 0 01-2-2V5zm2 0v8h10V5H5z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      {/if}
     </button>
   </div>
 

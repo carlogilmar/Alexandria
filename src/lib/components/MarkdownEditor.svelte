@@ -160,11 +160,9 @@
     margin: 0.5rem 0;
     color: rgba(0, 0, 0, 0.6);
   }
-  @media (prefers-color-scheme: dark) {
-    .markdown-body :global(blockquote) {
-      border-left-color: rgba(255, 255, 255, 0.18);
-      color: rgba(255, 255, 255, 0.6);
-    }
+  :global(html.dark) .markdown-body :global(blockquote) {
+    border-left-color: rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.6);
   }
   .markdown-body :global(a) {
     color: #2563eb;
@@ -173,10 +171,8 @@
     text-underline-offset: 2px;
     cursor: pointer;
   }
-  @media (prefers-color-scheme: dark) {
-    .markdown-body :global(a) {
-      color: #60a5fa;
-    }
+  :global(html.dark) .markdown-body :global(a) {
+    color: #60a5fa;
   }
   .markdown-body :global(code) {
     background: rgba(0, 0, 0, 0.06);
@@ -184,10 +180,8 @@
     border-radius: 3px;
     font-size: 0.85em;
   }
-  @media (prefers-color-scheme: dark) {
-    .markdown-body :global(code) {
-      background: rgba(255, 255, 255, 0.08);
-    }
+  :global(html.dark) .markdown-body :global(code) {
+    background: rgba(255, 255, 255, 0.08);
   }
   .markdown-body :global(pre) {
     white-space: pre-wrap;
@@ -198,10 +192,8 @@
     font-size: 0.85em;
     margin: 0.4rem 0;
   }
-  @media (prefers-color-scheme: dark) {
-    .markdown-body :global(pre) {
-      background: rgba(255, 255, 255, 0.06);
-    }
+  :global(html.dark) .markdown-body :global(pre) {
+    background: rgba(255, 255, 255, 0.06);
   }
   .markdown-body :global(img) {
     max-width: 100%;
@@ -212,10 +204,8 @@
     border-top: 1px solid rgba(0, 0, 0, 0.1);
     margin: 0.75rem 0;
   }
-  @media (prefers-color-scheme: dark) {
-    .markdown-body :global(hr) {
-      border-top-color: rgba(255, 255, 255, 0.12);
-    }
+  :global(html.dark) .markdown-body :global(hr) {
+    border-top-color: rgba(255, 255, 255, 0.12);
   }
   .markdown-body :global(strong) {
     font-weight: 600;
@@ -235,10 +225,8 @@
     border: 1px solid rgba(0, 0, 0, 0.1);
     padding: 0.25rem 0.5rem;
   }
-  @media (prefers-color-scheme: dark) {
-    .markdown-body :global(th),
-    .markdown-body :global(td) {
-      border-color: rgba(255, 255, 255, 0.12);
-    }
+  :global(html.dark) .markdown-body :global(th),
+  :global(html.dark) .markdown-body :global(td) {
+    border-color: rgba(255, 255, 255, 0.12);
   }
 </style>

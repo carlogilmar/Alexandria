@@ -374,13 +374,11 @@
     );
     border-radius: 1px;
   }
-  @media (prefers-color-scheme: dark) {
-    .chain-item:not(:last-child)::before {
-      background: linear-gradient(
-        to bottom,
-        rgb(96 165 250 / 0.55),
-        rgb(96 165 250 / 0.2)
-      );
-    }
+  :global(html.dark) .chain-item:not(:last-child)::before {
+    background: linear-gradient(
+      to bottom,
+      rgb(96 165 250 / 0.55),
+      rgb(96 165 250 / 0.2)
+    );
   }
 </style>
