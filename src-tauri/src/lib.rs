@@ -39,6 +39,7 @@ pub fn run() {
             commands::export::export_range_md,
             commands::export::save_text_file,
             commands::search::search_todos,
+            commands::search::list_all_todos,
             commands::search::get_stats,
             commands::search::get_daily_stats,
             commands::workflows::list_workflows,
@@ -52,6 +53,15 @@ pub fn run() {
             commands::workflows::update_workflow_step,
             commands::workflows::delete_workflow_step,
             commands::workflows::reorder_workflow_steps,
+            commands::notes::list_notes,
+            commands::notes::list_notes_for_date,
+            commands::notes::note_by_id,
+            commands::notes::create_note,
+            commands::notes::rename_note,
+            commands::notes::update_note_body,
+            commands::notes::delete_note,
+            commands::notes::get_index_doc,
+            commands::notes::update_index_doc,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

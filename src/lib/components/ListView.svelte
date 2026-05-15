@@ -3,6 +3,7 @@
   import { flip } from "svelte/animate";
   import { app } from "$lib/stores/app.svelte";
   import TodoRow from "$lib/components/TodoRow.svelte";
+  import IdChip from "$lib/components/IdChip.svelte";
 
   let quickAddText = $state("");
   let dragId = $state<number | null>(null);
@@ -140,8 +141,9 @@
             {app.selected.title}
           </button>
         {/if}
-        <p class="mt-1 text-xs uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
-          {prettyDate} · {app.selected.date}
+        <p class="mt-1 flex flex-wrap items-center gap-2 text-xs uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+          <span>{prettyDate} · {app.selected.date}</span>
+          <IdChip kind="list" id={app.selected.id} />
         </p>
       </div>
       <div class="ml-4 flex shrink-0 items-center gap-3">

@@ -3,6 +3,8 @@
   import { flip } from "svelte/animate";
   import { app } from "$lib/stores/app.svelte";
   import type { WorkflowStep } from "$lib/ipc";
+  import IdChip from "$lib/components/IdChip.svelte";
+  import MarkdownEditor from "$lib/components/MarkdownEditor.svelte";
 
   let newStepText = $state("");
   let newStepInput: HTMLInputElement | undefined = $state();
@@ -41,22 +43,19 @@
     }
   }
 
-  // ----- Description (always-editable textarea) -----
-  // Sync the local draft whenever the visible workflow changes, but leave it
-  // alone while the user is typing on a single workflow.
-  let descriptionDraft = $state("");
-  let lastSyncedWorkflowId = $state<number | null>(null);
+  async function commitDescription(next: string) {
+    await app.updateSelectedDescription(next);
+  }
 
-  $effect(() => {
-    const id = app.selectedWorkflow?.id ?? null;
-    if (id !== lastSyncedWorkflowId) {
-      descriptionDraft = app.selectedWorkflow?.description ?? "";
-      lastSyncedWorkflowId = id;
-    }
-  });
-
-  async function commitDescription() {
-    await app.updateSelectedDescription(descriptionDraft);
+  function onDescriptionLinkClick(href: string): boolean | void {
+    const m = href.match(/^(note|list|workflow):(\d+)$/);
+    if (!m) return;
+    const id = Number(m[2]);
+    if (!Number.isFinite(id)) return;
+    if (m[1] === "note") app.selectNote(id);
+    else if (m[1] === "list") app.select(id);
+    else if (m[1] === "workflow") app.selectWorkflow(id);
+    return true;
   }
 
   // ----- Last updated -----
@@ -216,13 +215,14 @@
             {app.selectedWorkflow.title}
           </button>
         {/if}
-        <p class="mt-1 flex items-center gap-2 text-xs text-neutral-400 dark:text-neutral-500">
+        <p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-400 dark:text-neutral-500">
           <span>
             {topLevelSteps.length}
             {topLevelSteps.length === 1 ? "step" : "steps"}
           </span>
           <span aria-hidden="true">·</span>
           <span>Updated {formatUpdatedAt(app.selectedWorkflow.updatedAt)}</span>
+          <IdChip kind="workflow" id={app.selectedWorkflow.id} />
         </p>
       </div>
       <button
@@ -240,14 +240,6 @@
         </svg>
       </button>
     </header>
-
-    <textarea
-      bind:value={descriptionDraft}
-      onblur={commitDescription}
-      placeholder="Describe what this workflow is for…"
-      rows="2"
-      class="mb-8 w-full resize-y rounded-md border border-neutral-200/60 bg-white/60 px-3 py-2 text-sm leading-relaxed text-neutral-700 outline-none placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-200 dark:placeholder:text-neutral-500"
-    ></textarea>
 
     {#if topLevelSteps.length === 0}
       <div
@@ -342,6 +334,23 @@
         class="flex-1 rounded-md border border-neutral-200/60 bg-white/60 px-3 py-2 text-[15px] outline-none placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
       />
     </form>
+
+    <section class="mt-10 border-t border-neutral-200/60 pt-6 dark:border-neutral-700/60">
+      <h2
+        class="mb-2 text-[11px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500"
+      >
+        Notes about this workflow
+      </h2>
+      {#key app.selectedWorkflow.id}
+        <MarkdownEditor
+          value={app.selectedWorkflow.description ?? ""}
+          placeholder="Add context, links, or longer notes… (markdown supported, click outside to render)"
+          minHeight="8rem"
+          onCommit={commitDescription}
+          onLinkClick={onDescriptionLinkClick}
+        />
+      {/key}
+    </section>
   </main>
 {/if}
 

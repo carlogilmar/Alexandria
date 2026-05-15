@@ -1,5 +1,6 @@
 pub mod export;
 pub mod lists;
+pub mod notes;
 pub mod search;
 pub mod tags;
 pub mod todos;

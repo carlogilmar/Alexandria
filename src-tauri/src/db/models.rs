@@ -107,3 +107,29 @@ pub struct WorkflowStep {
     pub created_at: String,
     pub updated_at: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct Note {
+    pub id: i64,
+    pub title: String,
+    pub date: String,
+    pub body: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteSummary {
+    pub id: i64,
+    pub title: String,
+    pub date: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexDoc {
+    pub body: String,
+    pub updated_at: String,
+}

@@ -8,6 +8,8 @@
   import Welcome from "$lib/components/Welcome.svelte";
   import HelpModal from "$lib/components/HelpModal.svelte";
   import WorkflowView from "$lib/components/WorkflowView.svelte";
+  import NoteView from "$lib/components/NoteView.svelte";
+  import IndexView from "$lib/components/IndexView.svelte";
 
   let sidebar: Sidebar | undefined = $state();
   let inspectorTodo = $derived(app.selectedTodo());
@@ -77,6 +79,10 @@
       <Welcome />
     {:else if app.view === "workflow"}
       <WorkflowView />
+    {:else if app.view === "note"}
+      <NoteView />
+    {:else if app.view === "index"}
+      <IndexView />
     {:else}
       <ListView />
     {/if}

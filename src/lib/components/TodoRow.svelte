@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Todo } from "$lib/ipc";
+  import IdChip from "$lib/components/IdChip.svelte";
 
   type Props = {
     todo: Todo;
@@ -77,6 +78,10 @@
   >
     {todo.text}
   </button>
+
+  <span class="shrink-0 opacity-0 transition-opacity group-hover:opacity-100">
+    <IdChip kind="todo" id={todo.id} />
+  </span>
 
   <button
     type="button"

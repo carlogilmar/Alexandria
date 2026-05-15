@@ -3,6 +3,7 @@
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { app } from "$lib/stores/app.svelte";
   import type { Tag, Todo } from "$lib/ipc";
+  import IdChip from "$lib/components/IdChip.svelte";
 
   type Props = { todo: Todo };
   let { todo }: Props = $props();
@@ -121,12 +122,15 @@
 <aside
   class="flex h-screen w-72 shrink-0 flex-col overflow-y-auto border-l border-neutral-300/40 px-4 pb-5 pt-12 dark:border-neutral-700/40"
 >
-  <header class="mb-4 flex items-center justify-between">
-    <h2
-      class="text-xs font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500"
-    >
-      Details
-    </h2>
+  <header class="mb-4 flex items-center justify-between gap-2">
+    <div class="flex items-center gap-2">
+      <h2
+        class="text-xs font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500"
+      >
+        Details
+      </h2>
+      <IdChip kind="todo" id={todo.id} />
+    </div>
     <button
       type="button"
       class="rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-200/60 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-200"
@@ -188,7 +192,7 @@
     {#if renderedNotes}
       <!-- markdown-it has html:false so the rendered output is safe to inject. -->
       <div
-        class="markdown-preview mt-2 rounded-md border border-neutral-200/40 bg-neutral-50/60 px-3 py-2 text-sm leading-snug text-neutral-700 dark:border-neutral-700/40 dark:bg-neutral-900/30 dark:text-neutral-200"
+        class="markdown-preview mt-2 max-h-80 overflow-y-auto overflow-x-hidden rounded-md border border-neutral-200/40 bg-neutral-50/60 px-3 py-2 text-sm leading-snug text-neutral-700 dark:border-neutral-700/40 dark:bg-neutral-900/30 dark:text-neutral-200"
         role="presentation"
         onclick={onNotesPreviewClick}
         onkeydown={() => {}}
@@ -255,6 +259,33 @@
 </aside>
 
 <style>
+  .markdown-preview {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .markdown-preview :global(pre) {
+    white-space: pre-wrap;
+    overflow-x: auto;
+    background: rgba(0, 0, 0, 0.05);
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+    margin: 0.25rem 0;
+  }
+  @media (prefers-color-scheme: dark) {
+    .markdown-preview :global(pre) {
+      background: rgba(255, 255, 255, 0.06);
+    }
+  }
+  .markdown-preview :global(img) {
+    max-width: 100%;
+    height: auto;
+  }
+  .markdown-preview :global(table) {
+    display: block;
+    overflow-x: auto;
+    max-width: 100%;
+  }
   .markdown-preview :global(ul) {
     list-style: disc;
     padding-left: 1.25rem;

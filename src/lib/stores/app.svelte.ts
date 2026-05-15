@@ -33,9 +33,22 @@ import {
   updateWorkflowStep,
   deleteWorkflowStep,
   reorderWorkflowSteps,
+  listAllTodos,
+  listNotes,
+  listNotesForDate,
+  noteById,
+  createNote as createNoteIpc,
+  renameNote as renameNoteIpc,
+  updateNoteBody,
+  deleteNote as deleteNoteIpc,
+  getIndexDoc,
+  updateIndexDoc,
   type DayStats,
+  type IndexDoc,
   type List,
   type ListSummary,
+  type Note,
+  type NoteSummary,
   type Stats,
   type Tag,
   type Todo,
@@ -54,12 +67,13 @@ export function todayIso(): string {
 }
 
 export function defaultListTitleForDate(dateIso: string): string {
-  return new Date(dateIso + "T00:00:00").toLocaleDateString(undefined, {
+  if (dateIso === todayIso()) return "ToDo's of today";
+  const pretty = new Date(dateIso + "T00:00:00").toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
     day: "numeric",
-    year: "numeric",
   });
+  return `ToDo's of ${pretty}`;
 }
 
 function safeFilename(s: string): string {
@@ -79,7 +93,7 @@ function firstOfMonthIso(): string {
 }
 
 class AppStore {
-  view = $state<"home" | "list" | "workflow">("home");
+  view = $state<"home" | "list" | "workflow" | "note" | "index">("home");
   lists = $state<ListSummary[]>([]);
   selected = $state<List | null>(null);
   todos = $state<Todo[]>([]);
@@ -91,6 +105,17 @@ class AppStore {
   workflows = $state<WorkflowSummary[]>([]);
   selectedWorkflow = $state<Workflow | null>(null);
   workflowSteps = $state<WorkflowStep[]>([]);
+
+  notes = $state<NoteSummary[]>([]);
+  selectedNote = $state<Note | null>(null);
+
+  allTodos = $state<TodoHit[]>([]);
+
+  indexDoc = $state<IndexDoc>({ body: "", updatedAt: "" });
+
+  // When the home page is shown, this is the date pre-selected in the
+  // day-detail panel. Null means "don't pre-select" (older behavior).
+  homeFocusedDate = $state<string | null>(null);
 
   searchQuery = $state("");
   searchResults = $state<TodoHit[]>([]);
@@ -127,6 +152,9 @@ class AppStore {
       this.dailyStats = await getDailyStats(null, null);
       this.allTags = await listTags();
       this.workflows = await listWorkflows();
+      this.notes = await listNotes();
+      this.allTodos = await listAllTodos();
+      this.indexDoc = await getIndexDoc();
     } catch (e) {
       this.error = String(e);
     } finally {
@@ -146,6 +174,7 @@ class AppStore {
       this.selected = null;
       this.selectedTodoId = null;
       this.selectedTodoTags = [];
+      this.selectedNote = null;
       this.selectedWorkflow = await workflowById(id);
       this.workflowSteps = await listWorkflowSteps(id);
     } catch (e) {
@@ -229,26 +258,114 @@ class AppStore {
     );
   }
 
-  async goHome() {
+  async goHome(focusToday = false) {
     this.view = "home";
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
     this.selectedWorkflow = null;
     this.workflowSteps = [];
+    this.selectedNote = null;
+    if (focusToday) this.homeFocusedDate = todayIso();
     // Defensive: refresh stats + daily grid so the welcome page always
     // reflects the latest state, even if some mutation slipped past.
     try {
       this.stats = await getStats();
       this.dailyStats = await getDailyStats(null, null);
+      this.lists = await listAll();
+      this.notes = await listNotes();
+      this.allTodos = await listAllTodos();
+      this.workflows = await listWorkflows();
     } catch (e) {
       this.error = String(e);
     }
+  }
+
+  // ---- Notes ----
+
+  async refreshNotes() {
+    this.notes = await listNotes();
+  }
+
+  async selectNote(id: number) {
+    try {
+      this.view = "note";
+      this.selected = null;
+      this.todos = [];
+      this.selectedTodoId = null;
+      this.selectedTodoTags = [];
+      this.selectedWorkflow = null;
+      this.workflowSteps = [];
+      this.selectedNote = await noteById(id);
+    } catch (e) {
+      this.error = String(e);
+    }
+  }
+
+  async newNote(date?: string, title?: string) {
+    const targetDate = date ?? todayIso();
+    const finalTitle = title ?? `Note — ${defaultListTitleForDate(targetDate)}`;
+    const created = await createNoteIpc(finalTitle, targetDate);
+    await this.refreshNotes();
+    await this.selectNote(created.id);
+  }
+
+  async renameSelectedNote(title: string) {
+    if (!this.selectedNote) return;
+    const updated = await renameNoteIpc(this.selectedNote.id, title);
+    this.selectedNote = updated;
+    await this.refreshNotes();
+  }
+
+  async updateSelectedNoteBody(body: string) {
+    if (!this.selectedNote) return;
+    if (body === this.selectedNote.body) return;
+    const updated = await updateNoteBody(this.selectedNote.id, body);
+    this.selectedNote = updated;
+    await this.refreshNotes();
+  }
+
+  async deleteSelectedNote() {
+    if (!this.selectedNote) return;
+    const ok = await confirm(
+      `"${this.selectedNote.title}" will be permanently removed.`,
+      { title: "Delete this note?", kind: "warning" },
+    );
+    if (!ok) return;
+    await deleteNoteIpc(this.selectedNote.id);
+    this.selectedNote = null;
+    this.view = "home";
+    await this.refreshNotes();
+    this.setFlash("Note deleted");
+  }
+
+  // ---- Index doc ----
+
+  async openIndex() {
+    this.view = "index";
+    this.selected = null;
+    this.todos = [];
+    this.selectedTodoId = null;
+    this.selectedTodoTags = [];
+    this.selectedWorkflow = null;
+    this.workflowSteps = [];
+    this.selectedNote = null;
+    try {
+      this.indexDoc = await getIndexDoc();
+    } catch (e) {
+      this.error = String(e);
+    }
+  }
+
+  async saveIndex(body: string) {
+    if (body === this.indexDoc.body) return;
+    this.indexDoc = await updateIndexDoc(body);
   }
 
   async select(id: number) {
     this.view = "list";
     this.selectedWorkflow = null;
     this.workflowSteps = [];
+    this.selectedNote = null;
     if (this.selected?.id === id) return;
     try {
       this.selected = await listById(id);

@@ -1,7 +1,25 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { app, todayIso } from "$lib/stores/app.svelte";
-  import type { DayStats, ListSummary } from "$lib/ipc";
+  import type { DayStats, ListSummary, NoteSummary, TodoHit } from "$lib/ipc";
+  import IdChip from "$lib/components/IdChip.svelte";
+
+  type Bucket = "lists" | "tasks" | "workflows" | "notes";
+  let openBucket = $state<Bucket | null>(null);
+
+  function toggleBucket(b: Bucket) {
+    openBucket = openBucket === b ? null : b;
+  }
+
+  // Sorted views of each collection for the expanded panels.
+  let sortedLists = $derived<ListSummary[]>(
+    [...app.lists].sort((a, b) => (a.date < b.date ? 1 : -1)),
+  );
+  let sortedNotes = $derived<NoteSummary[]>(
+    [...app.notes].sort((a, b) => (a.date < b.date ? 1 : -1)),
+  );
+  let sortedWorkflows = $derived(app.workflows);
+  let sortedTasks = $derived<TodoHit[]>(app.allTodos);
 
   type Cell = {
     date: string;
@@ -67,17 +85,7 @@
     return { cells, months };
   });
 
-  let activeDays = $derived(
-    app.dailyStats.filter((s) => s.total > 0).length,
-  );
-  let perfectDays = $derived(
-    app.dailyStats.filter((s) => s.total > 0 && s.done === s.total).length,
-  );
-
   let today = todayIso();
-  let todaySummary = $derived(
-    app.dailyStats.find((s) => s.date === today) ?? { total: 0, done: 0 },
-  );
 
   // ----- Grid scroll -----
   // The grid is wider than the welcome's content column, so on mount we scroll
@@ -94,11 +102,26 @@
   });
 
   // ----- Day detail panel -----
-  let selectedDate = $state<string | null>(null);
+  // Initialize from the store's focused-date (set when the logo is clicked).
+  // After consuming it once, clear so subsequent home visits don't override
+  // any manual selection the user makes here.
+  let selectedDate = $state<string | null>(app.homeFocusedDate);
+  $effect(() => {
+    if (app.homeFocusedDate) {
+      selectedDate = app.homeFocusedDate;
+      app.homeFocusedDate = null;
+    }
+  });
 
   let selectedListsForDay = $derived<ListSummary[]>(
     selectedDate
       ? app.lists.filter((l) => l.date === selectedDate)
+      : [],
+  );
+
+  let selectedNotesForDay = $derived<NoteSummary[]>(
+    selectedDate
+      ? app.notes.filter((n) => n.date === selectedDate)
       : [],
   );
 
@@ -121,6 +144,11 @@
   async function createForSelectedDay() {
     if (!selectedDate) return;
     await app.newList(undefined, selectedDate);
+  }
+
+  async function createNoteForSelectedDay() {
+    if (!selectedDate) return;
+    await app.newNote(selectedDate);
   }
 
   async function createForToday() {
@@ -148,55 +176,173 @@
   </header>
 
   <section class="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-    <div
-      class="rounded-xl border border-neutral-200/60 bg-white/60 p-4 dark:border-neutral-700/60 dark:bg-neutral-900/40"
-    >
-      <p class="text-[11px] uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
-        Today
-      </p>
-      <p class="mt-1 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-        {todaySummary.done}<span class="text-neutral-400 dark:text-neutral-500"
-          >/{todaySummary.total}</span
+    {#each [
+      { key: "lists", label: "Lists", value: app.lists.length },
+      { key: "tasks", label: "Tasks", value: app.allTodos.length },
+      { key: "workflows", label: "Workflows", value: app.workflows.length },
+      { key: "notes", label: "Notes", value: app.notes.length },
+    ] as card (card.key)}
+      <button
+        type="button"
+        onclick={() => toggleBucket(card.key as Bucket)}
+        class="rounded-xl border p-4 text-left transition-colors"
+        class:border-blue-400={openBucket === card.key}
+        class:bg-blue-50={openBucket === card.key}
+        class:dark:border-blue-500={openBucket === card.key}
+        class:dark:bg-blue-950={openBucket === card.key}
+        class:border-neutral-200={openBucket !== card.key}
+        class:bg-white={openBucket !== card.key}
+        class:dark:border-neutral-700={openBucket !== card.key}
+        class:dark:bg-neutral-900={openBucket !== card.key}
+      >
+        <p
+          class="text-[11px] uppercase tracking-widest text-neutral-400 dark:text-neutral-500"
         >
-      </p>
-    </div>
-    <div
-      class="rounded-xl border border-neutral-200/60 bg-white/60 p-4 dark:border-neutral-700/60 dark:bg-neutral-900/40"
-    >
-      <p class="text-[11px] uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
-        Streak
-      </p>
-      <p class="mt-1 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-        {app.stats.streak}
-        <span class="text-sm font-normal text-neutral-400 dark:text-neutral-500">
-          {app.stats.streak === 1 ? "day" : "days"}
-        </span>
-      </p>
-    </div>
-    <div
-      class="rounded-xl border border-neutral-200/60 bg-white/60 p-4 dark:border-neutral-700/60 dark:bg-neutral-900/40"
-    >
-      <p class="text-[11px] uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
-        Total todos
-      </p>
-      <p class="mt-1 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-        {app.stats.totalTodos}
-      </p>
-    </div>
-    <div
-      class="rounded-xl border border-neutral-200/60 bg-white/60 p-4 dark:border-neutral-700/60 dark:bg-neutral-900/40"
-    >
-      <p class="text-[11px] uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
-        Perfect days
-      </p>
-      <p class="mt-1 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-        {perfectDays}
-        <span class="text-sm font-normal text-neutral-400 dark:text-neutral-500">
-          / {activeDays}
-        </span>
-      </p>
-    </div>
+          {card.label}
+        </p>
+        <p
+          class="mt-1 text-2xl font-semibold text-neutral-900 dark:text-neutral-100"
+        >
+          {card.value}
+        </p>
+      </button>
+    {/each}
   </section>
+
+  {#if openBucket}
+    <section
+      class="mb-8 rounded-xl border border-neutral-200/60 bg-white/60 p-4 dark:border-neutral-700/60 dark:bg-neutral-900/40"
+    >
+      <header class="mb-3 flex items-center justify-between">
+        <h3 class="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+          {#if openBucket === "lists"}All lists
+          {:else if openBucket === "tasks"}All tasks
+          {:else if openBucket === "workflows"}All workflows
+          {:else if openBucket === "notes"}All notes
+          {/if}
+        </h3>
+        <button
+          type="button"
+          class="rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-200/60 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-200"
+          aria-label="Close"
+          onclick={() => (openBucket = null)}
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+            <path
+              fill-rule="evenodd"
+              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </button>
+      </header>
+
+      <div class="max-h-96 overflow-y-auto">
+        {#if openBucket === "lists"}
+          {#if sortedLists.length === 0}
+            <p class="text-sm text-neutral-400 dark:text-neutral-500">No lists yet.</p>
+          {:else}
+            <ul class="flex flex-col gap-1">
+              {#each sortedLists as l (l.id)}
+                <li class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="flex flex-1 items-center justify-between rounded-md px-2 py-1.5 text-left transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    onclick={() => app.select(l.id)}
+                  >
+                    <span class="truncate text-sm text-neutral-800 dark:text-neutral-200">
+                      {l.title}
+                    </span>
+                    <span class="ml-3 shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">
+                      {l.date} · {l.total > 0 ? `${l.done}/${l.total}` : "empty"}
+                    </span>
+                  </button>
+                  <IdChip kind="list" id={l.id} />
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        {:else if openBucket === "tasks"}
+          {#if sortedTasks.length === 0}
+            <p class="text-sm text-neutral-400 dark:text-neutral-500">No tasks yet.</p>
+          {:else}
+            <ul class="flex flex-col gap-1">
+              {#each sortedTasks as t (t.id)}
+                <li class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="flex flex-1 items-center justify-between rounded-md px-2 py-1.5 text-left transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    onclick={() => app.goToHit(t)}
+                  >
+                    <span
+                      class="truncate text-sm text-neutral-800 dark:text-neutral-200"
+                      class:line-through={t.completed}
+                      class:text-neutral-400={t.completed}
+                    >
+                      {t.text}
+                    </span>
+                    <span class="ml-3 shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">
+                      {t.listDate} · {t.listTitle}
+                    </span>
+                  </button>
+                  <IdChip kind="todo" id={t.id} />
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        {:else if openBucket === "workflows"}
+          {#if sortedWorkflows.length === 0}
+            <p class="text-sm text-neutral-400 dark:text-neutral-500">No workflows yet.</p>
+          {:else}
+            <ul class="flex flex-col gap-1">
+              {#each sortedWorkflows as w (w.id)}
+                <li class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="flex flex-1 items-center justify-between rounded-md px-2 py-1.5 text-left transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    onclick={() => app.selectWorkflow(w.id)}
+                  >
+                    <span class="truncate text-sm text-neutral-800 dark:text-neutral-200">
+                      {w.title}
+                    </span>
+                    <span class="ml-3 shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">
+                      {w.stepCount}
+                      {w.stepCount === 1 ? "step" : "steps"}
+                    </span>
+                  </button>
+                  <IdChip kind="workflow" id={w.id} />
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        {:else if openBucket === "notes"}
+          {#if sortedNotes.length === 0}
+            <p class="text-sm text-neutral-400 dark:text-neutral-500">No notes yet.</p>
+          {:else}
+            <ul class="flex flex-col gap-1">
+              {#each sortedNotes as n (n.id)}
+                <li class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="flex flex-1 items-center justify-between rounded-md px-2 py-1.5 text-left transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    onclick={() => app.selectNote(n.id)}
+                  >
+                    <span class="truncate text-sm text-neutral-800 dark:text-neutral-200">
+                      {n.title}
+                    </span>
+                    <span class="ml-3 shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">
+                      {n.date}
+                    </span>
+                  </button>
+                  <IdChip kind="note" id={n.id} />
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        {/if}
+      </div>
+    </section>
+  {/if}
 
   <section>
     <div class="mb-3 flex items-end justify-between">
@@ -297,6 +443,13 @@
           </button>
           <button
             type="button"
+            class="rounded-md border border-neutral-300/60 bg-white/60 px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm transition-colors hover:bg-neutral-100 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            onclick={createNoteForSelectedDay}
+          >
+            + New note
+          </button>
+          <button
+            type="button"
             class="rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-200/60 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-200"
             aria-label="Close"
             onclick={() => (selectedDate = null)}
@@ -312,33 +465,68 @@
         </div>
       </header>
 
-      {#if selectedListsForDay.length === 0}
+      {#if selectedListsForDay.length === 0 && selectedNotesForDay.length === 0}
         <p class="text-sm text-neutral-400 dark:text-neutral-500">
-          No lists on this day yet.
+          Nothing on this day yet.
         </p>
       {:else}
-        <ul class="flex flex-col gap-1">
-          {#each selectedListsForDay as list (list.id)}
-            <li>
-              <button
-                type="button"
-                class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                onclick={() => app.select(list.id)}
-              >
-                <span class="truncate text-sm text-neutral-800 dark:text-neutral-200">
-                  {list.title}
-                </span>
-                <span class="ml-3 shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">
-                  {#if list.total > 0}
-                    {list.done}/{list.total}
-                  {:else}
-                    empty
-                  {/if}
-                </span>
-              </button>
-            </li>
-          {/each}
-        </ul>
+        {#if selectedListsForDay.length > 0}
+          <p
+            class="mb-1 text-[11px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500"
+          >
+            Lists
+          </p>
+          <ul class="mb-3 flex flex-col gap-1">
+            {#each selectedListsForDay as list (list.id)}
+              <li class="flex items-center gap-2 rounded-md px-1 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800">
+                <button
+                  type="button"
+                  class="flex flex-1 items-center justify-between rounded-md px-2 py-2 text-left"
+                  onclick={() => app.select(list.id)}
+                >
+                  <span class="truncate text-sm text-neutral-800 dark:text-neutral-200">
+                    {list.title}
+                  </span>
+                  <span class="ml-3 shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">
+                    {#if list.total > 0}
+                      {list.done}/{list.total}
+                    {:else}
+                      empty
+                    {/if}
+                  </span>
+                </button>
+                <IdChip kind="list" id={list.id} />
+              </li>
+            {/each}
+          </ul>
+        {/if}
+
+        {#if selectedNotesForDay.length > 0}
+          <p
+            class="mb-1 text-[11px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500"
+          >
+            Notes
+          </p>
+          <ul class="flex flex-col gap-1">
+            {#each selectedNotesForDay as note (note.id)}
+              <li class="flex items-center gap-2 rounded-md px-1 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800">
+                <button
+                  type="button"
+                  class="flex flex-1 items-center justify-between rounded-md px-2 py-2 text-left"
+                  onclick={() => app.selectNote(note.id)}
+                >
+                  <span class="truncate text-sm text-neutral-800 dark:text-neutral-200">
+                    {note.title}
+                  </span>
+                  <span class="ml-3 shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">
+                    note
+                  </span>
+                </button>
+                <IdChip kind="note" id={note.id} />
+              </li>
+            {/each}
+          </ul>
+        {/if}
       {/if}
     </section>
   {/if}

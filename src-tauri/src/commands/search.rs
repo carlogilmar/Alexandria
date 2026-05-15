@@ -37,6 +37,20 @@ pub(crate) async fn search(
     .map_err(Into::into)
 }
 
+pub(crate) async fn all_todos(pool: &SqlitePool) -> AppResult<Vec<TodoHit>> {
+    sqlx::query_as::<_, TodoHit>(
+        "SELECT t.id, t.list_id, l.title AS list_title, l.date AS list_date,
+                t.text, t.completed
+           FROM todos t
+           JOIN lists l ON l.id = t.list_id
+          WHERE l.archived = 0
+          ORDER BY l.date DESC, t.position ASC",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(Into::into)
+}
+
 pub(crate) async fn stats(pool: &SqlitePool) -> AppResult<Stats> {
     let total_lists: i64 =
         sqlx::query_scalar("SELECT COUNT(*) FROM lists WHERE archived = 0")
@@ -119,6 +133,11 @@ pub async fn search_todos(
     completed: Option<bool>,
 ) -> AppResult<Vec<TodoHit>> {
     search(&state.pool, &query, completed).await
+}
+
+#[tauri::command]
+pub async fn list_all_todos(state: State<'_, AppState>) -> AppResult<Vec<TodoHit>> {
+    all_todos(&state.pool).await
 }
 
 #[tauri::command]
@@ -392,6 +411,21 @@ mod tests {
             .unwrap();
         assert_eq!(r.len(), 1);
         assert_eq!(r[0].date, "2026-05-05");
+    }
+
+    #[tokio::test]
+    async fn all_todos_returns_every_todo_excluding_archived() {
+        let pool = test_pool().await;
+        let live = lists::create(&pool, "live", "2026-05-10").await.unwrap();
+        let gone = lists::create(&pool, "gone", "2026-05-09").await.unwrap();
+        todos::create(&pool, live.id, "a").await.unwrap();
+        todos::create(&pool, live.id, "b").await.unwrap();
+        todos::create(&pool, gone.id, "hidden").await.unwrap();
+        lists::set_archived(&pool, gone.id, true).await.unwrap();
+
+        let rows = all_todos(&pool).await.unwrap();
+        assert_eq!(rows.len(), 2);
+        assert!(rows.iter().all(|r| r.text != "hidden"));
     }
 
     #[tokio::test]

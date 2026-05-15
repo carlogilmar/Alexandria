@@ -85,6 +85,26 @@ export type WorkflowStep = {
   updatedAt: string;
 };
 
+export type Note = {
+  id: number;
+  title: string;
+  date: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NoteSummary = {
+  id: number;
+  title: string;
+  date: string;
+};
+
+export type IndexDoc = {
+  body: string;
+  updatedAt: string;
+};
+
 // Lists
 export const listToday = () => invoke<List>("list_today");
 export const listById = (id: number) => invoke<List>("list_by_id", { id });
@@ -124,6 +144,7 @@ export const removeTagFromTodo = (todoId: number, tagId: number) =>
 // Search + stats
 export const searchTodos = (query: string, completed: boolean | null) =>
   invoke<TodoHit[]>("search_todos", { query, completed });
+export const listAllTodos = () => invoke<TodoHit[]>("list_all_todos");
 export const getStats = () => invoke<Stats>("get_stats");
 export const getDailyStats = (from: string | null, to: string | null) =>
   invoke<DayStats[]>("get_daily_stats", { from, to });
@@ -170,6 +191,25 @@ export const reorderWorkflowSteps = (
     parentStepId,
     orderedIds,
   });
+
+// Notes
+export const listNotes = () => invoke<NoteSummary[]>("list_notes");
+export const listNotesForDate = (date: string) =>
+  invoke<NoteSummary[]>("list_notes_for_date", { date });
+export const noteById = (id: number) => invoke<Note>("note_by_id", { id });
+export const createNote = (title: string, date: string) =>
+  invoke<Note>("create_note", { title, date });
+export const renameNote = (id: number, title: string) =>
+  invoke<Note>("rename_note", { id, title });
+export const updateNoteBody = (id: number, body: string) =>
+  invoke<Note>("update_note_body", { id, body });
+export const deleteNote = (id: number) =>
+  invoke<void>("delete_note", { id });
+
+// Index doc
+export const getIndexDoc = () => invoke<IndexDoc>("get_index_doc");
+export const updateIndexDoc = (body: string) =>
+  invoke<IndexDoc>("update_index_doc", { body });
 
 // Export
 export const exportListMd = (id: number) =>
