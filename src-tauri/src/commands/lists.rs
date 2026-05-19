@@ -37,7 +37,7 @@ pub(crate) async fn all(
     include_archived: bool,
 ) -> AppResult<Vec<ListSummary>> {
     sqlx::query_as::<_, ListSummary>(
-        "SELECT l.id, l.title, l.date, l.archived,
+        "SELECT l.id, l.title, l.date, l.archived, l.pinned,
                 COUNT(t.id) AS total,
                 COALESCE(SUM(t.completed), 0) AS done
            FROM lists l
@@ -91,6 +91,17 @@ pub(crate) async fn set_archived(pool: &SqlitePool, id: i64, archived: bool) -> 
         "UPDATE lists SET archived = ?1, updated_at = datetime('now') WHERE id = ?2 RETURNING *",
     )
     .bind(archived as i64)
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("list {id}")))
+}
+
+pub(crate) async fn set_pinned(pool: &SqlitePool, id: i64, pinned: bool) -> AppResult<List> {
+    sqlx::query_as::<_, List>(
+        "UPDATE lists SET pinned = ?1, updated_at = datetime('now') WHERE id = ?2 RETURNING *",
+    )
+    .bind(pinned as i64)
     .bind(id)
     .fetch_optional(pool)
     .await?
@@ -151,6 +162,15 @@ pub async fn archive_list(state: State<'_, AppState>, id: i64) -> AppResult<List
 #[tauri::command]
 pub async fn restore_list(state: State<'_, AppState>, id: i64) -> AppResult<List> {
     set_archived(&state.pool, id, false).await
+}
+
+#[tauri::command]
+pub async fn set_list_pinned(
+    state: State<'_, AppState>,
+    id: i64,
+    pinned: bool,
+) -> AppResult<List> {
+    set_pinned(&state.pool, id, pinned).await
 }
 
 // ---------- Tests ----------

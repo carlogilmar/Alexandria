@@ -7,16 +7,17 @@
   }
 
   // Internal link handling: support links like "note:<id>", "list:<id>",
-  // "workflow:<id>" to jump to those records inside the app.
+  // "workflow:<id>", "article:<id>" to jump to those records inside the app.
   function onLinkClick(href: string): boolean | void {
-    const m = href.match(/^(note|list|workflow):(\d+)$/);
-    if (!m) return; // fall through to OS opener
+    const m = href.match(/^(note|list|workflow|article):(\d+)$/);
+    if (!m) return;
     const kind = m[1];
     const id = Number(m[2]);
     if (!Number.isFinite(id)) return;
     if (kind === "note") app.selectNote(id);
     else if (kind === "list") app.select(id);
     else if (kind === "workflow") app.selectWorkflow(id);
+    else if (kind === "article") app.selectArticle(id);
     return true;
   }
 </script>
@@ -28,9 +29,10 @@
     </h1>
     <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
       One place to summarize what matters. Edit in markdown; link to lists,
-      notes, and workflows with <code class="rounded bg-neutral-200/60 px-1 py-0.5 text-[12px] dark:bg-neutral-700/40">list:&lt;id&gt;</code>,
+      notes, workflows, and articles with <code class="rounded bg-neutral-200/60 px-1 py-0.5 text-[12px] dark:bg-neutral-700/40">list:&lt;id&gt;</code>,
       <code class="rounded bg-neutral-200/60 px-1 py-0.5 text-[12px] dark:bg-neutral-700/40">note:&lt;id&gt;</code>,
-      <code class="rounded bg-neutral-200/60 px-1 py-0.5 text-[12px] dark:bg-neutral-700/40">workflow:&lt;id&gt;</code>.
+      <code class="rounded bg-neutral-200/60 px-1 py-0.5 text-[12px] dark:bg-neutral-700/40">workflow:&lt;id&gt;</code>,
+      <code class="rounded bg-neutral-200/60 px-1 py-0.5 text-[12px] dark:bg-neutral-700/40">article:&lt;id&gt;</code>.
     </p>
   </header>
 

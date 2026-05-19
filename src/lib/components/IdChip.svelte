@@ -2,7 +2,7 @@
   import { app } from "$lib/stores/app.svelte";
 
   type Props = {
-    kind: "list" | "note" | "workflow" | "todo";
+    kind: "list" | "note" | "workflow" | "todo" | "article";
     id: number;
   };
 

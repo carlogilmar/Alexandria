@@ -160,6 +160,24 @@
         {/if}
         <button
           type="button"
+          class="rounded-md p-1.5 transition-colors"
+          class:text-amber-500={app.selected.pinned}
+          class:hover:bg-amber-50={app.selected.pinned}
+          class:dark:hover:bg-amber-950={app.selected.pinned}
+          class:text-neutral-400={!app.selected.pinned}
+          class:hover:bg-neutral-200={!app.selected.pinned}
+          class:dark:text-neutral-500={!app.selected.pinned}
+          class:dark:hover:bg-neutral-700={!app.selected.pinned}
+          aria-label={app.selected.pinned ? "Unpin" : "Pin"}
+          title={app.selected.pinned ? "Unpin" : "Pin to sidebar"}
+          onclick={() => app.toggleSelectedListPin()}
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+            <path d="M10 1.5a.75.75 0 01.75.75v1.293l3.116 3.116a.75.75 0 01.184.74l-.842 2.526L15 11.5v.75a.75.75 0 01-.75.75H11v4l-1 1-1-1v-4H5.75A.75.75 0 015 12.25v-.75l1.792-1.575-.842-2.526a.75.75 0 01.184-.74L9.25 3.543V2.25A.75.75 0 0110 1.5z"/>
+          </svg>
+        </button>
+        <button
+          type="button"
           class="rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-neutral-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
           aria-label="Delete this list"
           onclick={() => app.deleteSelected()}

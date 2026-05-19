@@ -10,7 +10,7 @@ use tauri::State;
 
 pub(crate) async fn all(pool: &SqlitePool) -> AppResult<Vec<NoteSummary>> {
     sqlx::query_as::<_, NoteSummary>(
-        "SELECT id, title, date FROM notes ORDER BY date DESC, id DESC",
+        "SELECT id, title, date, pinned FROM notes ORDER BY date DESC, id DESC",
     )
     .fetch_all(pool)
     .await
@@ -19,7 +19,7 @@ pub(crate) async fn all(pool: &SqlitePool) -> AppResult<Vec<NoteSummary>> {
 
 pub(crate) async fn for_date(pool: &SqlitePool, date: &str) -> AppResult<Vec<NoteSummary>> {
     sqlx::query_as::<_, NoteSummary>(
-        "SELECT id, title, date FROM notes WHERE date = ?1 ORDER BY id ASC",
+        "SELECT id, title, date, pinned FROM notes WHERE date = ?1 ORDER BY id ASC",
     )
     .bind(date)
     .fetch_all(pool)
@@ -87,6 +87,18 @@ pub(crate) async fn delete(pool: &SqlitePool, id: i64) -> AppResult<()> {
         return Err(AppError::NotFound(format!("note {id}")));
     }
     Ok(())
+}
+
+pub(crate) async fn set_pinned(pool: &SqlitePool, id: i64, pinned: bool) -> AppResult<Note> {
+    sqlx::query_as::<_, Note>(
+        "UPDATE notes SET pinned = ?1, updated_at = datetime('now')
+           WHERE id = ?2 RETURNING *",
+    )
+    .bind(pinned as i64)
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("note {id}")))
 }
 
 // ============================================================
@@ -165,6 +177,15 @@ pub async fn update_note_body(
 #[tauri::command]
 pub async fn delete_note(state: State<'_, AppState>, id: i64) -> AppResult<()> {
     delete(&state.pool, id).await
+}
+
+#[tauri::command]
+pub async fn set_note_pinned(
+    state: State<'_, AppState>,
+    id: i64,
+    pinned: bool,
+) -> AppResult<Note> {
+    set_pinned(&state.pool, id, pinned).await
 }
 
 #[tauri::command]

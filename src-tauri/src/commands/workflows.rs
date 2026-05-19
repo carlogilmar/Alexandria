@@ -10,7 +10,7 @@ use tauri::State;
 
 pub(crate) async fn all(pool: &SqlitePool) -> AppResult<Vec<WorkflowSummary>> {
     sqlx::query_as::<_, WorkflowSummary>(
-        "SELECT w.id, w.title,
+        "SELECT w.id, w.title, w.pinned,
                 (SELECT COUNT(*) FROM workflow_steps s
                   WHERE s.workflow_id = w.id AND s.parent_step_id IS NULL) AS step_count
            FROM workflows w
@@ -84,6 +84,18 @@ pub(crate) async fn delete(pool: &SqlitePool, id: i64) -> AppResult<()> {
         return Err(AppError::NotFound(format!("workflow {id}")));
     }
     Ok(())
+}
+
+pub(crate) async fn set_pinned(pool: &SqlitePool, id: i64, pinned: bool) -> AppResult<Workflow> {
+    sqlx::query_as::<_, Workflow>(
+        "UPDATE workflows SET pinned = ?1, updated_at = datetime('now')
+           WHERE id = ?2 RETURNING *",
+    )
+    .bind(pinned as i64)
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("workflow {id}")))
 }
 
 // ============================================================
@@ -236,6 +248,15 @@ pub async fn update_workflow_description(
 #[tauri::command]
 pub async fn delete_workflow(state: State<'_, AppState>, id: i64) -> AppResult<()> {
     delete(&state.pool, id).await
+}
+
+#[tauri::command]
+pub async fn set_workflow_pinned(
+    state: State<'_, AppState>,
+    id: i64,
+    pinned: bool,
+) -> AppResult<Workflow> {
+    set_pinned(&state.pool, id, pinned).await
 }
 
 #[tauri::command]

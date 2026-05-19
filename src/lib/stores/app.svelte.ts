@@ -7,6 +7,7 @@ import {
   createList,
   renameList as renameListIpc,
   archiveList,
+  setListPinned,
   createTodo,
   toggleTodo,
   updateTodo,
@@ -28,6 +29,7 @@ import {
   renameWorkflow as renameWorkflowIpc,
   updateWorkflowDescription,
   deleteWorkflow as deleteWorkflowIpc,
+  setWorkflowPinned,
   listWorkflowSteps,
   createWorkflowStep,
   updateWorkflowStep,
@@ -41,8 +43,18 @@ import {
   renameNote as renameNoteIpc,
   updateNoteBody,
   deleteNote as deleteNoteIpc,
+  setNotePinned,
+  listArticles,
+  articleById,
+  createArticle as createArticleIpc,
+  renameArticle as renameArticleIpc,
+  updateArticleBody,
+  deleteArticle as deleteArticleIpc,
+  setArticlePinned,
   getIndexDoc,
   updateIndexDoc,
+  type Article,
+  type ArticleSummary,
   type DayStats,
   type IndexDoc,
   type List,
@@ -93,7 +105,9 @@ function firstOfMonthIso(): string {
 }
 
 class AppStore {
-  view = $state<"home" | "list" | "workflow" | "note" | "index">("home");
+  view = $state<"home" | "list" | "workflow" | "note" | "index" | "article">(
+    "home",
+  );
   lists = $state<ListSummary[]>([]);
   selected = $state<List | null>(null);
   todos = $state<Todo[]>([]);
@@ -108,6 +122,9 @@ class AppStore {
 
   notes = $state<NoteSummary[]>([]);
   selectedNote = $state<Note | null>(null);
+
+  articles = $state<ArticleSummary[]>([]);
+  selectedArticle = $state<Article | null>(null);
 
   allTodos = $state<TodoHit[]>([]);
 
@@ -153,6 +170,7 @@ class AppStore {
       this.allTags = await listTags();
       this.workflows = await listWorkflows();
       this.notes = await listNotes();
+      this.articles = await listArticles();
       this.allTodos = await listAllTodos();
       this.indexDoc = await getIndexDoc();
     } catch (e) {
@@ -175,6 +193,7 @@ class AppStore {
       this.selectedTodoId = null;
       this.selectedTodoTags = [];
       this.selectedNote = null;
+      this.selectedArticle = null;
       this.selectedWorkflow = await workflowById(id);
       this.workflowSteps = await listWorkflowSteps(id);
     } catch (e) {
@@ -265,6 +284,7 @@ class AppStore {
     this.selectedWorkflow = null;
     this.workflowSteps = [];
     this.selectedNote = null;
+    this.selectedArticle = null;
     if (focusToday) this.homeFocusedDate = todayIso();
     // Defensive: refresh stats + daily grid so the welcome page always
     // reflects the latest state, even if some mutation slipped past.
@@ -273,6 +293,7 @@ class AppStore {
       this.dailyStats = await getDailyStats(null, null);
       this.lists = await listAll();
       this.notes = await listNotes();
+      this.articles = await listArticles();
       this.allTodos = await listAllTodos();
       this.workflows = await listWorkflows();
     } catch (e) {
@@ -295,6 +316,7 @@ class AppStore {
       this.selectedTodoTags = [];
       this.selectedWorkflow = null;
       this.workflowSteps = [];
+      this.selectedArticle = null;
       this.selectedNote = await noteById(id);
     } catch (e) {
       this.error = String(e);
@@ -349,6 +371,7 @@ class AppStore {
     this.selectedWorkflow = null;
     this.workflowSteps = [];
     this.selectedNote = null;
+    this.selectedArticle = null;
     try {
       this.indexDoc = await getIndexDoc();
     } catch (e) {
@@ -361,11 +384,109 @@ class AppStore {
     this.indexDoc = await updateIndexDoc(body);
   }
 
+  // ---- Articles ----
+
+  async refreshArticles() {
+    this.articles = await listArticles();
+  }
+
+  async selectArticle(id: number) {
+    try {
+      this.view = "article";
+      this.selected = null;
+      this.todos = [];
+      this.selectedTodoId = null;
+      this.selectedTodoTags = [];
+      this.selectedWorkflow = null;
+      this.workflowSteps = [];
+      this.selectedNote = null;
+      this.selectedArticle = await articleById(id);
+    } catch (e) {
+      this.error = String(e);
+    }
+  }
+
+  async newArticle(title = "New article") {
+    const created = await createArticleIpc(title);
+    await this.refreshArticles();
+    await this.selectArticle(created.id);
+  }
+
+  async renameSelectedArticle(title: string) {
+    if (!this.selectedArticle) return;
+    const updated = await renameArticleIpc(this.selectedArticle.id, title);
+    this.selectedArticle = updated;
+    await this.refreshArticles();
+  }
+
+  async updateSelectedArticleBody(body: string) {
+    if (!this.selectedArticle) return;
+    if (body === this.selectedArticle.body) return;
+    const updated = await updateArticleBody(this.selectedArticle.id, body);
+    this.selectedArticle = updated;
+    await this.refreshArticles();
+  }
+
+  async deleteSelectedArticle() {
+    if (!this.selectedArticle) return;
+    const ok = await confirm(
+      `"${this.selectedArticle.title}" will be permanently removed.`,
+      { title: "Delete this article?", kind: "warning" },
+    );
+    if (!ok) return;
+    await deleteArticleIpc(this.selectedArticle.id);
+    this.selectedArticle = null;
+    this.view = "home";
+    await this.refreshArticles();
+    this.setFlash("Article deleted");
+  }
+
+  async toggleSelectedArticlePin() {
+    if (!this.selectedArticle) return;
+    const next = !this.selectedArticle.pinned;
+    this.selectedArticle = await setArticlePinned(
+      this.selectedArticle.id,
+      next,
+    );
+    await this.refreshArticles();
+    this.setFlash(next ? "Pinned" : "Unpinned");
+  }
+
+  // ---- Pin toggles (shared) ----
+
+  async toggleSelectedNotePin() {
+    if (!this.selectedNote) return;
+    const next = !this.selectedNote.pinned;
+    this.selectedNote = await setNotePinned(this.selectedNote.id, next);
+    await this.refreshNotes();
+    this.setFlash(next ? "Pinned" : "Unpinned");
+  }
+
+  async toggleSelectedWorkflowPin() {
+    if (!this.selectedWorkflow) return;
+    const next = !this.selectedWorkflow.pinned;
+    this.selectedWorkflow = await setWorkflowPinned(
+      this.selectedWorkflow.id,
+      next,
+    );
+    await this.refreshWorkflows();
+    this.setFlash(next ? "Pinned" : "Unpinned");
+  }
+
+  async toggleSelectedListPin() {
+    if (!this.selected) return;
+    const next = !this.selected.pinned;
+    this.selected = await setListPinned(this.selected.id, next);
+    await this.refreshLists();
+    this.setFlash(next ? "Pinned" : "Unpinned");
+  }
+
   async select(id: number) {
     this.view = "list";
     this.selectedWorkflow = null;
     this.workflowSteps = [];
     this.selectedNote = null;
+    this.selectedArticle = null;
     if (this.selected?.id === id) return;
     try {
       this.selected = await listById(id);

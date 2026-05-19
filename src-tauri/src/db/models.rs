@@ -8,6 +8,7 @@ pub struct List {
     pub title: String,
     pub date: String,
     pub archived: bool,
+    pub pinned: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -19,6 +20,7 @@ pub struct ListSummary {
     pub title: String,
     pub date: String,
     pub archived: bool,
+    pub pinned: bool,
     pub total: i64,
     pub done: i64,
 }
@@ -84,6 +86,7 @@ pub struct Workflow {
     pub id: i64,
     pub title: String,
     pub description: Option<String>,
+    pub pinned: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -94,6 +97,7 @@ pub struct WorkflowSummary {
     pub id: i64,
     pub title: String,
     pub step_count: i64,
+    pub pinned: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -115,6 +119,7 @@ pub struct Note {
     pub title: String,
     pub date: String,
     pub body: String,
+    pub pinned: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -125,11 +130,32 @@ pub struct NoteSummary {
     pub id: i64,
     pub title: String,
     pub date: String,
+    pub pinned: bool,
 }
 
 #[derive(Debug, Clone, Serialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexDoc {
     pub body: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct Article {
+    pub id: i64,
+    pub title: String,
+    pub body: String,
+    pub pinned: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct ArticleSummary {
+    pub id: i64,
+    pub title: String,
+    pub pinned: bool,
     pub updated_at: String,
 }

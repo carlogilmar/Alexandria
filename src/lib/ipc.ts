@@ -5,6 +5,7 @@ export type List = {
   title: string;
   date: string;
   archived: boolean;
+  pinned: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -14,6 +15,7 @@ export type ListSummary = {
   title: string;
   date: string;
   archived: boolean;
+  pinned: boolean;
   total: number;
   done: number;
 };
@@ -65,6 +67,7 @@ export type Workflow = {
   id: number;
   title: string;
   description: string | null;
+  pinned: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -73,6 +76,7 @@ export type WorkflowSummary = {
   id: number;
   title: string;
   stepCount: number;
+  pinned: boolean;
 };
 
 export type WorkflowStep = {
@@ -90,6 +94,7 @@ export type Note = {
   title: string;
   date: string;
   body: string;
+  pinned: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -98,10 +103,27 @@ export type NoteSummary = {
   id: number;
   title: string;
   date: string;
+  pinned: boolean;
 };
 
 export type IndexDoc = {
   body: string;
+  updatedAt: string;
+};
+
+export type Article = {
+  id: number;
+  title: string;
+  body: string;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ArticleSummary = {
+  id: number;
+  title: string;
+  pinned: boolean;
   updatedAt: string;
 };
 
@@ -119,6 +141,8 @@ export const renameList = (id: number, title: string) =>
   invoke<List>("rename_list", { id, title });
 export const archiveList = (id: number) => invoke<List>("archive_list", { id });
 export const restoreList = (id: number) => invoke<List>("restore_list", { id });
+export const setListPinned = (id: number, pinned: boolean) =>
+  invoke<List>("set_list_pinned", { id, pinned });
 
 // Todos
 export const listTodos = (listId: number) =>
@@ -165,6 +189,8 @@ export const updateWorkflowDescription = (
   invoke<Workflow>("update_workflow_description", { id, description });
 export const deleteWorkflow = (id: number) =>
   invoke<void>("delete_workflow", { id });
+export const setWorkflowPinned = (id: number, pinned: boolean) =>
+  invoke<Workflow>("set_workflow_pinned", { id, pinned });
 export const listWorkflowSteps = (workflowId: number) =>
   invoke<WorkflowStep[]>("list_workflow_steps", { workflowId });
 export const createWorkflowStep = (
@@ -205,6 +231,23 @@ export const updateNoteBody = (id: number, body: string) =>
   invoke<Note>("update_note_body", { id, body });
 export const deleteNote = (id: number) =>
   invoke<void>("delete_note", { id });
+export const setNotePinned = (id: number, pinned: boolean) =>
+  invoke<Note>("set_note_pinned", { id, pinned });
+
+// Articles
+export const listArticles = () => invoke<ArticleSummary[]>("list_articles");
+export const articleById = (id: number) =>
+  invoke<Article>("article_by_id", { id });
+export const createArticle = (title: string) =>
+  invoke<Article>("create_article", { title });
+export const renameArticle = (id: number, title: string) =>
+  invoke<Article>("rename_article", { id, title });
+export const updateArticleBody = (id: number, body: string) =>
+  invoke<Article>("update_article_body", { id, body });
+export const deleteArticle = (id: number) =>
+  invoke<void>("delete_article", { id });
+export const setArticlePinned = (id: number, pinned: boolean) =>
+  invoke<Article>("set_article_pinned", { id, pinned });
 
 // Index doc
 export const getIndexDoc = () => invoke<IndexDoc>("get_index_doc");

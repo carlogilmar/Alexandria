@@ -11,6 +11,7 @@
   import WorkflowView from "$lib/components/WorkflowView.svelte";
   import NoteView from "$lib/components/NoteView.svelte";
   import IndexView from "$lib/components/IndexView.svelte";
+  import ArticleView from "$lib/components/ArticleView.svelte";
 
   let sidebar: Sidebar | undefined = $state();
   let inspectorTodo = $derived(app.selectedTodo());
@@ -85,6 +86,8 @@
       <NoteView />
     {:else if app.view === "index"}
       <IndexView />
+    {:else if app.view === "article"}
+      <ArticleView />
     {:else}
       <ListView />
     {/if}

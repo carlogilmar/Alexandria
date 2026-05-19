@@ -1,25 +1,14 @@
 <script lang="ts">
   import { app } from "$lib/stores/app.svelte";
-  import MarkdownEditor from "$lib/components/MarkdownEditor.svelte";
-  import IdChip from "$lib/components/IdChip.svelte";
+  import ArticleEditor from "$lib/components/ArticleEditor.svelte";
 
   let editingTitle = $state(false);
   let titleDraft = $state("");
   let titleInput: HTMLInputElement | undefined = $state();
 
-  let prettyDate = $derived(
-    app.selectedNote
-      ? new Date(app.selectedNote.date + "T00:00:00").toLocaleDateString(undefined, {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-        })
-      : "",
-  );
-
   function startTitleEdit() {
-    if (!app.selectedNote) return;
-    titleDraft = app.selectedNote.title;
+    if (!app.selectedArticle) return;
+    titleDraft = app.selectedArticle.title;
     editingTitle = true;
     queueMicrotask(() => titleInput?.focus());
   }
@@ -27,8 +16,10 @@
   async function commitTitleEdit() {
     editingTitle = false;
     const next = titleDraft.trim();
-    if (!next || !app.selectedNote || next === app.selectedNote.title) return;
-    await app.renameSelectedNote(next);
+    if (!next || !app.selectedArticle || next === app.selectedArticle.title) {
+      return;
+    }
+    await app.renameSelectedArticle(next);
   }
 
   function cancelTitleEdit() {
@@ -41,12 +32,12 @@
   }
 
   async function commitBody(next: string) {
-    await app.updateSelectedNoteBody(next);
+    await app.updateSelectedArticleBody(next);
   }
 </script>
 
-{#if app.selectedNote}
-  <main class="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-8 py-10">
+{#if app.selectedArticle}
+  <main class="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-8 py-10">
     <header class="mb-6 flex items-end justify-between">
       <div class="min-w-0 flex-1">
         {#if editingTitle}
@@ -63,28 +54,27 @@
             class="truncate rounded-md text-left text-2xl font-semibold tracking-tight text-neutral-900 transition-colors hover:bg-neutral-200/40 dark:text-neutral-100 dark:hover:bg-neutral-700/30"
             onclick={startTitleEdit}
           >
-            {app.selectedNote.title}
+            {app.selectedArticle.title}
           </button>
         {/if}
         <p class="mt-1 flex flex-wrap items-center gap-2 text-xs uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
-          <span>Note · {prettyDate} · {app.selectedNote.date}</span>
-          <IdChip kind="note" id={app.selectedNote.id} />
+          <span>Article · {app.selectedArticle.id}</span>
         </p>
       </div>
       <div class="ml-4 flex shrink-0 items-center gap-1">
         <button
           type="button"
           class="rounded-md p-1.5 transition-colors"
-          class:text-amber-500={app.selectedNote.pinned}
-          class:hover:bg-amber-50={app.selectedNote.pinned}
-          class:dark:hover:bg-amber-950={app.selectedNote.pinned}
-          class:text-neutral-400={!app.selectedNote.pinned}
-          class:hover:bg-neutral-200={!app.selectedNote.pinned}
-          class:dark:text-neutral-500={!app.selectedNote.pinned}
-          class:dark:hover:bg-neutral-700={!app.selectedNote.pinned}
-          aria-label={app.selectedNote.pinned ? "Unpin" : "Pin"}
-          title={app.selectedNote.pinned ? "Unpin" : "Pin to sidebar"}
-          onclick={() => app.toggleSelectedNotePin()}
+          class:text-amber-500={app.selectedArticle.pinned}
+          class:hover:bg-amber-50={app.selectedArticle.pinned}
+          class:dark:hover:bg-amber-950={app.selectedArticle.pinned}
+          class:text-neutral-400={!app.selectedArticle.pinned}
+          class:hover:bg-neutral-200={!app.selectedArticle.pinned}
+          class:dark:text-neutral-500={!app.selectedArticle.pinned}
+          class:dark:hover:bg-neutral-700={!app.selectedArticle.pinned}
+          aria-label={app.selectedArticle.pinned ? "Unpin" : "Pin"}
+          title={app.selectedArticle.pinned ? "Unpin" : "Pin to sidebar"}
+          onclick={() => app.toggleSelectedArticlePin()}
         >
           <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
             <path d="M10 1.5a.75.75 0 01.75.75v1.293l3.116 3.116a.75.75 0 01.184.74l-.842 2.526L15 11.5v.75a.75.75 0 01-.75.75H11v4l-1 1-1-1v-4H5.75A.75.75 0 015 12.25v-.75l1.792-1.575-.842-2.526a.75.75 0 01.184-.74L9.25 3.543V2.25A.75.75 0 0110 1.5z"/>
@@ -93,8 +83,8 @@
         <button
           type="button"
           class="rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-neutral-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-          aria-label="Delete this note"
-          onclick={() => app.deleteSelectedNote()}
+          aria-label="Delete this article"
+          onclick={() => app.deleteSelectedArticle()}
         >
           <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
             <path
@@ -107,11 +97,11 @@
       </div>
     </header>
 
-    {#key app.selectedNote.id}
-      <MarkdownEditor
-        value={app.selectedNote.body}
-        placeholder="Write your note in markdown…"
-        minHeight="18rem"
+    {#key app.selectedArticle.id}
+      <ArticleEditor
+        value={app.selectedArticle.body}
+        placeholder={"Write your article in markdown. Embed any element on its own line — e.g. {{note:5}} or {{workflow:3}}."}
+        minHeight="24rem"
         onCommit={commitBody}
       />
     {/key}

@@ -1,10 +1,16 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { app, todayIso } from "$lib/stores/app.svelte";
-  import type { DayStats, ListSummary, NoteSummary, TodoHit } from "$lib/ipc";
+  import type {
+    ArticleSummary,
+    DayStats,
+    ListSummary,
+    NoteSummary,
+    TodoHit,
+  } from "$lib/ipc";
   import IdChip from "$lib/components/IdChip.svelte";
 
-  type Bucket = "lists" | "tasks" | "workflows" | "notes";
+  type Bucket = "lists" | "tasks" | "workflows" | "notes" | "articles";
   let openBucket = $state<Bucket | null>(null);
 
   function toggleBucket(b: Bucket) {
@@ -19,6 +25,7 @@
     [...app.notes].sort((a, b) => (a.date < b.date ? 1 : -1)),
   );
   let sortedWorkflows = $derived(app.workflows);
+  let sortedArticles = $derived<ArticleSummary[]>(app.articles);
   let sortedTasks = $derived<TodoHit[]>(app.allTodos);
 
   type Cell = {
@@ -175,12 +182,13 @@
     </button>
   </header>
 
-  <section class="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+  <section class="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-5">
     {#each [
       { key: "lists", label: "Lists", value: app.lists.length },
       { key: "tasks", label: "Tasks", value: app.allTodos.length },
       { key: "workflows", label: "Workflows", value: app.workflows.length },
       { key: "notes", label: "Notes", value: app.notes.length },
+      { key: "articles", label: "Articles", value: app.articles.length },
     ] as card (card.key)}
       <button
         type="button"
@@ -219,6 +227,7 @@
           {:else if openBucket === "tasks"}All tasks
           {:else if openBucket === "workflows"}All workflows
           {:else if openBucket === "notes"}All notes
+          {:else if openBucket === "articles"}All articles
           {/if}
         </h3>
         <button
@@ -335,6 +344,30 @@
                     </span>
                   </button>
                   <IdChip kind="note" id={n.id} />
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        {:else if openBucket === "articles"}
+          {#if sortedArticles.length === 0}
+            <p class="text-sm text-neutral-400 dark:text-neutral-500">No articles yet.</p>
+          {:else}
+            <ul class="flex flex-col gap-1">
+              {#each sortedArticles as a (a.id)}
+                <li class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="flex flex-1 items-center justify-between rounded-md px-2 py-1.5 text-left transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    onclick={() => app.selectArticle(a.id)}
+                  >
+                    <span class="truncate text-sm text-neutral-800 dark:text-neutral-200">
+                      {a.title}
+                    </span>
+                    {#if a.pinned}
+                      <span class="ml-3 shrink-0 text-[11px] text-amber-500">pinned</span>
+                    {/if}
+                  </button>
+                  <IdChip kind="article" id={a.id} />
                 </li>
               {/each}
             </ul>
