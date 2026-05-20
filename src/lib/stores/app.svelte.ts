@@ -69,6 +69,7 @@ import {
   type WorkflowStep,
   type WorkflowSummary,
 } from "$lib/ipc";
+import { buildGraph, type GardenGraph } from "$lib/garden";
 
 export function todayIso(): string {
   const d = new Date();
@@ -105,9 +106,9 @@ function firstOfMonthIso(): string {
 }
 
 class AppStore {
-  view = $state<"home" | "list" | "workflow" | "note" | "index" | "article">(
-    "home",
-  );
+  view = $state<
+    "home" | "list" | "workflow" | "note" | "index" | "article" | "garden"
+  >("home");
   lists = $state<ListSummary[]>([]);
   selected = $state<List | null>(null);
   todos = $state<Todo[]>([]);
@@ -129,6 +130,13 @@ class AppStore {
   allTodos = $state<TodoHit[]>([]);
 
   indexDoc = $state<IndexDoc>({ body: "", updatedAt: "" });
+
+  // Garden cache. Built lazily on openGarden(); rebuilt when stale or after
+  // any mutation that might affect the graph.
+  gardenGraph = $state<GardenGraph | null>(null);
+  gardenLoading = $state(false);
+  private gardenBuiltAt = 0;
+  private static GARDEN_TTL_MS = 30_000;
 
   // When the home page is shown, this is the date pre-selected in the
   // day-detail panel. Null means "don't pre-select" (older behavior).
@@ -382,6 +390,44 @@ class AppStore {
   async saveIndex(body: string) {
     if (body === this.indexDoc.body) return;
     this.indexDoc = await updateIndexDoc(body);
+  }
+
+  // ---- Garden ----
+
+  async openGarden(force = false) {
+    this.view = "garden";
+    this.selected = null;
+    this.todos = [];
+    this.selectedTodoId = null;
+    this.selectedTodoTags = [];
+    this.selectedWorkflow = null;
+    this.workflowSteps = [];
+    this.selectedNote = null;
+    this.selectedArticle = null;
+
+    const fresh = Date.now() - this.gardenBuiltAt < AppStore.GARDEN_TTL_MS;
+    if (this.gardenGraph && fresh && !force) return;
+
+    this.gardenLoading = true;
+    try {
+      const graph = await buildGraph({
+        notes: this.notes,
+        articles: this.articles,
+        workflows: this.workflows,
+        lists: this.lists,
+        indexDoc: this.indexDoc,
+      });
+      this.gardenGraph = graph;
+      this.gardenBuiltAt = Date.now();
+    } catch (e) {
+      this.error = String(e);
+    } finally {
+      this.gardenLoading = false;
+    }
+  }
+
+  invalidateGarden() {
+    this.gardenBuiltAt = 0;
   }
 
   // ---- Articles ----
