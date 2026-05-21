@@ -51,6 +51,15 @@ import {
   updateArticleBody,
   deleteArticle as deleteArticleIpc,
   setArticlePinned,
+  getMap,
+  addMapNode as addMapNodeIpc,
+  addMapText as addMapTextIpc,
+  updateMapNodeContent as updateMapNodeContentIpc,
+  moveMapNode as moveMapNodeIpc,
+  removeMapNode as removeMapNodeIpc,
+  addMapEdge as addMapEdgeIpc,
+  updateMapEdgeLabel as updateMapEdgeLabelIpc,
+  removeMapEdge as removeMapEdgeIpc,
   getIndexDoc,
   updateIndexDoc,
   type Article,
@@ -59,6 +68,9 @@ import {
   type IndexDoc,
   type List,
   type ListSummary,
+  type MapEdge,
+  type MapEntityKind,
+  type MapNode,
   type Note,
   type NoteSummary,
   type Stats,
@@ -107,7 +119,14 @@ function firstOfMonthIso(): string {
 
 class AppStore {
   view = $state<
-    "home" | "list" | "workflow" | "note" | "index" | "article" | "garden"
+    | "home"
+    | "list"
+    | "workflow"
+    | "note"
+    | "index"
+    | "article"
+    | "garden"
+    | "map"
   >("home");
   lists = $state<ListSummary[]>([]);
   selected = $state<List | null>(null);
@@ -137,6 +156,12 @@ class AppStore {
   gardenLoading = $state(false);
   private gardenBuiltAt = 0;
   private static GARDEN_TTL_MS = 30_000;
+
+  // Master map state.
+  mapNodes = $state<MapNode[]>([]);
+  mapEdges = $state<MapEdge[]>([]);
+  mapLoaded = $state(false);
+  mapLoading = $state(false);
 
   // When the home page is shown, this is the date pre-selected in the
   // day-detail panel. Null means "don't pre-select" (older behavior).
@@ -428,6 +453,129 @@ class AppStore {
 
   invalidateGarden() {
     this.gardenBuiltAt = 0;
+  }
+
+  // ---- Master Map ----
+
+  async openMap() {
+    this.view = "map";
+    this.selected = null;
+    this.todos = [];
+    this.selectedTodoId = null;
+    this.selectedTodoTags = [];
+    this.selectedWorkflow = null;
+    this.workflowSteps = [];
+    this.selectedNote = null;
+    this.selectedArticle = null;
+    if (this.mapLoaded) return;
+    this.mapLoading = true;
+    try {
+      const m = await getMap();
+      this.mapNodes = m.nodes;
+      this.mapEdges = m.edges;
+      this.mapLoaded = true;
+    } catch (e) {
+      this.error = String(e);
+    } finally {
+      this.mapLoading = false;
+    }
+  }
+
+  async refreshMap() {
+    const m = await getMap();
+    this.mapNodes = m.nodes;
+    this.mapEdges = m.edges;
+  }
+
+  async addMapNode(
+    kind: MapEntityKind,
+    entityId: number,
+    x: number,
+    y: number,
+  ): Promise<MapNode | null> {
+    try {
+      const created = await addMapNodeIpc(kind, entityId, x, y);
+      this.mapNodes = [...this.mapNodes, created];
+      return created;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+
+  async addMapText(content: string, x: number, y: number): Promise<MapNode | null> {
+    try {
+      const created = await addMapTextIpc(content, x, y);
+      this.mapNodes = [...this.mapNodes, created];
+      return created;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+
+  async updateMapNodeContent(id: number, content: string) {
+    try {
+      const updated = await updateMapNodeContentIpc(id, content);
+      this.mapNodes = this.mapNodes.map((n) => (n.id === id ? updated : n));
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async moveMapNode(id: number, x: number, y: number) {
+    try {
+      const updated = await moveMapNodeIpc(id, x, y);
+      this.mapNodes = this.mapNodes.map((n) => (n.id === id ? updated : n));
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async removeMapNode(id: number) {
+    try {
+      await removeMapNodeIpc(id);
+      this.mapNodes = this.mapNodes.filter((n) => n.id !== id);
+      // Edges cascade-delete on the backend; mirror locally.
+      this.mapEdges = this.mapEdges.filter(
+        (e) => e.sourceId !== id && e.targetId !== id,
+      );
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async addMapEdge(
+    sourceId: number,
+    targetId: number,
+    label: string | null = null,
+  ): Promise<MapEdge | null> {
+    try {
+      const created = await addMapEdgeIpc(sourceId, targetId, label);
+      this.mapEdges = [...this.mapEdges, created];
+      return created;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+
+  async updateMapEdgeLabel(id: number, label: string | null) {
+    try {
+      const updated = await updateMapEdgeLabelIpc(id, label);
+      this.mapEdges = this.mapEdges.map((e) => (e.id === id ? updated : e));
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async removeMapEdge(id: number) {
+    try {
+      await removeMapEdgeIpc(id);
+      this.mapEdges = this.mapEdges.filter((e) => e.id !== id);
+    } catch (e) {
+      this.setFlash(String(e));
+    }
   }
 
   // ---- Articles ----

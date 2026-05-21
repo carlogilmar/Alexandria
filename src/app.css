@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@xyflow/svelte/dist/style.css";
 
 /* Class-based dark mode. The `.dark` class is toggled on <html> by the
    theme store; everything else uses Tailwind's `dark:` variant. */

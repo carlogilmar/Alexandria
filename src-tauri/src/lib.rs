@@ -72,6 +72,15 @@ pub fn run() {
             commands::articles::update_article_body,
             commands::articles::delete_article,
             commands::articles::set_article_pinned,
+            commands::map::get_map,
+            commands::map::add_map_node,
+            commands::map::add_map_text,
+            commands::map::update_map_node_content,
+            commands::map::move_map_node,
+            commands::map::remove_map_node,
+            commands::map::add_map_edge,
+            commands::map::update_map_edge_label,
+            commands::map::remove_map_edge,
             commands::images::save_image,
         ])
         .run(tauri::generate_context!())

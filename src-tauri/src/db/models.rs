@@ -159,3 +159,34 @@ pub struct ArticleSummary {
     pub pinned: bool,
     pub updated_at: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct MapNode {
+    pub id: i64,
+    pub kind: String,
+    pub entity_id: i64,
+    pub x: f64,
+    pub y: f64,
+    pub content: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct MapEdge {
+    pub id: i64,
+    pub source_id: i64,
+    pub target_id: i64,
+    pub label: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MapState {
+    pub nodes: Vec<MapNode>,
+    pub edges: Vec<MapEdge>,
+}

@@ -174,6 +174,28 @@
     <span class="flex-1">Garden</span>
   </button>
 
+  <button
+    type="button"
+    onclick={() => app.openMap()}
+    class="mx-1 mb-3 flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm font-medium transition-colors"
+    class:bg-violet-600={app.view === "map"}
+    class:text-white={app.view === "map"}
+    class:hover:bg-violet-700={app.view === "map"}
+    class:bg-violet-50={app.view !== "map"}
+    class:text-violet-700={app.view !== "map"}
+    class:hover:bg-violet-100={app.view !== "map"}
+    class:dark:bg-violet-900={app.view === "map"}
+    class:dark:hover:bg-violet-800={app.view === "map"}
+    class:dark:bg-violet-950={app.view !== "map"}
+    class:dark:text-violet-200={app.view !== "map"}
+    class:dark:hover:bg-violet-900={app.view !== "map"}
+  >
+    <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 shrink-0">
+      <path fill-rule="evenodd" d="M3 5a2 2 0 012-2h2.5a2 2 0 011.6.8L10 5h5a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm4 4a1 1 0 100 2h6a1 1 0 100-2H7zm0 4a1 1 0 100 2h4a1 1 0 100-2H7z" clip-rule="evenodd"/>
+    </svg>
+    <span class="flex-1">Map</span>
+  </button>
+
   <nav class="flex-1 overflow-y-auto">
     {#if isSearching}
       <div class="mb-2 px-2 pt-1">

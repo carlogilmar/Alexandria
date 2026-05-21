@@ -2,6 +2,7 @@ pub mod articles;
 pub mod export;
 pub mod images;
 pub mod lists;
+pub mod map;
 pub mod notes;
 pub mod search;
 pub mod tags;

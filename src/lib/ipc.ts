@@ -127,6 +127,34 @@ export type ArticleSummary = {
   updatedAt: string;
 };
 
+export type MapEntityKind = "note" | "article" | "workflow";
+export type MapNodeKind = MapEntityKind | "text";
+
+export type MapNode = {
+  id: number;
+  kind: MapNodeKind;
+  entityId: number;
+  x: number;
+  y: number;
+  content: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MapEdge = {
+  id: number;
+  sourceId: number;
+  targetId: number;
+  label: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MapState = {
+  nodes: MapNode[];
+  edges: MapEdge[];
+};
+
 // Lists
 export const listToday = () => invoke<List>("list_today");
 export const listById = (id: number) => invoke<List>("list_by_id", { id });
@@ -253,6 +281,32 @@ export const setArticlePinned = (id: number, pinned: boolean) =>
 export const getIndexDoc = () => invoke<IndexDoc>("get_index_doc");
 export const updateIndexDoc = (body: string) =>
   invoke<IndexDoc>("update_index_doc", { body });
+
+// Master map
+export const getMap = () => invoke<MapState>("get_map");
+export const addMapNode = (
+  kind: MapEntityKind,
+  entityId: number,
+  x: number,
+  y: number,
+) => invoke<MapNode>("add_map_node", { kind, entityId, x, y });
+export const addMapText = (content: string, x: number, y: number) =>
+  invoke<MapNode>("add_map_text", { content, x, y });
+export const updateMapNodeContent = (id: number, content: string) =>
+  invoke<MapNode>("update_map_node_content", { id, content });
+export const moveMapNode = (id: number, x: number, y: number) =>
+  invoke<MapNode>("move_map_node", { id, x, y });
+export const removeMapNode = (id: number) =>
+  invoke<void>("remove_map_node", { id });
+export const addMapEdge = (
+  sourceId: number,
+  targetId: number,
+  label: string | null = null,
+) => invoke<MapEdge>("add_map_edge", { sourceId, targetId, label });
+export const updateMapEdgeLabel = (id: number, label: string | null) =>
+  invoke<MapEdge>("update_map_edge_label", { id, label });
+export const removeMapEdge = (id: number) =>
+  invoke<void>("remove_map_edge", { id });
 
 // Images
 export async function saveImageFile(file: File): Promise<string> {

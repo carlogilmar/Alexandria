@@ -13,6 +13,7 @@
   import IndexView from "$lib/components/IndexView.svelte";
   import ArticleView from "$lib/components/ArticleView.svelte";
   import GardenView from "$lib/components/GardenView.svelte";
+  import MapView from "$lib/components/MapView.svelte";
 
   let sidebar: Sidebar | undefined = $state();
   let inspectorTodo = $derived(app.selectedTodo());
@@ -91,6 +92,8 @@
       <ArticleView />
     {:else if app.view === "garden"}
       <GardenView />
+    {:else if app.view === "map"}
+      <MapView />
     {:else}
       <ListView />
     {/if}
