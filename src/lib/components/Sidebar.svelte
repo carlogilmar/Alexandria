@@ -171,7 +171,7 @@
     <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 shrink-0">
       <path d="M10 2C7.5 2 5 4 5 6.5c0 1.4.7 2.6 1.8 3.4-.5.4-.8 1-.8 1.6 0 1.1.9 2 2 2h.5v3a1 1 0 102 0v-3h.5c1.1 0 2-.9 2-2 0-.6-.3-1.2-.8-1.6C14.3 9.1 15 7.9 15 6.5 15 4 12.5 2 10 2z"/>
     </svg>
-    <span class="flex-1">Garden — Knowledge map</span>
+    <span class="flex-1">Garden</span>
   </button>
 
   <nav class="flex-1 overflow-y-auto">

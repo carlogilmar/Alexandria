@@ -11,6 +11,7 @@
     forceY,
   } from "d3-force";
   import { app } from "$lib/stores/app.svelte";
+  import { theme } from "$lib/stores/theme.svelte";
   import type {
     GardenEdge,
     GardenEdgeKind,
@@ -28,11 +29,13 @@
 
   let layout = $state<Layout>("force");
   let search = $state("");
+  // Lists are "in-flight knowledge" (daily todos); the knowledge base lives
+  // in notes/articles/workflows. Hide lists by default; user can opt in.
   let typeFilter = $state<Record<GardenKind, boolean>>({
     note: true,
     article: true,
     workflow: true,
-    list: true,
+    list: false,
   });
   let hoveredId = $state<string | null>(null);
   let selectedId = $state<string | null>(null);
@@ -44,22 +47,59 @@
   let zoomY = $state(0);
 
   // ----- graph state -----
-  // Reactive shallow; positions inside are mutated then we reassign to trigger render.
+  // Reactive shallow; positions inside are mutated by d3-force / drag,
+  // then `commit()` replaces every node/edge with a fresh reference so
+  // Svelte's keyed each re-evaluates per-item bindings (transform, line
+  // coords, etc.). Reassigning the array alone is NOT enough — Svelte
+  // skips bindings when the inner reference is unchanged.
   let nodes = $state.raw<GardenNode[]>([]);
   let edges = $state.raw<GardenEdge[]>([]);
 
+  function commit() {
+    const newNodes = nodes.map((n) => ({ ...n }));
+    const idIndex = new Map(newNodes.map((n) => [n.id, n] as const));
+    const newEdges: GardenEdge[] = [];
+    for (const e of edges) {
+      const sId = typeof e.source === "string" ? e.source : e.source.id;
+      const tId = typeof e.target === "string" ? e.target : e.target.id;
+      const s = idIndex.get(sId);
+      const t = idIndex.get(tId);
+      if (!s || !t) continue;
+      newEdges.push({ source: s, target: t, kind: e.kind });
+    }
+    nodes = newNodes;
+    edges = newEdges;
+  }
+
   // ----- visual encodings -----
-  const MATURITY_COLOR: Record<Maturity, string> = {
-    seedling: "#a7f3d0",
-    budding: "#34d399",
-    evergreen: "#047857",
-    dormant: "#a8a29e",
+  // Each kind gets its own hue. Maturity modulates lightness + saturation:
+  // seedling is pale (just sprouting), evergreen is deep, dormant fades to grey.
+  const KIND_HUE: Record<GardenKind, number> = {
+    note: 217,     // blue
+    article: 268,  // violet
+    workflow: 32,  // amber/orange
+    list: 158,     // emerald
   };
+  const MATURITY_MOD: Record<
+    Maturity,
+    { saturation: number; lightness: number }
+  > = {
+    seedling: { saturation: 70, lightness: 72 },
+    budding: { saturation: 78, lightness: 55 },
+    evergreen: { saturation: 70, lightness: 38 },
+    dormant: { saturation: 12, lightness: 60 },
+  };
+  function nodeFill(n: GardenNode): string {
+    const hue = KIND_HUE[n.kind];
+    const { saturation, lightness } = MATURITY_MOD[n.maturity];
+    return `hsl(${hue} ${saturation}% ${lightness}%)`;
+  }
+  function kindSwatch(k: GardenKind): string {
+    // Mid-maturity swatch for legend chips.
+    return `hsl(${KIND_HUE[k]} 78% 55%)`;
+  }
   function nodeRadius(n: GardenNode): number {
     return 7 + Math.min(n.degree, 12) * 1.2;
-  }
-  function nodeFill(n: GardenNode): string {
-    return MATURITY_COLOR[n.maturity];
   }
   function nodeShape(n: GardenNode): string {
     const r = nodeRadius(n);
@@ -99,13 +139,16 @@
   // ----- derived view -----
   let visibleNodes = $derived(nodes.filter((n) => typeFilter[n.kind]));
   let visibleIds = $derived(new Set(visibleNodes.map((n) => n.id)));
-  let visibleEdges = $derived(
-    edges.filter((e) => {
+  let visibleEdges = $derived.by(() => {
+    // Radial is "quantify by kind" — connections live in force/timeline,
+    // here they'd just be visual noise crossing between buckets.
+    if (layout === "radial") return [] as GardenEdge[];
+    return edges.filter((e) => {
       const sId = typeof e.source === "string" ? e.source : e.source.id;
       const tId = typeof e.target === "string" ? e.target : e.target.id;
       return visibleIds.has(sId) && visibleIds.has(tId);
-    }),
-  );
+    });
+  });
   let neighborIds = $derived.by(() => {
     if (!hoveredId) return null;
     const out = new Set<string>([hoveredId]);
@@ -117,6 +160,97 @@
     }
     return out;
   });
+  // Count per kind among visible nodes — used for radial cluster labels.
+  let kindCounts = $derived.by(() => {
+    const c: Record<GardenKind, number> = { note: 0, article: 0, workflow: 0, list: 0 };
+    for (const n of visibleNodes) c[n.kind]++;
+    return c;
+  });
+  let radialCenters = $derived({
+    note: { cx: width * 0.28, cy: height * 0.34 },
+    article: { cx: width * 0.72, cy: height * 0.34 },
+    workflow: { cx: width * 0.28, cy: height * 0.7 },
+    list: { cx: width * 0.72, cy: height * 0.7 },
+  } as Record<GardenKind, { cx: number; cy: number }>);
+
+  // Timeline axes: tick marks + row labels.
+  let timelineAxes = $derived.by(() => {
+    if (layout !== "timeline") return null;
+    const dates = visibleNodes
+      .map((n) =>
+        n.createdAt
+          ? new Date(n.createdAt.replace(" ", "T") + "Z").getTime()
+          : 0,
+      )
+      .filter((t) => t > 0);
+    if (dates.length === 0) return null;
+    const min = Math.min(...dates);
+    const max = Math.max(...dates, Date.now());
+    const span = Math.max(max - min, 1);
+    const xForTime = (t: number) => 80 + ((t - min) / span) * (width - 160);
+
+    // Choose granularity: weekly if span < 60 days, monthly if span < 3 years,
+    // quarterly otherwise.
+    const days = span / (24 * 60 * 60 * 1000);
+    const granularity: "week" | "month" | "quarter" =
+      days < 60 ? "week" : days < 365 * 3 ? "month" : "quarter";
+
+    const markers: { x: number; label: string }[] = [];
+    const start = new Date(min);
+    const cursor = new Date(start);
+    cursor.setHours(0, 0, 0, 0);
+    if (granularity === "week") {
+      // Start at the most recent Monday on or before min.
+      const dow = cursor.getDay() || 7;
+      cursor.setDate(cursor.getDate() - (dow - 1));
+    } else {
+      cursor.setDate(1);
+      if (granularity === "quarter") {
+        cursor.setMonth(Math.floor(cursor.getMonth() / 3) * 3);
+      }
+    }
+
+    let safety = 0;
+    while (cursor.getTime() <= max + 24 * 60 * 60 * 1000 && safety++ < 400) {
+      const t = cursor.getTime();
+      const x = xForTime(t);
+      let label: string;
+      if (granularity === "week") {
+        label = cursor.toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+        });
+      } else if (granularity === "month") {
+        label = cursor.toLocaleDateString(undefined, {
+          month: "short",
+          year: "2-digit",
+        });
+      } else {
+        const q = Math.floor(cursor.getMonth() / 3) + 1;
+        label = `Q${q} ${String(cursor.getFullYear()).slice(2)}`;
+      }
+      markers.push({ x, label });
+      if (granularity === "week") cursor.setDate(cursor.getDate() + 7);
+      else if (granularity === "month") cursor.setMonth(cursor.getMonth() + 1);
+      else cursor.setMonth(cursor.getMonth() + 3);
+    }
+
+    const yByKind: Record<GardenKind, number> = {
+      article: 0.2 * height,
+      note: 0.4 * height,
+      workflow: 0.6 * height,
+      list: 0.8 * height,
+    };
+    return { markers, yByKind };
+  });
+
+  // Theme-aware text halo. The stroke acts as a paint-order outline behind
+  // text labels so they remain readable when crossing over edges/nodes. In
+  // dark mode a white halo would create a hard ring around light text.
+  let haloStroke = $derived(
+    theme.resolved === "dark" ? "rgba(15,23,42,0.9)" : "rgba(255,255,255,0.9)",
+  );
+
   let searchTrim = $derived(search.trim().toLowerCase());
   function matchesSearch(n: GardenNode): boolean {
     if (!searchTrim) return true;
@@ -150,73 +284,222 @@
     });
   }
 
-  function computeLayout(rawNodes: GardenNode[], rawEdges: GardenEdge[], l: Layout) {
-    const sim = forceSimulation<GardenNode>(rawNodes)
-      .force(
-        "link",
-        forceLink<GardenNode, GardenEdge>(rawEdges)
-          .id((d) => d.id)
-          .distance((e) => (e.kind === "same-day" ? 100 : 70))
-          .strength((e) => (e.kind === "same-day" ? 0.1 : 0.4)),
-      )
-      .force("charge", forceManyBody().strength(-260))
-      .force(
-        "collide",
-        forceCollide<GardenNode>().radius((n) => nodeRadius(n) + 5),
-      )
-      .stop(); // disable autoplay — we'll tick manually below
+  // Orphan layouts: each mode places degree-0 nodes in a way that matches
+  // the rest of the canvas, so switching layouts is visibly different even
+  // when most nodes are unconnected.
 
-    if (l === "force") {
-      sim.force("center", forceCenter(width / 2, height / 2));
-    } else if (l === "radial") {
-      const orbits: Record<GardenKind, number> = {
-        article: 80,
-        note: 170,
-        list: 260,
-        workflow: 220,
-      };
-      sim.force(
-        "radial",
-        forceRadial<GardenNode>(
-          (n) => orbits[n.kind],
-          width / 2,
-          height / 2,
-        ).strength(0.9),
-      );
-    } else {
-      const yByKind: Record<GardenKind, number> = {
-        article: 0.2,
-        note: 0.4,
-        workflow: 0.6,
-        list: 0.8,
-      };
-      const dates = rawNodes
-        .map((n) =>
-          n.createdAt
-            ? new Date(n.createdAt.replace(" ", "T") + "Z").getTime()
-            : 0,
-        )
-        .filter((t) => t > 0);
-      const min = Math.min(...dates, Date.now());
-      const max = Math.max(...dates, Date.now());
-      const span = Math.max(max - min, 1);
-      sim.force(
-        "xLayout",
-        forceX<GardenNode>((n) => {
-          if (!n.createdAt) return width / 2;
-          const t = new Date(n.createdAt.replace(" ", "T") + "Z").getTime();
-          return 80 + ((t - min) / span) * (width - 160);
-        }).strength(0.6),
-      );
-      sim.force(
-        "yLayout",
-        forceY<GardenNode>((n) => yByKind[n.kind] * height).strength(0.6),
-      );
+  function placeOrphansGrid(
+    orphans: GardenNode[],
+    centerX: number,
+    anchorY: number,
+  ) {
+    if (orphans.length === 0) return;
+    const kindOrder: Record<GardenKind, number> = {
+      note: 0,
+      article: 1,
+      workflow: 2,
+      list: 3,
+    };
+    orphans.sort((a, b) => (kindOrder[a.kind] ?? 9) - (kindOrder[b.kind] ?? 9));
+
+    const spacing = 38;
+    const cols = Math.max(1, Math.ceil(Math.sqrt(orphans.length * 1.6)));
+    const gridWidth = (cols - 1) * spacing;
+    const startX = centerX - gridWidth / 2;
+
+    orphans.forEach((node, i) => {
+      const row = Math.floor(i / cols);
+      const col = i % cols;
+      node.x = startX + col * spacing;
+      node.y = anchorY + row * spacing;
+    });
+  }
+
+  // Radial layout: all nodes (connected + orphan) get packed into one
+  // tight cluster per kind. Lays out the cluster center per kind in a
+  // 2×2 quadrant grid; each cluster uses a sunflower / phyllotactic
+  // packing for visual tightness. Returns the per-kind center map so
+  // the template can draw labels above each cluster.
+  function radialKindCenters(): Record<GardenKind, { cx: number; cy: number }> {
+    return {
+      note: { cx: width * 0.28, cy: height * 0.34 },
+      article: { cx: width * 0.72, cy: height * 0.34 },
+      workflow: { cx: width * 0.28, cy: height * 0.7 },
+      list: { cx: width * 0.72, cy: height * 0.7 },
+    };
+  }
+
+  function placeRadialKindClusters(allNodes: GardenNode[]) {
+    if (allNodes.length === 0) return;
+    const byKind = new Map<GardenKind, GardenNode[]>();
+    for (const n of allNodes) {
+      const arr = byKind.get(n.kind) ?? [];
+      arr.push(n);
+      byKind.set(n.kind, arr);
+    }
+    const centers = radialKindCenters();
+    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+    const baseRadius = 18;
+    for (const [kind, group] of byKind) {
+      const { cx, cy } = centers[kind];
+      group.forEach((node, i) => {
+        if (i === 0) {
+          node.x = cx;
+          node.y = cy;
+        } else {
+          const angle = i * goldenAngle;
+          const r = Math.sqrt(i) * baseRadius;
+          node.x = cx + Math.cos(angle) * r;
+          node.y = cy + Math.sin(angle) * r;
+        }
+      });
+    }
+  }
+
+  function placeOrphansTimeline(orphans: GardenNode[]) {
+    if (orphans.length === 0) return;
+    const yByKind: Record<GardenKind, number> = {
+      article: 0.2,
+      note: 0.4,
+      workflow: 0.6,
+      list: 0.8,
+    };
+    const dates = orphans
+      .map((n) =>
+        n.createdAt
+          ? new Date(n.createdAt.replace(" ", "T") + "Z").getTime()
+          : 0,
+      )
+      .filter((t) => t > 0);
+    if (dates.length === 0) {
+      // No createdAt info — fall back to grid spread along the row.
+      orphans.forEach((node, i) => {
+        node.x = 80 + (i / Math.max(1, orphans.length - 1)) * (width - 160);
+        node.y = yByKind[node.kind] * height;
+      });
+      return;
+    }
+    const min = Math.min(...dates, Date.now());
+    const max = Math.max(...dates, Date.now());
+    const span = Math.max(max - min, 1);
+    for (const n of orphans) {
+      if (!n.createdAt) {
+        n.x = width / 2;
+        n.y = yByKind[n.kind] * height;
+        continue;
+      }
+      const t = new Date(n.createdAt.replace(" ", "T") + "Z").getTime();
+      n.x = 80 + ((t - min) / span) * (width - 160);
+      n.y = yByKind[n.kind] * height;
+    }
+  }
+
+  function computeLayout(rawNodes: GardenNode[], rawEdges: GardenEdge[], l: Layout) {
+    // Radial mode is "quantify by kind": pack everything into 4 buckets
+    // per kind. No force simulation — buckets stay clean even when there
+    // are cross-kind links (which still render as lines between clusters).
+    if (l === "radial") {
+      placeRadialKindClusters(rawNodes);
+      return;
     }
 
-    // Synchronous tick burst — no callbacks, no rAF, no continuous updates.
-    const iterations = Math.min(200, Math.max(60, rawNodes.length * 3));
-    for (let i = 0; i < iterations; i++) sim.tick();
+    // Split the graph: connected nodes get force-simulated together; orphans
+    // get placed in a separate grouped grid so they don't push the connected
+    // cluster outward through charge repulsion.
+    const connected = rawNodes.filter((n) => n.degree > 0);
+    const orphans = rawNodes.filter((n) => n.degree === 0);
+
+    // ----- connected subgraph -----
+    if (connected.length > 0) {
+      const connectedIds = new Set(connected.map((n) => n.id));
+      const connectedEdges = rawEdges.filter((e) => {
+        const sId = typeof e.source === "string" ? e.source : e.source.id;
+        const tId = typeof e.target === "string" ? e.target : e.target.id;
+        return connectedIds.has(sId) && connectedIds.has(tId);
+      });
+
+      const chargeStrength = -70 - Math.min(connected.length, 200) * 1.2;
+      const sim = forceSimulation<GardenNode>(connected)
+        .force(
+          "link",
+          forceLink<GardenNode, GardenEdge>(connectedEdges)
+            .id((d) => d.id)
+            .distance((e) => (e.kind === "same-day" ? 70 : 50))
+            .strength((e) => (e.kind === "same-day" ? 0.1 : 0.5)),
+        )
+        .force("charge", forceManyBody().strength(chargeStrength))
+        .force(
+          "collide",
+          forceCollide<GardenNode>().radius((n) => nodeRadius(n) + 5),
+        )
+        .stop();
+
+      // Only reserve vertical room for the orphan grid in force mode;
+      // radial / timeline place orphans on the same coordinate system as
+      // connected, so the connected cluster should use the full canvas.
+      const orphanReserve =
+        l === "force" && orphans.length > 0 ? 80 : 0;
+      const centerY = height / 2 - orphanReserve / 2;
+
+      if (l === "force") {
+        sim.force("center", forceCenter(width / 2, centerY));
+      } else {
+        const yByKind: Record<GardenKind, number> = {
+          article: 0.2,
+          note: 0.4,
+          workflow: 0.6,
+          list: 0.8,
+        };
+        const dates = connected
+          .map((n) =>
+            n.createdAt
+              ? new Date(n.createdAt.replace(" ", "T") + "Z").getTime()
+              : 0,
+          )
+          .filter((t) => t > 0);
+        const min = Math.min(...dates, Date.now());
+        const max = Math.max(...dates, Date.now());
+        const span = Math.max(max - min, 1);
+        sim.force(
+          "xLayout",
+          forceX<GardenNode>((n) => {
+            if (!n.createdAt) return width / 2;
+            const t = new Date(n.createdAt.replace(" ", "T") + "Z").getTime();
+            return 80 + ((t - min) / span) * (width - 160);
+          }).strength(0.6),
+        );
+        sim.force(
+          "yLayout",
+          forceY<GardenNode>((n) => yByKind[n.kind] * height).strength(0.6),
+        );
+      }
+
+      const iterations = Math.min(200, Math.max(60, connected.length * 3));
+      for (let i = 0; i < iterations; i++) sim.tick();
+    }
+
+    // ----- orphans -----
+    if (orphans.length > 0) {
+      if (l === "force") {
+        // Grid parked below the connected cluster.
+        let anchorY = height / 2;
+        let anchorX = width / 2;
+        if (connected.length > 0) {
+          let maxY = -Infinity;
+          let sumX = 0;
+          for (const n of connected) {
+            if ((n.y ?? 0) > maxY) maxY = n.y as number;
+            sumX += n.x ?? 0;
+          }
+          anchorY = maxY + 60;
+          anchorX = sumX / connected.length;
+        }
+        placeOrphansGrid(orphans, anchorX, anchorY);
+      } else {
+        // Timeline: orphans use the same date/kind axes as connected.
+        placeOrphansTimeline(orphans);
+      }
+    }
   }
 
   async function rebuild(g: NonNullable<typeof app.gardenGraph>) {
@@ -243,6 +526,9 @@
     nodes = newNodes;
     edges = newEdges;
     computing = false;
+    // Let derived values settle, then frame the content.
+    await tick();
+    fitToView();
   }
 
   // ----- effects -----
@@ -269,8 +555,10 @@
       await tick();
       await new Promise((r) => setTimeout(r, 0));
       computeLayout(nodes, edges, current);
-      nodes = nodes.slice();
+      commit();
       computing = false;
+      await tick();
+      fitToView();
     })();
   });
 
@@ -283,6 +571,9 @@
 
   function onBackgroundPointerDown(e: PointerEvent) {
     if (e.button !== 0) return;
+    // WKWebView treats SVG content as selectable by default — suppress the
+    // marquee/text-selection visual.
+    e.preventDefault();
     panning = true;
     panStartX = e.clientX;
     panStartY = e.clientY;
@@ -326,41 +617,104 @@
     zoomY = cy - py * newK;
   }
   function resetZoom() {
+    // Two-step so the change is always visible. fitToView alone is a no-op
+    // when the user is already at the fitted position (which is the
+    // default after every layout compute) — so snap to canvas defaults
+    // first, then on the next frame fit to the actual content. The user
+    // always sees the view jump.
     zoomK = 1;
     zoomX = 0;
     zoomY = 0;
+    requestAnimationFrame(() => fitToView());
+  }
+
+  // Center + scale the canvas so all visible nodes fit with a comfortable
+  // margin. Critical UX for sparse graphs: otherwise the user has to
+  // hunt-and-zoom to find their content.
+  function fitToView() {
+    const items = visibleNodes.filter(
+      (n) => n.x !== undefined && n.y !== undefined,
+    );
+    if (items.length === 0) {
+      zoomK = 1;
+      zoomX = 0;
+      zoomY = 0;
+      return;
+    }
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of items) {
+      const r = nodeRadius(n) + 12;
+      if ((n.x as number) - r < minX) minX = (n.x as number) - r;
+      if ((n.y as number) - r < minY) minY = (n.y as number) - r;
+      if ((n.x as number) + r > maxX) maxX = (n.x as number) + r;
+      if ((n.y as number) + r > maxY) maxY = (n.y as number) + r;
+    }
+    const bw = Math.max(1, maxX - minX);
+    const bh = Math.max(1, maxY - minY);
+    const pad = 60;
+    const kx = (width - pad * 2) / bw;
+    const ky = (height - pad * 2) / bh;
+    // Clamp: don't zoom past 1× (no weird pixel-level zooming when content
+    // is tiny) and respect the user's overall scale range.
+    const k = Math.max(0.3, Math.min(1.4, Math.min(kx, ky)));
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    zoomK = k;
+    zoomX = width / 2 - cx * k;
+    zoomY = height / 2 - cy * k;
   }
 
   // ----- node drag (no simulation involved) -----
   let dragId = $state<string | null>(null);
   let dragOffsetX = 0;
   let dragOffsetY = 0;
+  // Tracks whether the user actually moved during a drag. Used to suppress
+  // the synthetic `click` that fires after pointerup so the inspector
+  // doesn't pop open every time the user drags a node.
+  let dragMoved = false;
+  let suppressNextClick = false;
 
   function startNodeDrag(node: GardenNode, e: PointerEvent) {
     if (e.button !== 0) return;
+    // Stop propagation to avoid kicking off a pan; preventDefault to avoid
+    // WKWebView drawing a marquee selection rectangle over the SVG.
     e.stopPropagation();
+    e.preventDefault();
     dragId = node.id;
     dragOffsetX = e.clientX;
     dragOffsetY = e.clientY;
+    dragMoved = false;
     try {
       (e.currentTarget as Element).setPointerCapture(e.pointerId);
     } catch {
       // ignore
     }
   }
-  function moveNodeDrag(node: GardenNode, e: PointerEvent) {
-    if (dragId !== node.id || !container) return;
+  function moveNodeDrag(_node: GardenNode, e: PointerEvent) {
+    if (dragId === null || !container) return;
+    if (!dragMoved) {
+      // Threshold so a tiny twitch doesn't disqualify a click.
+      const dx = e.clientX - dragOffsetX;
+      const dy = e.clientY - dragOffsetY;
+      if (dx * dx + dy * dy > 16) dragMoved = true;
+    }
+    if (!dragMoved) return;
+    // Look up the node by id each move — commit() replaces refs after
+    // every render, so the captured `_node` may be stale.
+    const target = nodes.find((n) => n.id === dragId);
+    if (!target) return;
     const rect = container.getBoundingClientRect();
     const cx = e.clientX - rect.left;
     const cy = e.clientY - rect.top;
-    node.x = (cx - zoomX) / zoomK;
-    node.y = (cy - zoomY) / zoomK;
-    // Trigger re-render of just this node's position by reassigning array.
-    nodes = nodes.slice();
+    target.x = (cx - zoomX) / zoomK;
+    target.y = (cy - zoomY) / zoomK;
+    commit();
   }
   function endNodeDrag(e: PointerEvent) {
     if (dragId === null) return;
+    if (dragMoved) suppressNextClick = true;
     dragId = null;
+    dragMoved = false;
     try {
       (e.currentTarget as Element).releasePointerCapture(e.pointerId);
     } catch {
@@ -456,7 +810,8 @@
     viewBox={`0 0 ${width} ${height}`}
     preserveAspectRatio="xMidYMid meet"
     aria-label="Knowledge garden — interactive graph"
-    class="absolute inset-0 h-full w-full"
+    class="absolute inset-0 h-full w-full select-none"
+    style="-webkit-user-select: none; touch-action: none;"
     onwheel={onWheel}
   >
     <rect
@@ -481,6 +836,86 @@
     />
 
     <g transform={`translate(${zoomX},${zoomY}) scale(${zoomK})`}>
+      <!-- Timeline axes (drawn below edges so they sit in the background). -->
+      {#if layout === "timeline" && timelineAxes}
+        <g>
+          {#each timelineAxes.markers as m (m.x)}
+            <line
+              x1={m.x}
+              y1="40"
+              x2={m.x}
+              y2={height - 20}
+              stroke="currentColor"
+              stroke-width="1"
+              opacity="0.1"
+              class="text-neutral-700 dark:text-neutral-300"
+            />
+            <text
+              x={m.x}
+              y="28"
+              text-anchor="middle"
+              font-size="11"
+              fill="currentColor"
+              class="pointer-events-none select-none text-neutral-500 dark:text-neutral-400"
+              style="paint-order: stroke; stroke: {haloStroke}; stroke-width: 3px;"
+            >
+              {m.label}
+            </text>
+          {/each}
+          {#each (["article", "note", "workflow", "list"] as GardenKind[]) as k}
+            {#if typeFilter[k]}
+              <text
+                x="18"
+                y={timelineAxes.yByKind[k] + 4}
+                font-size="11"
+                font-weight="600"
+                fill="currentColor"
+                class="pointer-events-none select-none text-neutral-500 dark:text-neutral-400"
+                style="paint-order: stroke; stroke: {haloStroke}; stroke-width: 3px;"
+              >
+                {k}s
+              </text>
+            {/if}
+          {/each}
+        </g>
+      {/if}
+
+      <!-- Radial cluster labels. -->
+      {#if layout === "radial"}
+        <g>
+          {#each (["note", "article", "workflow", "list"] as GardenKind[]) as k}
+            {#if typeFilter[k] && kindCounts[k] > 0}
+              {@const center = radialCenters[k]}
+              {@const offset = Math.sqrt(kindCounts[k]) * 18 + 28}
+              <text
+                x={center.cx}
+                y={center.cy - offset}
+                text-anchor="middle"
+                font-size="13"
+                font-weight="600"
+                fill="currentColor"
+                class="pointer-events-none select-none text-neutral-700 dark:text-neutral-200"
+                style="paint-order: stroke; stroke: {haloStroke}; stroke-width: 4px;"
+              >
+                {k}s
+              </text>
+              <text
+                x={center.cx}
+                y={center.cy - offset + 16}
+                text-anchor="middle"
+                font-size="11"
+                fill="currentColor"
+                class="pointer-events-none select-none text-neutral-400 dark:text-neutral-500"
+                style="paint-order: stroke; stroke: {haloStroke}; stroke-width: 3px;"
+              >
+                {kindCounts[k]}
+                {kindCounts[k] === 1 ? "item" : "items"}
+              </text>
+            {/if}
+          {/each}
+        </g>
+      {/if}
+
       <g>
         {#each visibleEdges as e (edgeKey(e))}
           {@const s = typeof e.source === "string" ? null : e.source}
@@ -537,6 +972,10 @@
                 onpointerleave={() => (hoveredId = null)}
                 onclick={(e) => {
                   e.stopPropagation();
+                  if (suppressNextClick) {
+                    suppressNextClick = false;
+                    return;
+                  }
                   selectedId = n.id;
                 }}
                 onkeydown={(e) => {
@@ -560,7 +999,7 @@
                   font-family="ui-sans-serif, system-ui, sans-serif"
                   fill="currentColor"
                   class="pointer-events-none select-none text-neutral-800 dark:text-neutral-100"
-                  style="paint-order: stroke; stroke: rgba(255,255,255,0.85); stroke-width: 3px;"
+                  style="paint-order: stroke; stroke: {haloStroke}; stroke-width: 3px;"
                 >
                   {n.title}
                 </text>
@@ -573,9 +1012,17 @@
   </svg>
 
   {#if computing}
-    <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
-      <div class="rounded-md bg-white/90 px-4 py-2 text-sm text-neutral-600 shadow-sm dark:bg-neutral-900/90 dark:text-neutral-300">
-        Computing layout…
+    <div class="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-white/40 backdrop-blur-sm dark:bg-neutral-950/40">
+      <div class="flex items-center gap-3 rounded-lg border border-neutral-200/70 bg-white/95 px-5 py-3 text-sm font-medium text-neutral-700 shadow-xl dark:border-neutral-700/70 dark:bg-neutral-900/95 dark:text-neutral-200">
+        <svg
+          viewBox="0 0 24 24"
+          class="h-4 w-4 animate-spin text-emerald-600 dark:text-emerald-400"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.5" fill="none" stroke-opacity="0.2" />
+          <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none" />
+        </svg>
+        <span>Computing <span class="font-semibold">{layout}</span> layout…</span>
       </div>
     </div>
   {:else if app.gardenLoading}
@@ -620,7 +1067,11 @@
           class:dark:bg-neutral-900={!typeFilter[k]}
           class:dark:border-neutral-700={!typeFilter[k]}
           class:dark:text-neutral-400={!typeFilter[k]}
-          onclick={() => (typeFilter[k] = !typeFilter[k])}
+          onclick={async () => {
+            typeFilter[k] = !typeFilter[k];
+            await tick();
+            fitToView();
+          }}
         >
           {k}s
         </button>
@@ -633,7 +1084,7 @@
       {#each (["force", "radial", "timeline"] as Layout[]) as l}
         <button
           type="button"
-          class="px-2.5 py-1"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1"
           class:bg-emerald-600={layout === l}
           class:text-white={layout === l}
           class:hover:bg-emerald-700={layout === l}
@@ -641,8 +1092,15 @@
           class:hover:bg-neutral-100={layout !== l}
           class:dark:text-neutral-300={layout !== l}
           class:dark:hover:bg-neutral-800={layout !== l}
+          disabled={computing}
           onclick={() => (layout = l)}
         >
+          {#if computing && layout === l}
+            <svg viewBox="0 0 24 24" class="h-3 w-3 animate-spin" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.5" fill="none" stroke-opacity="0.3" />
+              <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none" />
+            </svg>
+          {/if}
           {l}
         </button>
       {/each}
@@ -651,35 +1109,38 @@
       type="button"
       class="rounded-md border border-neutral-300/70 bg-white/85 px-2.5 py-1 text-xs text-neutral-600 shadow-sm backdrop-blur hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/80 dark:text-neutral-300 dark:hover:bg-neutral-800"
       onclick={resetZoom}
+      title="Frame all visible items"
     >
-      Reset
+      Fit view
     </button>
   </div>
 
-  <div class="absolute bottom-4 left-4 z-20 flex flex-col gap-2 rounded-md border border-neutral-300/70 bg-white/85 px-3 py-2 text-[11px] text-neutral-600 shadow-sm backdrop-blur dark:border-neutral-700/70 dark:bg-neutral-900/80 dark:text-neutral-300">
+  <div class="absolute bottom-4 left-4 z-20 flex flex-col gap-1.5 rounded-md border border-neutral-300/70 bg-white/85 px-3 py-2 text-[11px] text-neutral-600 shadow-sm backdrop-blur dark:border-neutral-700/70 dark:bg-neutral-900/80 dark:text-neutral-300">
     <div class="flex items-center gap-3">
-      <span class="inline-flex items-center gap-1">
-        <span class="inline-block h-3 w-3 rounded-full" style="background: {MATURITY_COLOR.seedling};"></span>
-        seedling
+      <span class="inline-flex items-center gap-1.5">
+        <span class="inline-block h-3 w-3 rounded-full" style="background: {kindSwatch('note')};"></span>
+        note
       </span>
-      <span class="inline-flex items-center gap-1">
-        <span class="inline-block h-3 w-3 rounded-full" style="background: {MATURITY_COLOR.budding};"></span>
-        budding
+      <span class="inline-flex items-center gap-1.5">
+        <span class="inline-block h-3 w-3 rounded-sm" style="background: {kindSwatch('article')};"></span>
+        article
       </span>
-      <span class="inline-flex items-center gap-1">
-        <span class="inline-block h-3 w-3 rounded-full" style="background: {MATURITY_COLOR.evergreen};"></span>
-        evergreen
+      <span class="inline-flex items-center gap-1.5">
+        <span class="inline-block h-3 w-3 rotate-45" style="background: {kindSwatch('workflow')};"></span>
+        workflow
       </span>
-      <span class="inline-flex items-center gap-1">
-        <span class="inline-block h-3 w-3 rounded-full" style="background: {MATURITY_COLOR.dormant};"></span>
-        dormant
+      <span class="inline-flex items-center gap-1.5">
+        <span class="inline-block h-3 w-3" style="background: {kindSwatch('list')}; clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);"></span>
+        list
       </span>
     </div>
-    <div class="flex items-center gap-3">
-      <span>● note</span>
-      <span>■ article</span>
-      <span>◆ workflow</span>
-      <span>⬢ list</span>
+    <div class="flex items-center gap-3 opacity-80">
+      <span class="uppercase tracking-widest text-neutral-400 dark:text-neutral-500">maturity:</span>
+      <span>pale = seedling</span>
+      <span aria-hidden="true">→</span>
+      <span>deep = evergreen</span>
+      <span aria-hidden="true">·</span>
+      <span>grey = dormant</span>
     </div>
   </div>
 
