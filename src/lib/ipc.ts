@@ -68,6 +68,7 @@ export type Workflow = {
   title: string;
   description: string | null;
   pinned: boolean;
+  archived: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -77,6 +78,7 @@ export type WorkflowSummary = {
   title: string;
   stepCount: number;
   pinned: boolean;
+  archived: boolean;
 };
 
 export type WorkflowStep = {
@@ -95,6 +97,7 @@ export type Note = {
   date: string;
   body: string;
   pinned: boolean;
+  archived: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -104,6 +107,7 @@ export type NoteSummary = {
   title: string;
   date: string;
   pinned: boolean;
+  archived: boolean;
 };
 
 export type IndexDoc = {
@@ -116,6 +120,7 @@ export type Article = {
   title: string;
   body: string;
   pinned: boolean;
+  archived: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -124,11 +129,12 @@ export type ArticleSummary = {
   id: number;
   title: string;
   pinned: boolean;
+  archived: boolean;
   updatedAt: string;
 };
 
 export type MapEntityKind = "note" | "article" | "workflow";
-export type MapNodeKind = MapEntityKind | "text";
+export type MapNodeKind = MapEntityKind | "text" | "comment" | "custom";
 
 export type MapNode = {
   id: number;
@@ -219,6 +225,8 @@ export const deleteWorkflow = (id: number) =>
   invoke<void>("delete_workflow", { id });
 export const setWorkflowPinned = (id: number, pinned: boolean) =>
   invoke<Workflow>("set_workflow_pinned", { id, pinned });
+export const setWorkflowArchived = (id: number, archived: boolean) =>
+  invoke<Workflow>("set_workflow_archived", { id, archived });
 export const listWorkflowSteps = (workflowId: number) =>
   invoke<WorkflowStep[]>("list_workflow_steps", { workflowId });
 export const createWorkflowStep = (
@@ -261,6 +269,8 @@ export const deleteNote = (id: number) =>
   invoke<void>("delete_note", { id });
 export const setNotePinned = (id: number, pinned: boolean) =>
   invoke<Note>("set_note_pinned", { id, pinned });
+export const setNoteArchived = (id: number, archived: boolean) =>
+  invoke<Note>("set_note_archived", { id, archived });
 
 // Articles
 export const listArticles = () => invoke<ArticleSummary[]>("list_articles");
@@ -276,6 +286,8 @@ export const deleteArticle = (id: number) =>
   invoke<void>("delete_article", { id });
 export const setArticlePinned = (id: number, pinned: boolean) =>
   invoke<Article>("set_article_pinned", { id, pinned });
+export const setArticleArchived = (id: number, archived: boolean) =>
+  invoke<Article>("set_article_archived", { id, archived });
 
 // Index doc
 export const getIndexDoc = () => invoke<IndexDoc>("get_index_doc");
@@ -292,6 +304,10 @@ export const addMapNode = (
 ) => invoke<MapNode>("add_map_node", { kind, entityId, x, y });
 export const addMapText = (content: string, x: number, y: number) =>
   invoke<MapNode>("add_map_text", { content, x, y });
+export const addMapComment = (content: string, x: number, y: number) =>
+  invoke<MapNode>("add_map_comment", { content, x, y });
+export const addMapCustom = (content: string, x: number, y: number) =>
+  invoke<MapNode>("add_map_custom", { content, x, y });
 export const updateMapNodeContent = (id: number, content: string) =>
   invoke<MapNode>("update_map_node_content", { id, content });
 export const moveMapNode = (id: number, x: number, y: number) =>

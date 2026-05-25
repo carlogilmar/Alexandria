@@ -27,7 +27,10 @@
   let width = $state(800);
   let height = $state(600);
 
-  let layout = $state<Layout>("force");
+  // Radial is the most useful default — it answers "how much of each kind
+  // do I have?" at a glance. Force layout (organic clusters) and timeline
+  // (chronological flow) are one click away.
+  let layout = $state<Layout>("radial");
   let search = $state("");
   // Lists are "in-flight knowledge" (daily todos); the knowledge base lives
   // in notes/articles/workflows. Hide lists by default; user can opt in.

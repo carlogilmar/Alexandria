@@ -3,6 +3,7 @@
   import {
     Background,
     Controls,
+    MarkerType,
     MiniMap,
     SvelteFlow,
     useSvelteFlow,
@@ -15,6 +16,8 @@
   import type { MapEdge, MapEntityKind, MapNode } from "$lib/ipc";
   import MapNodeCard from "$lib/components/MapNodeCard.svelte";
   import MapTextNode from "$lib/components/MapTextNode.svelte";
+  import MapCommentNode from "$lib/components/MapCommentNode.svelte";
+  import MapCustomNode from "$lib/components/MapCustomNode.svelte";
   import AddToMapPalette from "$lib/components/AddToMapPalette.svelte";
   import { theme } from "$lib/stores/theme.svelte";
 
@@ -31,6 +34,26 @@
         id: String(n.id),
         type: "textNote",
         position: { x: n.x, y: n.y },
+        width: 220,
+        height: 90,
+        data: { mapNodeId: n.id, content: n.content ?? "" },
+      };
+    }
+    if (n.kind === "comment") {
+      return {
+        id: String(n.id),
+        type: "comment",
+        position: { x: n.x, y: n.y },
+        data: { mapNodeId: n.id, content: n.content ?? "" },
+      };
+    }
+    if (n.kind === "custom") {
+      return {
+        id: String(n.id),
+        type: "custom",
+        position: { x: n.x, y: n.y },
+        width: 220,
+        height: 100,
         data: { mapNodeId: n.id, content: n.content ?? "" },
       };
     }
@@ -51,12 +74,15 @@
       source: String(e.sourceId),
       target: String(e.targetId),
       label: e.label ?? undefined,
+      markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
     };
   }
 
   const nodeTypes: NodeTypes = {
     mapCard: MapNodeCard as unknown as NodeTypes[string],
     textNote: MapTextNode as unknown as NodeTypes[string],
+    comment: MapCommentNode as unknown as NodeTypes[string],
+    custom: MapCustomNode as unknown as NodeTypes[string],
   };
 
   // Reactive sync from store → local flow arrays. Runs whenever the store
@@ -87,11 +113,13 @@
     const targetId = Number(connection.target);
     if (!Number.isFinite(sourceId) || !Number.isFinite(targetId)) return;
     if (sourceId === targetId) return;
-    // Don't connect to/from text nodes — they're decorative.
+    // Reject connections involving decoration-only kinds. Custom nodes
+    // act like entity cards and CAN participate in edges.
     const sourceNode = app.mapNodes.find((n) => n.id === sourceId);
     const targetNode = app.mapNodes.find((n) => n.id === targetId);
     if (!sourceNode || !targetNode) return;
-    if (sourceNode.kind === "text" || targetNode.kind === "text") return;
+    const decorative = new Set(["text", "comment"]);
+    if (decorative.has(sourceNode.kind) || decorative.has(targetNode.kind)) return;
     // No-op if a backend edge already exists for this pair.
     if (
       app.mapEdges.some(
@@ -166,7 +194,15 @@
 
   async function handleAddText() {
     const pos = nextCascadePosition();
-    await app.addMapText("New text", pos.x, pos.y);
+    await app.addMapText("", pos.x, pos.y);
+  }
+  async function handleAddComment() {
+    const pos = nextCascadePosition();
+    await app.addMapComment("", pos.x, pos.y);
+  }
+  async function handleAddCustom() {
+    const pos = nextCascadePosition();
+    await app.addMapCustom("", pos.x, pos.y);
   }
 
   function onDragOver(e: DragEvent) {
@@ -217,9 +253,9 @@
     bind:edges={flowEdges}
     {nodeTypes}
     fitView
-    fitViewOptions={{ maxZoom: 1.1, padding: 0.25 }}
-    minZoom={0.2}
-    maxZoom={2}
+    fitViewOptions={{ maxZoom: 1, padding: 0.3 }}
+    minZoom={0.3}
+    maxZoom={1.5}
     colorMode={colorMode}
     onnodedragstop={onNodeDragStop}
     onconnect={onConnect}
@@ -231,20 +267,51 @@
     <MiniMap pannable zoomable />
   </SvelteFlow>
 
-  <!-- Floating "Add text" button, top-left so it's out of the palette's way. -->
-  <button
-    type="button"
-    class="absolute left-4 top-4 z-20 inline-flex items-center gap-1.5 rounded-md border border-neutral-300/70 bg-white/90 px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm backdrop-blur hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/85 dark:text-neutral-200 dark:hover:bg-neutral-800"
-    onclick={handleAddText}
-    title="Drop a free-text note on the canvas"
-  >
-    <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
-      <path d="M4 4a2 2 0 012-2h8a2 2 0 012 2v3a1 1 0 11-2 0V4H6v12h4a1 1 0 110 2H6a2 2 0 01-2-2V4zm10 6a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z" />
-    </svg>
-    + Add text
-  </button>
+  <!-- Add-affordance cluster (top-right). Four ways to drop content on
+       the canvas:
+         · Text label (yellow sticky)
+         · Comment    (plain text, no chrome)
+         · Custom     (card-style with editable content)
+         · Entity     (palette of existing notes/articles/workflows) -->
+  <div class="absolute right-4 top-4 z-20 flex items-start gap-2">
+    <button
+      type="button"
+      class="inline-flex items-center gap-1.5 rounded-md border border-amber-300/70 bg-amber-50/90 px-3 py-1.5 text-xs font-medium text-amber-800 shadow-sm backdrop-blur hover:bg-amber-100 dark:border-amber-800/70 dark:bg-amber-950/70 dark:text-amber-200 dark:hover:bg-amber-900"
+      onclick={handleAddText}
+      title="Drop a yellow sticky note on the canvas"
+    >
+      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+        <path d="M4 4a2 2 0 012-2h10a2 2 0 012 2v9.586a1 1 0 01-.293.707l-3.414 3.414A1 1 0 0111.586 18H6a2 2 0 01-2-2V4zm10 11h2v-2h-2v2z" />
+      </svg>
+      Text label
+    </button>
 
-  <AddToMapPalette
-    onAddEntity={(kind, entityId, x, y) => handleAddEntity(kind, entityId, x, y)}
-  />
+    <button
+      type="button"
+      class="inline-flex items-center gap-1.5 rounded-md border border-neutral-300/70 bg-white/90 px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm backdrop-blur hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/85 dark:text-neutral-200 dark:hover:bg-neutral-800"
+      onclick={handleAddComment}
+      title="Drop a free-form comment (no chrome)"
+    >
+      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+        <path fill-rule="evenodd" d="M3 4a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-3.586l-2.707 2.707A1 1 0 017 16v-2H5a2 2 0 01-2-2V4zm4 4a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
+      </svg>
+      Comment
+    </button>
+
+    <button
+      type="button"
+      class="inline-flex items-center gap-1.5 rounded-md border border-neutral-300/70 bg-white/90 px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm backdrop-blur hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/85 dark:text-neutral-200 dark:hover:bg-neutral-800"
+      onclick={handleAddCustom}
+      title="Drop a custom node (card-style, can be connected)"
+    >
+      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+        <path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm2 0v10h10V5H5z"/>
+      </svg>
+      Custom node
+    </button>
+
+    <AddToMapPalette
+      onAddEntity={(kind, entityId, x, y) => handleAddEntity(kind, entityId, x, y)}
+    />
+  </div>
 </div>

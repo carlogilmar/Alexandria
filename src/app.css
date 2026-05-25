@@ -29,3 +29,15 @@ html.dark body {
   color: #f5f5f7;
   background-color: #0a0a0a;
 }
+
+/* xyflow zoom-rendering quality: keep nodes / text on the same layer as
+   the viewport transform so the browser re-rasterizes text crisply on
+   zoom (instead of bitmap-scaling cached per-node layers). Override any
+   default `will-change` xyflow applies to individual nodes. */
+.svelte-flow__viewport {
+  -webkit-font-smoothing: subpixel-antialiased;
+}
+.svelte-flow__node {
+  will-change: auto;
+  -webkit-font-smoothing: subpixel-antialiased;
+}

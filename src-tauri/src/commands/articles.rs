@@ -6,7 +6,7 @@ use tauri::State;
 
 pub(crate) async fn all(pool: &SqlitePool) -> AppResult<Vec<ArticleSummary>> {
     sqlx::query_as::<_, ArticleSummary>(
-        "SELECT id, title, pinned, updated_at FROM articles
+        "SELECT id, title, pinned, archived, updated_at FROM articles
           ORDER BY updated_at DESC, id DESC",
     )
     .fetch_all(pool)
@@ -87,6 +87,18 @@ pub(crate) async fn set_pinned(pool: &SqlitePool, id: i64, pinned: bool) -> AppR
     .ok_or_else(|| AppError::NotFound(format!("article {id}")))
 }
 
+pub(crate) async fn set_archived(pool: &SqlitePool, id: i64, archived: bool) -> AppResult<Article> {
+    sqlx::query_as::<_, Article>(
+        "UPDATE articles SET archived = ?1, updated_at = datetime('now')
+           WHERE id = ?2 RETURNING *",
+    )
+    .bind(archived as i64)
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("article {id}")))
+}
+
 // ============================================================
 // Tauri command surface
 // ============================================================
@@ -136,6 +148,15 @@ pub async fn set_article_pinned(
     pinned: bool,
 ) -> AppResult<Article> {
     set_pinned(&state.pool, id, pinned).await
+}
+
+#[tauri::command]
+pub async fn set_article_archived(
+    state: State<'_, AppState>,
+    id: i64,
+    archived: bool,
+) -> AppResult<Article> {
+    set_archived(&state.pool, id, archived).await
 }
 
 // ============================================================

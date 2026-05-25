@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { useSvelteFlow } from "@xyflow/svelte";
+  import { NodeResizer, useSvelteFlow } from "@xyflow/svelte";
   import { app } from "$lib/stores/app.svelte";
 
   type TextData = {
@@ -57,6 +57,15 @@
 </script>
 
 <div class="text-note" class:text-note-selected={selected}>
+  <!-- Drag corners to resize manually. Auto-grow still works while typing
+       (autoGrow updates the textarea height on each input). -->
+  <NodeResizer
+    minWidth={120}
+    minHeight={48}
+    isVisible={selected}
+    lineClass="text-note-resize-line"
+    handleClass="text-note-resize-handle"
+  />
   <button
     type="button"
     class="text-note-remove"
@@ -94,10 +103,14 @@
 <style>
   .text-note {
     position: relative;
-    min-width: 180px;
-    max-width: 300px;
+    /* Fill the xyflow node container so NodeResizer-driven dimensions take
+       effect. Initial sizing comes from the Node's width/height in
+       toFlowNode; the user drags corners to grow/shrink. */
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
     padding: 10px 14px;
-    background: rgba(254, 252, 232, 0.95); /* soft yellow sticky-note */
+    background: rgba(254, 252, 232, 0.95);
     border-radius: 6px;
     box-shadow:
       0 1px 0 rgba(0, 0, 0, 0.06),
@@ -106,12 +119,10 @@
     font-family: ui-sans-serif, system-ui, sans-serif;
     font-size: 14px;
     line-height: 1.5;
-    will-change: transform;
-    backface-visibility: hidden;
-    transform: translateZ(0);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: geometricPrecision;
+    /* IMPORTANT: NO overflow: hidden here — NodeResizer renders its
+       resize handles slightly outside the node bounds, and clipping
+       them makes resizing invisible/unreachable. The inner display
+       and textarea elements handle their own overflow. */
   }
   :global(html.dark) .text-note {
     background: rgba(50, 45, 25, 0.95);
@@ -126,6 +137,9 @@
     white-space: pre-wrap;
     word-break: break-word;
     outline: none;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
   }
   .text-note-empty {
     color: rgba(0, 0, 0, 0.4);
@@ -136,7 +150,7 @@
   }
   .text-note-edit {
     width: 100%;
-    min-height: 60px;
+    height: 100%;
     padding: 0;
     border: none;
     background: transparent;
@@ -144,8 +158,22 @@
     font-family: inherit;
     font-size: inherit;
     line-height: inherit;
-    resize: vertical;
+    /* Drag the node's corner handle (via NodeResizer) to size the note —
+       the textarea fills the container and scrolls when text overflows. */
+    resize: none;
+    overflow: auto;
     outline: none;
+  }
+  /* NodeResizer cosmetics. */
+  :global(.text-note-resize-line) {
+    border-color: rgba(202, 138, 4, 0.45);
+  }
+  :global(.text-note-resize-handle) {
+    background: rgb(202, 138, 4);
+    border: 1.5px solid white;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
   }
   .text-note-remove {
     position: absolute;

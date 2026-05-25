@@ -70,31 +70,37 @@
       "application/x-bigpicture-map-item",
       JSON.stringify({ kind: c.kind, entityId: c.entityId }),
     );
+    // Do NOT collapse the palette here — collapsing removes the dragged
+    // <li> from the DOM mid-drag and some browsers cancel the drag when
+    // the source element disappears. The palette will refresh naturally
+    // after the drop because the candidate is now placed.
   }
 
   function addAtCenter(c: Candidate) {
-    // Null coords ⇒ MapEditor places at viewport center with cascading offset.
     onAddEntity(c.kind, c.entityId, null, null);
+    // Auto-collapse after a successful "+" add so the canvas isn't blocked.
+    collapsed = true;
   }
 
 </script>
 
 {#if collapsed}
-  <!-- Collapsed: a compact pill so the canvas stays mostly free. -->
+  <!-- Collapsed: a compact pill so the canvas stays mostly free.
+       Positioning is owned by the parent (MapEditor's add-cluster). -->
   <button
     type="button"
     onclick={() => (collapsed = false)}
-    class="absolute right-4 top-4 z-20 inline-flex items-center gap-1.5 rounded-md border border-neutral-300/70 bg-white/90 px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm backdrop-blur hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/85 dark:text-neutral-200 dark:hover:bg-neutral-800"
+    class="inline-flex items-center gap-1.5 rounded-md border border-neutral-300/70 bg-white/90 px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm backdrop-blur hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/85 dark:text-neutral-200 dark:hover:bg-neutral-800"
     title="Open the palette to drop entities onto the canvas"
   >
     <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
       <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
     </svg>
-    Add to map
+    Add entity
   </button>
 {:else}
 <aside
-  class="absolute right-4 top-4 z-20 flex max-h-[80vh] w-72 flex-col rounded-lg border border-neutral-200/80 bg-white/95 shadow-xl backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-900/95"
+  class="flex max-h-[80vh] w-72 flex-col rounded-lg border border-neutral-200/80 bg-white/95 shadow-xl backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-900/95"
 >
   <header class="flex items-center justify-between border-b border-neutral-200/70 px-3 py-2 dark:border-neutral-700/70">
     <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">

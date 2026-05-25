@@ -7,6 +7,7 @@ import {
   createList,
   renameList as renameListIpc,
   archiveList,
+  restoreList,
   setListPinned,
   createTodo,
   toggleTodo,
@@ -44,6 +45,9 @@ import {
   updateNoteBody,
   deleteNote as deleteNoteIpc,
   setNotePinned,
+  setNoteArchived,
+  setWorkflowArchived,
+  setArticleArchived,
   listArticles,
   articleById,
   createArticle as createArticleIpc,
@@ -54,6 +58,8 @@ import {
   getMap,
   addMapNode as addMapNodeIpc,
   addMapText as addMapTextIpc,
+  addMapComment as addMapCommentIpc,
+  addMapCustom as addMapCustomIpc,
   updateMapNodeContent as updateMapNodeContentIpc,
   moveMapNode as moveMapNodeIpc,
   removeMapNode as removeMapNodeIpc,
@@ -194,9 +200,10 @@ class AppStore {
     this.loading = true;
     this.error = null;
     try {
-      // Touch today's list so it exists in the sidebar, but the welcome
-      // page is what the user sees on app launch.
-      await listToday();
+      // Do NOT auto-create today's list — that would silently create empty
+      // lists on weekends or days the user doesn't intend to plan. Today's
+      // list is created explicitly via the sidebar's "Create today's list"
+      // button when the user wants it.
       this.lists = await listAll();
       this.stats = await getStats();
       this.dailyStats = await getDailyStats(null, null);
@@ -514,6 +521,28 @@ class AppStore {
     }
   }
 
+  async addMapComment(content: string, x: number, y: number): Promise<MapNode | null> {
+    try {
+      const created = await addMapCommentIpc(content, x, y);
+      this.mapNodes = [...this.mapNodes, created];
+      return created;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+
+  async addMapCustom(content: string, x: number, y: number): Promise<MapNode | null> {
+    try {
+      const created = await addMapCustomIpc(content, x, y);
+      this.mapNodes = [...this.mapNodes, created];
+      return created;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+
   async updateMapNodeContent(id: number, content: string) {
     try {
       const updated = await updateMapNodeContentIpc(id, content);
@@ -673,6 +702,117 @@ class AppStore {
     this.selected = await setListPinned(this.selected.id, next);
     await this.refreshLists();
     this.setFlash(next ? "Pinned" : "Unpinned");
+  }
+
+  // ---- Pin (per-kind, by id; for Summary's row actions) ----
+
+  async setNotePinnedById(id: number, pinned: boolean) {
+    await setNotePinned(id, pinned);
+    await this.refreshNotes();
+    this.setFlash(pinned ? "Pinned" : "Unpinned");
+  }
+
+  async setArticlePinnedById(id: number, pinned: boolean) {
+    await setArticlePinned(id, pinned);
+    await this.refreshArticles();
+    this.setFlash(pinned ? "Pinned" : "Unpinned");
+  }
+
+  async setWorkflowPinnedById(id: number, pinned: boolean) {
+    await setWorkflowPinned(id, pinned);
+    await this.refreshWorkflows();
+    this.setFlash(pinned ? "Pinned" : "Unpinned");
+  }
+
+  async setListPinnedById(id: number, pinned: boolean) {
+    await setListPinned(id, pinned);
+    await this.refreshLists();
+    this.setFlash(pinned ? "Pinned" : "Unpinned");
+  }
+
+  // ---- Archive (per-kind, called from Summary view) ----
+
+  async setNoteArchived(id: number, archived: boolean) {
+    await setNoteArchived(id, archived);
+    await this.refreshNotes();
+    this.setFlash(archived ? "Archived" : "Unarchived");
+  }
+
+  async setArticleArchived(id: number, archived: boolean) {
+    await setArticleArchived(id, archived);
+    await this.refreshArticles();
+    this.setFlash(archived ? "Archived" : "Unarchived");
+  }
+
+  async setWorkflowArchived(id: number, archived: boolean) {
+    await setWorkflowArchived(id, archived);
+    await this.refreshWorkflows();
+    this.setFlash(archived ? "Archived" : "Unarchived");
+  }
+
+  async setListArchived(id: number, archived: boolean) {
+    if (archived) await archiveList(id);
+    else await restoreList(id);
+    await this.refreshLists();
+    this.setFlash(archived ? "Archived" : "Unarchived");
+  }
+
+  // ---- Generic "new entity" used by the sidebar's Add modal ----
+
+  async newEntity(kind: "note" | "article" | "workflow", title: string) {
+    const t = title.trim();
+    if (kind === "note") {
+      const finalTitle = t || `Note — ${defaultListTitleForDate(todayIso())}`;
+      await this.newNote(undefined, finalTitle);
+    } else if (kind === "article") {
+      await this.newArticle(t || "New article");
+    } else {
+      await this.newWorkflow(t || "New workflow");
+    }
+  }
+
+  // ---- Delete by id (used by Summary view's list rows) ----
+
+  async deleteNoteById(id: number) {
+    const note = this.notes.find((n) => n.id === id);
+    const label = note?.title ?? `note ${id}`;
+    const ok = await confirm(`"${label}" will be permanently removed.`, {
+      title: "Delete this note?",
+      kind: "warning",
+    });
+    if (!ok) return;
+    await deleteNoteIpc(id);
+    await this.refreshNotes();
+    if (this.selectedNote?.id === id) this.selectedNote = null;
+    this.setFlash("Note deleted");
+  }
+
+  async deleteArticleById(id: number) {
+    const article = this.articles.find((a) => a.id === id);
+    const label = article?.title ?? `article ${id}`;
+    const ok = await confirm(`"${label}" will be permanently removed.`, {
+      title: "Delete this article?",
+      kind: "warning",
+    });
+    if (!ok) return;
+    await deleteArticleIpc(id);
+    await this.refreshArticles();
+    if (this.selectedArticle?.id === id) this.selectedArticle = null;
+    this.setFlash("Article deleted");
+  }
+
+  async deleteWorkflowById(id: number) {
+    const workflow = this.workflows.find((w) => w.id === id);
+    const label = workflow?.title ?? `workflow ${id}`;
+    const ok = await confirm(`"${label}" and all its steps will be removed.`, {
+      title: "Delete this workflow?",
+      kind: "warning",
+    });
+    if (!ok) return;
+    await deleteWorkflowIpc(id);
+    await this.refreshWorkflows();
+    if (this.selectedWorkflow?.id === id) this.selectedWorkflow = null;
+    this.setFlash("Workflow deleted");
   }
 
   async select(id: number) {

@@ -87,6 +87,7 @@ pub struct Workflow {
     pub title: String,
     pub description: Option<String>,
     pub pinned: bool,
+    pub archived: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -98,6 +99,7 @@ pub struct WorkflowSummary {
     pub title: String,
     pub step_count: i64,
     pub pinned: bool,
+    pub archived: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -120,6 +122,7 @@ pub struct Note {
     pub date: String,
     pub body: String,
     pub pinned: bool,
+    pub archived: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -131,6 +134,7 @@ pub struct NoteSummary {
     pub title: String,
     pub date: String,
     pub pinned: bool,
+    pub archived: bool,
 }
 
 #[derive(Debug, Clone, Serialize, FromRow)]
@@ -147,6 +151,7 @@ pub struct Article {
     pub title: String,
     pub body: String,
     pub pinned: bool,
+    pub archived: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -157,6 +162,7 @@ pub struct ArticleSummary {
     pub id: i64,
     pub title: String,
     pub pinned: bool,
+    pub archived: bool,
     pub updated_at: String,
 }
 

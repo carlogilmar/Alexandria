@@ -52,11 +52,40 @@ pub(crate) async fn add_text(
     x: f64,
     y: f64,
 ) -> AppResult<MapNode> {
+    add_freeform(pool, "text", content, x, y).await
+}
+
+pub(crate) async fn add_comment(
+    pool: &SqlitePool,
+    content: &str,
+    x: f64,
+    y: f64,
+) -> AppResult<MapNode> {
+    add_freeform(pool, "comment", content, x, y).await
+}
+
+pub(crate) async fn add_custom(
+    pool: &SqlitePool,
+    content: &str,
+    x: f64,
+    y: f64,
+) -> AppResult<MapNode> {
+    add_freeform(pool, "custom", content, x, y).await
+}
+
+async fn add_freeform(
+    pool: &SqlitePool,
+    kind: &str,
+    content: &str,
+    x: f64,
+    y: f64,
+) -> AppResult<MapNode> {
     sqlx::query_as::<_, MapNode>(
         "INSERT INTO map_nodes (kind, entity_id, x, y, content, created_at, updated_at)
-         VALUES ('text', 0, ?1, ?2, ?3, datetime('now'), datetime('now'))
+         VALUES (?1, 0, ?2, ?3, ?4, datetime('now'), datetime('now'))
          RETURNING id, kind, entity_id, x, y, content, created_at, updated_at",
     )
+    .bind(kind)
     .bind(x)
     .bind(y)
     .bind(content)
@@ -190,6 +219,26 @@ pub async fn add_map_text(
     y: f64,
 ) -> AppResult<MapNode> {
     add_text(&state.pool, &content, x, y).await
+}
+
+#[tauri::command]
+pub async fn add_map_comment(
+    state: State<'_, AppState>,
+    content: String,
+    x: f64,
+    y: f64,
+) -> AppResult<MapNode> {
+    add_comment(&state.pool, &content, x, y).await
+}
+
+#[tauri::command]
+pub async fn add_map_custom(
+    state: State<'_, AppState>,
+    content: String,
+    x: f64,
+    y: f64,
+) -> AppResult<MapNode> {
+    add_custom(&state.pool, &content, x, y).await
 }
 
 #[tauri::command]

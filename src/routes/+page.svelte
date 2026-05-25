@@ -10,7 +10,7 @@
   import HelpModal from "$lib/components/HelpModal.svelte";
   import WorkflowView from "$lib/components/WorkflowView.svelte";
   import NoteView from "$lib/components/NoteView.svelte";
-  import IndexView from "$lib/components/IndexView.svelte";
+  import SummaryView from "$lib/components/SummaryView.svelte";
   import ArticleView from "$lib/components/ArticleView.svelte";
   import GardenView from "$lib/components/GardenView.svelte";
   import MapView from "$lib/components/MapView.svelte";
@@ -62,6 +62,18 @@
     } else if (e.shiftKey && (e.key === "C" || e.key === "c")) {
       e.preventDefault();
       if (app.view === "list") app.copyCurrent();
+    } else if (e.key === "1") {
+      e.preventDefault();
+      app.goHome(true);
+    } else if (e.key === "2") {
+      e.preventDefault();
+      app.openMap();
+    } else if (e.key === "3") {
+      e.preventDefault();
+      app.openIndex();
+    } else if (e.key === "4") {
+      e.preventDefault();
+      app.openGarden();
     }
   }
 </script>
@@ -87,7 +99,7 @@
     {:else if app.view === "note"}
       <NoteView />
     {:else if app.view === "index"}
-      <IndexView />
+      <SummaryView />
     {:else if app.view === "article"}
       <ArticleView />
     {:else if app.view === "garden"}
