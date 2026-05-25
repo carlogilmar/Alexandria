@@ -68,9 +68,27 @@ import {
   removeMapEdge as removeMapEdgeIpc,
   getIndexDoc,
   updateIndexDoc,
+  listFeedbackBoards,
+  createFeedbackBoard as createFeedbackBoardIpc,
+  renameFeedbackBoard as renameFeedbackBoardIpc,
+  setFeedbackBoardArchived as setFeedbackBoardArchivedIpc,
+  deleteFeedbackBoard as deleteFeedbackBoardIpc,
+  listFeedbackCards,
+  createFeedbackCard as createFeedbackCardIpc,
+  updateFeedbackCard as updateFeedbackCardIpc,
+  moveFeedbackCard as moveFeedbackCardIpc,
+  deleteFeedbackCard as deleteFeedbackCardIpc,
+  listFeedbackCardComments,
+  addFeedbackCardComment as addFeedbackCardCommentIpc,
+  deleteFeedbackCardComment as deleteFeedbackCardCommentIpc,
+  getWeeklyActivity,
   type Article,
   type ArticleSummary,
   type DayStats,
+  type FeedbackBoardSummary,
+  type FeedbackCardComment,
+  type FeedbackCardSummary,
+  type FeedbackColumn,
   type IndexDoc,
   type List,
   type ListSummary,
@@ -83,6 +101,7 @@ import {
   type Tag,
   type Todo,
   type TodoHit,
+  type WeeklyActivity,
   type Workflow,
   type WorkflowStep,
   type WorkflowSummary,
@@ -133,6 +152,9 @@ class AppStore {
     | "article"
     | "garden"
     | "map"
+    | "feedback"
+    | "feedback-board"
+    | "activity"
   >("home");
   lists = $state<ListSummary[]>([]);
   selected = $state<List | null>(null);
@@ -1042,6 +1064,200 @@ class AppStore {
   async saveEverything() {
     const today = daysAgoIso(0);
     await this.saveRange(null, null, `todos_all_${today}.md`);
+  }
+
+  // ---- Feedback kanban ----
+
+  feedbackBoards = $state<FeedbackBoardSummary[]>([]);
+  feedbackBoardsLoaded = $state(false);
+  selectedFeedbackBoardId = $state<number | null>(null);
+  feedbackCards = $state<FeedbackCardSummary[]>([]);
+  selectedFeedbackCardId = $state<number | null>(null);
+  feedbackComments = $state<FeedbackCardComment[]>([]);
+
+  async openFeedback() {
+    this.view = "feedback";
+    this.selected = null;
+    this.todos = [];
+    this.selectedTodoId = null;
+    this.selectedTodoTags = [];
+    this.selectedWorkflow = null;
+    this.workflowSteps = [];
+    this.selectedNote = null;
+    this.selectedArticle = null;
+    this.selectedFeedbackBoardId = null;
+    this.selectedFeedbackCardId = null;
+    await this.refreshFeedbackBoards();
+  }
+
+  async refreshFeedbackBoards(includeArchived = true) {
+    this.feedbackBoards = await listFeedbackBoards(includeArchived);
+    this.feedbackBoardsLoaded = true;
+  }
+
+  async openFeedbackBoard(boardId: number) {
+    this.view = "feedback-board";
+    this.selectedFeedbackBoardId = boardId;
+    this.selectedFeedbackCardId = null;
+    this.feedbackComments = [];
+    this.feedbackCards = await listFeedbackCards(boardId);
+  }
+
+  async newFeedbackBoard(title: string) {
+    const t = title.trim() || "Untitled board";
+    const created = await createFeedbackBoardIpc(t);
+    await this.refreshFeedbackBoards();
+    await this.openFeedbackBoard(created.id);
+  }
+
+  async renameFeedbackBoard(id: number, title: string) {
+    const t = title.trim();
+    if (!t) return;
+    await renameFeedbackBoardIpc(id, t);
+    await this.refreshFeedbackBoards();
+  }
+
+  async setFeedbackBoardArchived(id: number, archived: boolean) {
+    await setFeedbackBoardArchivedIpc(id, archived);
+    await this.refreshFeedbackBoards();
+    this.setFlash(archived ? "Board archived" : "Board unarchived");
+  }
+
+  async deleteFeedbackBoard(id: number) {
+    const board = this.feedbackBoards.find((b) => b.id === id);
+    const label = board?.title ?? `board ${id}`;
+    const ok = await confirm(
+      `"${label}" and all its cards/comments will be permanently removed.`,
+      { title: "Delete board?", kind: "warning" },
+    );
+    if (!ok) return;
+    await deleteFeedbackBoardIpc(id);
+    await this.refreshFeedbackBoards();
+    if (this.selectedFeedbackBoardId === id) {
+      this.selectedFeedbackBoardId = null;
+      this.feedbackCards = [];
+      this.view = "feedback";
+    }
+    this.setFlash("Board deleted");
+  }
+
+  async refreshFeedbackCards() {
+    if (this.selectedFeedbackBoardId === null) return;
+    this.feedbackCards = await listFeedbackCards(this.selectedFeedbackBoardId);
+  }
+
+  async newFeedbackCard(
+    column: FeedbackColumn,
+    title: string,
+    description = "",
+  ) {
+    if (this.selectedFeedbackBoardId === null) return;
+    const t = title.trim();
+    if (!t) return;
+    await createFeedbackCardIpc(
+      this.selectedFeedbackBoardId,
+      column,
+      t,
+      description,
+    );
+    await this.refreshFeedbackCards();
+  }
+
+  async updateFeedbackCard(
+    id: number,
+    title: string | null,
+    description: string | null,
+  ) {
+    await updateFeedbackCardIpc(id, title, description);
+    await this.refreshFeedbackCards();
+  }
+
+  async moveFeedbackCard(
+    id: number,
+    targetColumn: FeedbackColumn,
+    targetPosition: number,
+  ) {
+    await moveFeedbackCardIpc(id, targetColumn, targetPosition);
+    await this.refreshFeedbackCards();
+  }
+
+  async deleteFeedbackCard(id: number) {
+    const card = this.feedbackCards.find((c) => c.id === id);
+    const label = card?.title ?? `card ${id}`;
+    const ok = await confirm(`"${label}" will be permanently removed.`, {
+      title: "Delete card?",
+      kind: "warning",
+    });
+    if (!ok) return;
+    await deleteFeedbackCardIpc(id);
+    await this.refreshFeedbackCards();
+    if (this.selectedFeedbackCardId === id) {
+      this.selectedFeedbackCardId = null;
+      this.feedbackComments = [];
+    }
+    this.setFlash("Card deleted");
+  }
+
+  async openFeedbackCard(id: number) {
+    this.selectedFeedbackCardId = id;
+    this.feedbackComments = await listFeedbackCardComments(id);
+  }
+
+  closeFeedbackCard() {
+    this.selectedFeedbackCardId = null;
+    this.feedbackComments = [];
+  }
+
+  async addFeedbackComment(body: string) {
+    if (this.selectedFeedbackCardId === null) return;
+    const b = body.trim();
+    if (!b) return;
+    await addFeedbackCardCommentIpc(this.selectedFeedbackCardId, b);
+    this.feedbackComments = await listFeedbackCardComments(
+      this.selectedFeedbackCardId,
+    );
+    await this.refreshFeedbackCards();
+  }
+
+  async deleteFeedbackComment(id: number) {
+    if (this.selectedFeedbackCardId === null) return;
+    await deleteFeedbackCardCommentIpc(id);
+    this.feedbackComments = await listFeedbackCardComments(
+      this.selectedFeedbackCardId,
+    );
+    await this.refreshFeedbackCards();
+  }
+
+  // ---- Activity (Kandinsky weekly grid) ----
+
+  weeklyActivity = $state<WeeklyActivity[]>([]);
+  activityLoading = $state(false);
+
+  async openActivity() {
+    this.view = "activity";
+    this.selected = null;
+    this.todos = [];
+    this.selectedTodoId = null;
+    this.selectedTodoTags = [];
+    this.selectedWorkflow = null;
+    this.workflowSteps = [];
+    this.selectedNote = null;
+    this.selectedArticle = null;
+    await this.refreshWeeklyActivity();
+  }
+
+  async refreshWeeklyActivity(
+    from: string | null = null,
+    to: string | null = null,
+  ) {
+    this.activityLoading = true;
+    try {
+      this.weeklyActivity = await getWeeklyActivity(from, to);
+    } catch (e) {
+      this.error = String(e);
+    } finally {
+      this.activityLoading = false;
+    }
   }
 }
 

@@ -196,3 +196,69 @@ pub struct MapState {
     pub nodes: Vec<MapNode>,
     pub edges: Vec<MapEdge>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedbackBoard {
+    pub id: i64,
+    pub title: String,
+    pub archived: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedbackBoardSummary {
+    pub id: i64,
+    pub title: String,
+    pub archived: bool,
+    pub card_count: i64,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedbackCard {
+    pub id: i64,
+    pub board_id: i64,
+    pub column_kind: String,
+    pub title: String,
+    pub description: String,
+    pub position: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedbackCardSummary {
+    pub id: i64,
+    pub board_id: i64,
+    pub column_kind: String,
+    pub title: String,
+    pub description: String,
+    pub position: i64,
+    pub comment_count: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedbackCardComment {
+    pub id: i64,
+    pub card_id: i64,
+    pub body: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct WeeklyActivity {
+    pub week_start: String,
+    pub notes: i64,
+    pub articles: i64,
+    pub workflows: i64,
+    pub lists: i64,
+}

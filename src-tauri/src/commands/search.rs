@@ -1,5 +1,5 @@
 use crate::commands::AppState;
-use crate::db::models::{DayStats, Stats, TodoHit};
+use crate::db::models::{DayStats, Stats, TodoHit, WeeklyActivity};
 use crate::error::AppResult;
 use sqlx::SqlitePool;
 use tauri::State;
@@ -124,6 +124,57 @@ pub(crate) async fn daily_stats(
     .map_err(Into::into)
 }
 
+/// Per-week counts of created entities across notes / articles / workflows /
+/// lists. The result includes one row for every week between `from` and
+/// `to` inclusive, even if every count is zero — the UI grid needs a cell
+/// for each week. ISO week (Mon–Sun) via strftime('%Y-%W').
+pub(crate) async fn weekly_activity(
+    pool: &SqlitePool,
+    from: &str,
+    to: &str,
+) -> AppResult<Vec<WeeklyActivity>> {
+    // SQLite's strftime('%W') is week-of-year starting Sunday with weeks
+    // before the first Sunday counted as week 0 — close enough to ISO for
+    // the per-week binning we want here. We compute each week's Monday
+    // anchor in the application layer by snapping the bucket key to a
+    // calendar date.
+    //
+    // The CTE generates every Monday between `from` and `to` (inclusive),
+    // then LEFT JOINs counts per kind. Empty weeks become rows of zeros.
+    sqlx::query_as::<_, WeeklyActivity>(
+        r#"
+        WITH RECURSIVE weeks(week_start) AS (
+            -- Snap `from` back to its Monday.
+            SELECT date(?1, 'weekday 1', '-7 days')
+            UNION ALL
+            SELECT date(week_start, '+7 days') FROM weeks
+             WHERE week_start < date(?2, 'weekday 1', '-7 days')
+        )
+        SELECT w.week_start                                          AS week_start,
+               COALESCE((SELECT COUNT(*) FROM notes n
+                          WHERE date(n.created_at) >= w.week_start
+                            AND date(n.created_at) <  date(w.week_start, '+7 days')), 0) AS notes,
+               COALESCE((SELECT COUNT(*) FROM articles a
+                          WHERE date(a.created_at) >= w.week_start
+                            AND date(a.created_at) <  date(w.week_start, '+7 days')), 0) AS articles,
+               COALESCE((SELECT COUNT(*) FROM workflows wf
+                          WHERE date(wf.created_at) >= w.week_start
+                            AND date(wf.created_at) <  date(w.week_start, '+7 days')), 0) AS workflows,
+               COALESCE((SELECT COUNT(*) FROM lists l
+                          WHERE date(l.created_at) >= w.week_start
+                            AND date(l.created_at) <  date(w.week_start, '+7 days')
+                            AND l.archived = 0), 0)                                       AS lists
+          FROM weeks w
+         ORDER BY w.week_start ASC
+        "#,
+    )
+    .bind(from)
+    .bind(to)
+    .fetch_all(pool)
+    .await
+    .map_err(Into::into)
+}
+
 // ---------- Tauri command surface ----------
 
 #[tauri::command]
@@ -152,6 +203,29 @@ pub async fn get_daily_stats(
     to: Option<String>,
 ) -> AppResult<Vec<DayStats>> {
     daily_stats(&state.pool, from.as_deref(), to.as_deref()).await
+}
+
+#[tauri::command]
+pub async fn get_weekly_activity(
+    state: State<'_, AppState>,
+    from: Option<String>,
+    to: Option<String>,
+) -> AppResult<Vec<WeeklyActivity>> {
+    // Default range: 52 weeks ending today.
+    let pool = &state.pool;
+    let to: String = match to {
+        Some(t) => t,
+        None => sqlx::query_scalar("SELECT date('now', 'localtime')")
+            .fetch_one(pool)
+            .await?,
+    };
+    let from: String = match from {
+        Some(f) => f,
+        None => sqlx::query_scalar("SELECT date('now', 'localtime', '-52 weeks')")
+            .fetch_one(pool)
+            .await?,
+    };
+    weekly_activity(pool, &from, &to).await
 }
 
 // ---------- Tests ----------

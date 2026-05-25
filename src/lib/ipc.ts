@@ -161,6 +161,58 @@ export type MapState = {
   edges: MapEdge[];
 };
 
+export type FeedbackColumn =
+  | "to_implement"
+  | "in_definition"
+  | "in_progress"
+  | "done";
+
+export type FeedbackBoard = {
+  id: number;
+  title: string;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type FeedbackBoardSummary = {
+  id: number;
+  title: string;
+  archived: boolean;
+  cardCount: number;
+  updatedAt: string;
+};
+
+export type FeedbackCard = {
+  id: number;
+  boardId: number;
+  columnKind: FeedbackColumn;
+  title: string;
+  description: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type FeedbackCardSummary = FeedbackCard & {
+  commentCount: number;
+};
+
+export type FeedbackCardComment = {
+  id: number;
+  cardId: number;
+  body: string;
+  createdAt: string;
+};
+
+export type WeeklyActivity = {
+  weekStart: string;
+  notes: number;
+  articles: number;
+  workflows: number;
+  lists: number;
+};
+
 // Lists
 export const listToday = () => invoke<List>("list_today");
 export const listById = (id: number) => invoke<List>("list_by_id", { id });
@@ -323,6 +375,63 @@ export const updateMapEdgeLabel = (id: number, label: string | null) =>
   invoke<MapEdge>("update_map_edge_label", { id, label });
 export const removeMapEdge = (id: number) =>
   invoke<void>("remove_map_edge", { id });
+
+// Feedback kanban
+export const listFeedbackBoards = (includeArchived = false) =>
+  invoke<FeedbackBoardSummary[]>("list_feedback_boards", { includeArchived });
+export const createFeedbackBoard = (title: string) =>
+  invoke<FeedbackBoard>("create_feedback_board", { title });
+export const renameFeedbackBoard = (id: number, title: string) =>
+  invoke<FeedbackBoard>("rename_feedback_board", { id, title });
+export const setFeedbackBoardArchived = (id: number, archived: boolean) =>
+  invoke<FeedbackBoard>("set_feedback_board_archived", { id, archived });
+export const deleteFeedbackBoard = (id: number) =>
+  invoke<void>("delete_feedback_board", { id });
+
+export const listFeedbackCards = (boardId: number) =>
+  invoke<FeedbackCardSummary[]>("list_feedback_cards", { boardId });
+export const createFeedbackCard = (
+  boardId: number,
+  columnKind: FeedbackColumn,
+  title: string,
+  description: string | null = null,
+) =>
+  invoke<FeedbackCard>("create_feedback_card", {
+    boardId,
+    columnKind,
+    title,
+    description,
+  });
+export const updateFeedbackCard = (
+  id: number,
+  title: string | null,
+  description: string | null,
+) => invoke<FeedbackCard>("update_feedback_card", { id, title, description });
+export const moveFeedbackCard = (
+  id: number,
+  targetColumn: FeedbackColumn,
+  targetPosition: number,
+) =>
+  invoke<FeedbackCard>("move_feedback_card", {
+    id,
+    targetColumn,
+    targetPosition,
+  });
+export const deleteFeedbackCard = (id: number) =>
+  invoke<void>("delete_feedback_card", { id });
+
+export const listFeedbackCardComments = (cardId: number) =>
+  invoke<FeedbackCardComment[]>("list_feedback_card_comments", { cardId });
+export const addFeedbackCardComment = (cardId: number, body: string) =>
+  invoke<FeedbackCardComment>("add_feedback_card_comment", { cardId, body });
+export const deleteFeedbackCardComment = (id: number) =>
+  invoke<void>("delete_feedback_card_comment", { id });
+
+// Activity
+export const getWeeklyActivity = (
+  from: string | null = null,
+  to: string | null = null,
+) => invoke<WeeklyActivity[]>("get_weekly_activity", { from, to });
 
 // Images
 export async function saveImageFile(file: File): Promise<string> {

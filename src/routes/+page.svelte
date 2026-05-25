@@ -14,6 +14,9 @@
   import ArticleView from "$lib/components/ArticleView.svelte";
   import GardenView from "$lib/components/GardenView.svelte";
   import MapView from "$lib/components/MapView.svelte";
+  import FeedbackBoardsView from "$lib/components/FeedbackBoardsView.svelte";
+  import FeedbackBoardView from "$lib/components/FeedbackBoardView.svelte";
+  import ActivityView from "$lib/components/ActivityView.svelte";
 
   let sidebar: Sidebar | undefined = $state();
   let inspectorTodo = $derived(app.selectedTodo());
@@ -74,6 +77,12 @@
     } else if (e.key === "4") {
       e.preventDefault();
       app.openGarden();
+    } else if (e.key === "5") {
+      e.preventDefault();
+      app.openFeedback();
+    } else if (e.key === "6") {
+      e.preventDefault();
+      app.openActivity();
     }
   }
 </script>
@@ -106,6 +115,12 @@
       <GardenView />
     {:else if app.view === "map"}
       <MapView />
+    {:else if app.view === "feedback"}
+      <FeedbackBoardsView />
+    {:else if app.view === "feedback-board"}
+      <FeedbackBoardView />
+    {:else if app.view === "activity"}
+      <ActivityView />
     {:else}
       <ListView />
     {/if}

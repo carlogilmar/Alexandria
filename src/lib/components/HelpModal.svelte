@@ -2,14 +2,37 @@
   import { fade } from "svelte/transition";
   import { app } from "$lib/stores/app.svelte";
 
-  const shortcuts: { keys: string; label: string }[] = [
-    { keys: "⌘ N", label: "New list (date = today)" },
-    { keys: "⌘ F", label: "Focus search" },
-    { keys: "⌘ E", label: "Save current list as .md" },
-    { keys: "⌘ ⇧ C", label: "Copy current list to clipboard" },
-    { keys: "?", label: "Show / hide this help" },
-    { keys: "Esc", label: "Close inspector or this help" },
-    { keys: "Enter", label: "Commit edit · Esc to cancel" },
+  type Section = { title: string; items: { keys: string; label: string }[] };
+  const sections: Section[] = [
+    {
+      title: "Navigate",
+      items: [
+        { keys: "⌘ 1", label: "Home" },
+        { keys: "⌘ 2", label: "Alexandria (canvas)" },
+        { keys: "⌘ 3", label: "Summary" },
+        { keys: "⌘ 4", label: "Visualization" },
+        { keys: "⌘ 5", label: "Feedback (kanban)" },
+        { keys: "⌘ 6", label: "Activity (Kandinsky grid)" },
+      ],
+    },
+    {
+      title: "Lists & editing",
+      items: [
+        { keys: "⌘ N", label: "New list (today)" },
+        { keys: "⌘ F", label: "Focus search" },
+        { keys: "⌘ E", label: "Save current list as .md" },
+        { keys: "⌘ ⇧ C", label: "Copy current list to clipboard" },
+        { keys: "⌘ ↩", label: "Submit comment · description" },
+        { keys: "Enter", label: "Commit edit" },
+        { keys: "Esc", label: "Cancel edit · close inspector · close help" },
+      ],
+    },
+    {
+      title: "General",
+      items: [
+        { keys: "?", label: "Show / hide this help" },
+      ],
+    },
   ];
 </script>
 
@@ -47,21 +70,26 @@
       </button>
     </header>
 
-    <ul class="space-y-2">
-      {#each shortcuts as s (s.keys)}
-        <li class="flex items-center justify-between gap-3">
-          <span class="text-sm text-neutral-700 dark:text-neutral-200">{s.label}</span>
-          <kbd
-            class="rounded-md border border-neutral-300/60 bg-neutral-100/80 px-2 py-0.5 font-mono text-[11px] text-neutral-700 dark:border-neutral-600/60 dark:bg-neutral-800/80 dark:text-neutral-200"
-          >
-            {s.keys}
-          </kbd>
-        </li>
+    <div class="flex flex-col gap-4">
+      {#each sections as section (section.title)}
+        <section>
+          <h3 class="mb-2 text-[11px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+            {section.title}
+          </h3>
+          <ul class="space-y-1.5">
+            {#each section.items as s (s.keys)}
+              <li class="flex items-center justify-between gap-3">
+                <span class="text-sm text-neutral-700 dark:text-neutral-200">{s.label}</span>
+                <kbd
+                  class="rounded-md border border-neutral-300/60 bg-neutral-100/80 px-2 py-0.5 font-mono text-[11px] text-neutral-700 dark:border-neutral-600/60 dark:bg-neutral-800/80 dark:text-neutral-200"
+                >
+                  {s.keys}
+                </kbd>
+              </li>
+            {/each}
+          </ul>
+        </section>
       {/each}
-    </ul>
-
-    <p class="mt-5 text-[11px] text-neutral-400 dark:text-neutral-500">
-      Click a row to open its details · drag the ⋮⋮ handle to reorder
-    </p>
+    </div>
   </div>
 </div>

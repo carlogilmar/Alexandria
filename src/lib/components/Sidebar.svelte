@@ -389,6 +389,48 @@
       </svg>
       <span class="flex-1">Visualization</span>
     </button>
+
+    <button
+      type="button"
+      onclick={() => app.openFeedback()}
+      class="flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm font-medium transition-colors"
+      class:bg-rose-600={app.view === "feedback" || app.view === "feedback-board"}
+      class:text-white={app.view === "feedback" || app.view === "feedback-board"}
+      class:hover:bg-rose-700={app.view === "feedback" || app.view === "feedback-board"}
+      class:text-rose-700={!(app.view === "feedback" || app.view === "feedback-board")}
+      class:hover:bg-rose-50={!(app.view === "feedback" || app.view === "feedback-board")}
+      class:dark:bg-rose-900={app.view === "feedback" || app.view === "feedback-board"}
+      class:dark:hover:bg-rose-800={app.view === "feedback" || app.view === "feedback-board"}
+      class:dark:text-rose-200={!(app.view === "feedback" || app.view === "feedback-board")}
+      class:dark:hover:bg-rose-950={!(app.view === "feedback" || app.view === "feedback-board")}
+      title="Feedback — ⌘5"
+    >
+      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 shrink-0">
+        <path fill-rule="evenodd" d="M3 4a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm9 0a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2V4zm-9 9a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3zm9 0a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2v-3z" clip-rule="evenodd"/>
+      </svg>
+      <span class="flex-1">Feedback</span>
+    </button>
+
+    <button
+      type="button"
+      onclick={() => app.openActivity()}
+      class="flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm font-medium transition-colors"
+      class:bg-orange-600={app.view === "activity"}
+      class:text-white={app.view === "activity"}
+      class:hover:bg-orange-700={app.view === "activity"}
+      class:text-orange-700={app.view !== "activity"}
+      class:hover:bg-orange-50={app.view !== "activity"}
+      class:dark:bg-orange-900={app.view === "activity"}
+      class:dark:hover:bg-orange-800={app.view === "activity"}
+      class:dark:text-orange-200={app.view !== "activity"}
+      class:dark:hover:bg-orange-950={app.view !== "activity"}
+      title="Activity — ⌘6"
+    >
+      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 shrink-0">
+        <path d="M3 3h6v6H3V3zm0 8h6v6H3v-6zm8-8h6v6h-6V3zm0 8h6v6h-6v-6z"/>
+      </svg>
+      <span class="flex-1">Activity</span>
+    </button>
   </div>
 
   <div
