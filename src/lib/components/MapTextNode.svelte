@@ -65,6 +65,10 @@
     isVisible={selected}
     lineClass="text-note-resize-line"
     handleClass="text-note-resize-handle"
+    onResizeEnd={(_e, params) => {
+      // Persist the new dimensions so they survive reloads / view switches.
+      void app.resizeMapNode(data.mapNodeId, params.width, params.height);
+    }}
   />
   <button
     type="button"

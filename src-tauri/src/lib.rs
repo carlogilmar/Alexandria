@@ -81,6 +81,8 @@ pub fn run() {
             commands::map::add_map_text,
             commands::map::add_map_comment,
             commands::map::add_map_custom,
+            commands::map::add_map_title,
+            commands::map::resize_map_node,
             commands::map::update_map_node_content,
             commands::map::move_map_node,
             commands::map::remove_map_node,

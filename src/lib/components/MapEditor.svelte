@@ -18,6 +18,7 @@
   import MapTextNode from "$lib/components/MapTextNode.svelte";
   import MapCommentNode from "$lib/components/MapCommentNode.svelte";
   import MapCustomNode from "$lib/components/MapCustomNode.svelte";
+  import MapTitleNode from "$lib/components/MapTitleNode.svelte";
   import AddToMapPalette from "$lib/components/AddToMapPalette.svelte";
   import { theme } from "$lib/stores/theme.svelte";
 
@@ -34,8 +35,10 @@
         id: String(n.id),
         type: "textNote",
         position: { x: n.x, y: n.y },
-        width: 220,
-        height: 90,
+        // Prefer persisted width/height (set after a manual resize); fall
+        // back to the renderer's default.
+        width: n.width ?? 220,
+        height: n.height ?? 90,
         data: { mapNodeId: n.id, content: n.content ?? "" },
       };
     }
@@ -52,8 +55,16 @@
         id: String(n.id),
         type: "custom",
         position: { x: n.x, y: n.y },
-        width: 220,
-        height: 100,
+        width: n.width ?? 220,
+        height: n.height ?? 100,
+        data: { mapNodeId: n.id, content: n.content ?? "" },
+      };
+    }
+    if (n.kind === "title") {
+      return {
+        id: String(n.id),
+        type: "title",
+        position: { x: n.x, y: n.y },
         data: { mapNodeId: n.id, content: n.content ?? "" },
       };
     }
@@ -83,20 +94,85 @@
     textNote: MapTextNode as unknown as NodeTypes[string],
     comment: MapCommentNode as unknown as NodeTypes[string],
     custom: MapCustomNode as unknown as NodeTypes[string],
+    title: MapTitleNode as unknown as NodeTypes[string],
   };
 
-  // Reactive sync from store → local flow arrays. Runs whenever the store
-  // changes (add/move/remove/content-edit), so the canvas always reflects
-  // the persisted state. Crucially, we no longer append to flowNodes
-  // manually after a mutation — the effect does it, which avoids the
-  // duplicate-id race we hit before.
+  // Reactive sync from store → local flow arrays.
+  //
+  // CRITICAL: nodes and edges MUST be reassigned together in a single
+  // effect. Earlier we had two separate $effects; whenever a node-only
+  // mutation fired (move / resize / content edit), only flowNodes was
+  // rebuilt and xyflow's internal graph saw a fresh node set without a
+  // matching edge reassignment. xyflow's reconciliation dropped edges
+  // from its internal state until the next edges effect ran — leading
+  // to disappearing connections every time the user touched anything.
+  //
+  // We also preserve node and edge object identity across rebuilds for
+  // items whose serialized fields haven't changed. xyflow can short-
+  // circuit work when it sees the same reference for an unchanged node,
+  // which makes the canvas feel stable.
+  const flowNodeCache = new Map<string, Node>();
+  const flowEdgeCache = new Map<string, Edge>();
+
+  function sameNode(a: Node, b: Node): boolean {
+    if (a.id !== b.id) return false;
+    if (a.type !== b.type) return false;
+    if (a.position.x !== b.position.x || a.position.y !== b.position.y) return false;
+    if (a.width !== b.width || a.height !== b.height) return false;
+    const ad = a.data as Record<string, unknown>;
+    const bd = b.data as Record<string, unknown>;
+    if (ad.content !== bd.content) return false;
+    if (ad.kind !== bd.kind) return false;
+    if (ad.entityId !== bd.entityId) return false;
+    return true;
+  }
+  function sameEdge(a: Edge, b: Edge): boolean {
+    return (
+      a.id === b.id &&
+      a.source === b.source &&
+      a.target === b.target &&
+      a.label === b.label
+    );
+  }
+
   $effect(() => {
     if (!app.mapLoaded) return;
-    flowNodes = app.mapNodes.map(toFlowNode);
-  });
-  $effect(() => {
-    if (!app.mapLoaded) return;
-    flowEdges = app.mapEdges.map(toFlowEdge);
+
+    // Build the new node array, reusing cached refs where nothing changed.
+    const nextNodes: Node[] = [];
+    const seenNodeIds = new Set<string>();
+    for (const n of app.mapNodes) {
+      const candidate = toFlowNode(n);
+      const cached = flowNodeCache.get(candidate.id);
+      const chosen = cached && sameNode(cached, candidate) ? cached : candidate;
+      flowNodeCache.set(chosen.id, chosen);
+      seenNodeIds.add(chosen.id);
+      nextNodes.push(chosen);
+    }
+    // Drop cache entries for nodes that no longer exist.
+    for (const id of [...flowNodeCache.keys()]) {
+      if (!seenNodeIds.has(id)) flowNodeCache.delete(id);
+    }
+
+    // Same treatment for edges. xyflow tends to drop edges when their
+    // endpoint nodes look "new" — preserving edge refs alongside nodes
+    // keeps its internal state coherent.
+    const nextEdges: Edge[] = [];
+    const seenEdgeIds = new Set<string>();
+    for (const e of app.mapEdges) {
+      const candidate = toFlowEdge(e);
+      const cached = flowEdgeCache.get(candidate.id);
+      const chosen = cached && sameEdge(cached, candidate) ? cached : candidate;
+      flowEdgeCache.set(chosen.id, chosen);
+      seenEdgeIds.add(chosen.id);
+      nextEdges.push(chosen);
+    }
+    for (const id of [...flowEdgeCache.keys()]) {
+      if (!seenEdgeIds.has(id)) flowEdgeCache.delete(id);
+    }
+
+    flowNodes = nextNodes;
+    flowEdges = nextEdges;
   });
 
   // ----- persistence -----
@@ -118,7 +194,7 @@
     const sourceNode = app.mapNodes.find((n) => n.id === sourceId);
     const targetNode = app.mapNodes.find((n) => n.id === targetId);
     if (!sourceNode || !targetNode) return;
-    const decorative = new Set(["text", "comment"]);
+    const decorative = new Set(["text", "comment", "title"]);
     if (decorative.has(sourceNode.kind) || decorative.has(targetNode.kind)) return;
     // No-op if a backend edge already exists for this pair.
     if (
@@ -204,6 +280,10 @@
     const pos = nextCascadePosition();
     await app.addMapCustom("", pos.x, pos.y);
   }
+  async function handleAddTitle() {
+    const pos = nextCascadePosition();
+    await app.addMapTitle("", pos.x, pos.y);
+  }
 
   function onDragOver(e: DragEvent) {
     e.preventDefault();
@@ -274,6 +354,18 @@
          · Custom     (card-style with editable content)
          · Entity     (palette of existing notes/articles/workflows) -->
   <div class="absolute right-4 top-4 z-20 flex items-start gap-2">
+    <button
+      type="button"
+      class="inline-flex items-center gap-1.5 rounded-md border border-slate-400/70 bg-white/90 px-3 py-1.5 text-xs font-bold text-slate-900 shadow-sm backdrop-blur hover:bg-slate-100 dark:border-slate-500/70 dark:bg-neutral-900/85 dark:text-slate-100 dark:hover:bg-neutral-800"
+      onclick={handleAddTitle}
+      title="Drop a section title (no handles)"
+    >
+      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+        <path d="M4 3a1 1 0 011 1v5h10V4a1 1 0 112 0v12a1 1 0 11-2 0v-5H5v5a1 1 0 11-2 0V4a1 1 0 011-1z"/>
+      </svg>
+      Title
+    </button>
+
     <button
       type="button"
       class="inline-flex items-center gap-1.5 rounded-md border border-amber-300/70 bg-amber-50/90 px-3 py-1.5 text-xs font-medium text-amber-800 shadow-sm backdrop-blur hover:bg-amber-100 dark:border-amber-800/70 dark:bg-amber-950/70 dark:text-amber-200 dark:hover:bg-amber-900"

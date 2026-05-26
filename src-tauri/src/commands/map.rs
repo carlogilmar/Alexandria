@@ -8,7 +8,7 @@ const VALID_ENTITY_KINDS: &[&str] = &["note", "article", "workflow"];
 
 pub(crate) async fn get_state(pool: &SqlitePool) -> AppResult<MapState> {
     let nodes = sqlx::query_as::<_, MapNode>(
-        "SELECT id, kind, entity_id, x, y, content, created_at, updated_at
+        "SELECT id, kind, entity_id, x, y, width, height, content, created_at, updated_at
            FROM map_nodes ORDER BY id ASC",
     )
     .fetch_all(pool)
@@ -33,9 +33,9 @@ pub(crate) async fn add_node(
         return Err(AppError::BadInput(format!("invalid kind: {kind}")));
     }
     sqlx::query_as::<_, MapNode>(
-        "INSERT INTO map_nodes (kind, entity_id, x, y, content, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, NULL, datetime('now'), datetime('now'))
-         RETURNING id, kind, entity_id, x, y, content, created_at, updated_at",
+        "INSERT INTO map_nodes (kind, entity_id, x, y, width, height, content, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, NULL, NULL, NULL, datetime('now'), datetime('now'))
+         RETURNING id, kind, entity_id, x, y, width, height, content, created_at, updated_at",
     )
     .bind(kind)
     .bind(entity_id)
@@ -73,6 +73,34 @@ pub(crate) async fn add_custom(
     add_freeform(pool, "custom", content, x, y).await
 }
 
+pub(crate) async fn add_title(
+    pool: &SqlitePool,
+    content: &str,
+    x: f64,
+    y: f64,
+) -> AppResult<MapNode> {
+    add_freeform(pool, "title", content, x, y).await
+}
+
+pub(crate) async fn resize_node(
+    pool: &SqlitePool,
+    id: i64,
+    width: f64,
+    height: f64,
+) -> AppResult<MapNode> {
+    sqlx::query_as::<_, MapNode>(
+        "UPDATE map_nodes SET width = ?1, height = ?2, updated_at = datetime('now')
+           WHERE id = ?3
+         RETURNING id, kind, entity_id, x, y, width, height, content, created_at, updated_at",
+    )
+    .bind(width)
+    .bind(height)
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("map node {id}")))
+}
+
 async fn add_freeform(
     pool: &SqlitePool,
     kind: &str,
@@ -81,9 +109,9 @@ async fn add_freeform(
     y: f64,
 ) -> AppResult<MapNode> {
     sqlx::query_as::<_, MapNode>(
-        "INSERT INTO map_nodes (kind, entity_id, x, y, content, created_at, updated_at)
-         VALUES (?1, 0, ?2, ?3, ?4, datetime('now'), datetime('now'))
-         RETURNING id, kind, entity_id, x, y, content, created_at, updated_at",
+        "INSERT INTO map_nodes (kind, entity_id, x, y, width, height, content, created_at, updated_at)
+         VALUES (?1, 0, ?2, ?3, NULL, NULL, ?4, datetime('now'), datetime('now'))
+         RETURNING id, kind, entity_id, x, y, width, height, content, created_at, updated_at",
     )
     .bind(kind)
     .bind(x)
@@ -102,7 +130,7 @@ pub(crate) async fn update_node_content(
     sqlx::query_as::<_, MapNode>(
         "UPDATE map_nodes SET content = ?1, updated_at = datetime('now')
            WHERE id = ?2
-         RETURNING id, kind, entity_id, x, y, content, created_at, updated_at",
+         RETURNING id, kind, entity_id, x, y, width, height, content, created_at, updated_at",
     )
     .bind(content)
     .bind(id)
@@ -120,7 +148,7 @@ pub(crate) async fn move_node(
     sqlx::query_as::<_, MapNode>(
         "UPDATE map_nodes SET x = ?1, y = ?2, updated_at = datetime('now')
            WHERE id = ?3
-         RETURNING id, kind, entity_id, x, y, content, created_at, updated_at",
+         RETURNING id, kind, entity_id, x, y, width, height, content, created_at, updated_at",
     )
     .bind(x)
     .bind(y)
@@ -239,6 +267,26 @@ pub async fn add_map_custom(
     y: f64,
 ) -> AppResult<MapNode> {
     add_custom(&state.pool, &content, x, y).await
+}
+
+#[tauri::command]
+pub async fn add_map_title(
+    state: State<'_, AppState>,
+    content: String,
+    x: f64,
+    y: f64,
+) -> AppResult<MapNode> {
+    add_title(&state.pool, &content, x, y).await
+}
+
+#[tauri::command]
+pub async fn resize_map_node(
+    state: State<'_, AppState>,
+    id: i64,
+    width: f64,
+    height: f64,
+) -> AppResult<MapNode> {
+    resize_node(&state.pool, id, width, height).await
 }
 
 #[tauri::command]

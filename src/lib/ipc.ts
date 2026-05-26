@@ -134,7 +134,7 @@ export type ArticleSummary = {
 };
 
 export type MapEntityKind = "note" | "article" | "workflow";
-export type MapNodeKind = MapEntityKind | "text" | "comment" | "custom";
+export type MapNodeKind = MapEntityKind | "text" | "comment" | "custom" | "title";
 
 export type MapNode = {
   id: number;
@@ -142,6 +142,8 @@ export type MapNode = {
   entityId: number;
   x: number;
   y: number;
+  width: number | null;
+  height: number | null;
   content: string | null;
   createdAt: string;
   updatedAt: string;
@@ -360,6 +362,10 @@ export const addMapComment = (content: string, x: number, y: number) =>
   invoke<MapNode>("add_map_comment", { content, x, y });
 export const addMapCustom = (content: string, x: number, y: number) =>
   invoke<MapNode>("add_map_custom", { content, x, y });
+export const addMapTitle = (content: string, x: number, y: number) =>
+  invoke<MapNode>("add_map_title", { content, x, y });
+export const resizeMapNode = (id: number, width: number, height: number) =>
+  invoke<MapNode>("resize_map_node", { id, width, height });
 export const updateMapNodeContent = (id: number, content: string) =>
   invoke<MapNode>("update_map_node_content", { id, content });
 export const moveMapNode = (id: number, x: number, y: number) =>

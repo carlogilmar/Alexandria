@@ -60,6 +60,8 @@ import {
   addMapText as addMapTextIpc,
   addMapComment as addMapCommentIpc,
   addMapCustom as addMapCustomIpc,
+  addMapTitle as addMapTitleIpc,
+  resizeMapNode as resizeMapNodeIpc,
   updateMapNodeContent as updateMapNodeContentIpc,
   moveMapNode as moveMapNodeIpc,
   removeMapNode as removeMapNodeIpc,
@@ -562,6 +564,26 @@ class AppStore {
     } catch (e) {
       this.setFlash(String(e));
       return null;
+    }
+  }
+
+  async addMapTitle(content: string, x: number, y: number): Promise<MapNode | null> {
+    try {
+      const created = await addMapTitleIpc(content, x, y);
+      this.mapNodes = [...this.mapNodes, created];
+      return created;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+
+  async resizeMapNode(id: number, width: number, height: number) {
+    try {
+      const updated = await resizeMapNodeIpc(id, width, height);
+      this.mapNodes = this.mapNodes.map((n) => (n.id === id ? updated : n));
+    } catch (e) {
+      this.setFlash(String(e));
     }
   }
 

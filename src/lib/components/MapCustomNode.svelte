@@ -72,6 +72,9 @@
     isVisible={selected}
     lineClass="custom-resize-line"
     handleClass="custom-resize-handle"
+    onResizeEnd={(_e, params) => {
+      void app.resizeMapNode(data.mapNodeId, params.width, params.height);
+    }}
   />
 
   <span class="custom-kind" style="color: {accent};">CUSTOM</span>

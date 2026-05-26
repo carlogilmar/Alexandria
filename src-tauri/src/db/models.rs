@@ -174,6 +174,8 @@ pub struct MapNode {
     pub entity_id: i64,
     pub x: f64,
     pub y: f64,
+    pub width: Option<f64>,
+    pub height: Option<f64>,
     pub content: Option<String>,
     pub created_at: String,
     pub updated_at: String,
