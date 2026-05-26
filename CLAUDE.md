@@ -1,0 +1,294 @@
+# BigPicture / Alexandria
+
+A single-user desktop personal knowledge system: daily lists, notes,
+articles, workflows, a curated canvas ("Alexandria"), a kanban for
+feedback planning, and two visualizations of activity. All data lives
+on-device.
+
+> If you are a Claude session being onboarded to continue development:
+> read this file end-to-end, then skim `documentation/SPRINT*.md`
+> chronologically (1 → 12). The sprints are the *why* — this file is
+> the *map*.
+
+## Stack
+
+- **Frontend**: SvelteKit + `adapter-static` (SPA, **no SSR**), Svelte 5
+  with runes (`$state` / `$derived` / `$effect`), Tailwind CSS v4,
+  TypeScript. CSR-only is enforced by `src/routes/+layout.ts`.
+- **Backend**: Rust + Tauri 2, `sqlx` against SQLite. The DB file lives
+  at `~/Library/Application Support/com.alertmedia.bigpicture/todos.db`
+  on macOS. Migrations run automatically at startup via
+  `sqlx::migrate!("./migrations")`.
+- **Canvas / visualization libs**: `@xyflow/svelte` (Alexandria + the
+  feedback connectors), `d3-force` + `d3-scale` (Visualization view).
+
+Bundle ID: `com.alertmedia.bigpicture`. Window has transparent
+`titleBarStyle` + macOS sidebar vibrancy (see `tauri.conf.json`).
+
+## Dev commands
+
+```bash
+pnpm install                         # once
+pnpm tauri dev                       # full app (Tauri window + frontend)
+pnpm dev                             # frontend only (browser, no IPC)
+pnpm build                           # frontend production build
+npx svelte-check --tsconfig ./tsconfig.json   # frontend type check
+cd src-tauri && cargo check          # backend type check
+cd src-tauri && cargo test --lib     # backend tests (see "Known quirks")
+```
+
+Run `pnpm tauri dev` once before committing to ensure migrations apply
+to your local DB.
+
+## Repo layout
+
+```
+src/
+  app.css                       # Tailwind + global rules; imports xyflow CSS
+  app.html
+  lib/
+    components/
+      Sidebar.svelte                 # left rail; ⌘1–6 destinations + pinned
+      Welcome.svelte                 # home view; calendar grid + buckets
+      HelpModal.svelte               # `?` shortcuts modal
+      AddEntityModal.svelte          # "+ Add" picker from sidebar
+      ListView/NoteView/ArticleView/WorkflowView.svelte
+      SummaryView.svelte             # formerly IndexView — tabbed list
+      GardenView.svelte              # "Visualization" — d3-force layouts
+      MapView.svelte                 # SvelteFlowProvider wrapper
+      MapEditor.svelte               # the Alexandria canvas
+      MapNodeCard / MapTextNode / MapCommentNode / MapCustomNode / MapTitleNode
+      AddToMapPalette.svelte         # entity drop palette on the canvas
+      FeedbackBoardsView.svelte      # kanban index
+      FeedbackBoardView.svelte       # kanban columns + DnD
+      FeedbackCardPanel.svelte       # card detail slide-in
+      ActivityView.svelte            # Kandinsky weekly grid
+      MarkdownEditor.svelte          # click-to-edit / blur-to-save md editor
+      IdChip.svelte
+    stores/
+      app.svelte.ts                  # SINGLE AppStore class — view + data + actions
+      theme.svelte.ts                # light/dark/system
+    ipc.ts                           # all types + Tauri `invoke` wrappers
+    garden.ts                        # client-side graph builder for Garden
+  routes/
+    +layout.ts                       # exports `ssr = false`
+    +layout.svelte
+    +page.svelte                     # dispatches the view by app.view
+
+src-tauri/
+  src/
+    commands/
+      lists.rs todos.rs tags.rs notes.rs articles.rs workflows.rs
+      map.rs feedback.rs search.rs export.rs images.rs mod.rs
+    db/
+      mod.rs                         # pool setup + sqlx::migrate!()
+      models.rs                      # ALL serde structs (serde camelCase)
+    error.rs markdown.rs lib.rs main.rs
+  migrations/                        # 0001-… monotonic, auto-applied
+  Cargo.toml tauri.conf.json
+
+documentation/
+  SPRINT1.md … SPRINT12.md           # decision log — read these to onboard
+```
+
+## Architecture (request → response → render)
+
+```
+UI event in a *.svelte component
+  → calls app.someAction(args)        (src/lib/stores/app.svelte.ts)
+    → app.* awaits an IPC fn          (src/lib/ipc.ts)
+      → Tauri invoke "snake_case_cmd" (camelCase args ↔ snake_case auto-converted)
+        → commands/<domain>.rs        (returns Result<Model, AppError>)
+          → sqlx against SQLite
+  → store mutates its $state          (e.g. this.notes = [...this.notes, new])
+  → Svelte components re-render reactively
+```
+
+`app.view` is a discriminated string. `routes/+page.svelte` is a giant
+`{#if/:else if}` over the view names. To add a new top-level
+destination, add a string to the union, add a `route` case, add a
+sidebar button.
+
+Current view values: `home · list · workflow · note · index · article ·
+garden · map · feedback · feedback-board · activity`.
+
+UI labels diverge from internal names where renames happened — the
+internal name stays to avoid touching every callsite:
+
+| Internal | UI label             | Sidebar shortcut |
+|----------|----------------------|------------------|
+| home     | (logo button)        | ⌘1               |
+| map      | Alexandria           | ⌘2               |
+| index    | Summary              | ⌘3               |
+| garden   | Visualization        | ⌘4               |
+| feedback | Feedback             | ⌘5               |
+| activity | Activity             | ⌘6               |
+
+## Svelte 5 patterns we follow
+
+- **All state in the store class.** `app` is a singleton. Components
+  read from it and call its actions; they don't hold their own data.
+- **`$state` vs `$state.raw`.** Default to `$state`. Use `$state.raw`
+  for arrays bound to xyflow (`bind:nodes={flowNodes}`,
+  `bind:edges={flowEdges}`) — the deep proxy can swamp the main thread
+  during xyflow's high-rate updates. We trigger reactivity by
+  *reassigning* the variable, not by mutating it.
+- **`$effect` only for side effects / sync.** Avoid using it for
+  derivations — use `$derived` instead.
+- **Modal pattern**: a child component takes an `onClose` prop and
+  renders a full-screen overlay-button + a dialog (see
+  `AddEntityModal.svelte`, `FeedbackCardPanel.svelte`).
+
+## Subtle / non-obvious patterns (READ BEFORE EDITING THE CANVAS)
+
+### `MapEditor.svelte` reactive sync is a SINGLE effect
+
+There's exactly one `$effect` that reassigns BOTH `flowNodes` AND
+`flowEdges`. Having two separate effects caused xyflow to drop edges on
+node-only mutations (Sprint 12). The effect also maintains
+`flowNodeCache` / `flowEdgeCache` Maps so unchanged items keep the same
+JS object identity across rebuilds — xyflow's internal reconciler
+short-circuits on identity, which keeps the canvas stable.
+
+If you add a new field to map nodes/edges, update `sameNode` /
+`sameEdge` to compare it, or refs will go stale.
+
+### Feedback kanban uses pointer events, not HTML5 drag-and-drop
+
+HTML5 DnD is unreliable in WKWebView (Tauri's macOS webview). The
+kanban uses `pointerdown` / `pointermove` / `pointerup` +
+`setPointerCapture`, a 5-pixel movement threshold to distinguish click
+from drag, `document.elementFromPoint` to find the target column, and
+a floating ghost card at the cursor. See `FeedbackBoardView.svelte`.
+
+### `MapNodeCard` (entity cards) is SVG, not HTML
+
+xyflow zooms via `transform: scale()` on the viewport, which makes
+HTML inside look pixelated on WKWebView at non-1.0 zoom. `MapNodeCard`
+renders its body as inline SVG so it stays crisp at any zoom.
+`MapTextNode` / `MapCustomNode` / `MapTitleNode` are HTML because they
+need editable text — we accept some pixelation there.
+
+### Today's list is never auto-created
+
+`app.init()` does NOT call `listToday()` (Sprint 11). The only path to
+creation is the sidebar's "Create today's list" button. Reason:
+opening the app on a weekend shouldn't silently make an empty list.
+
+### `MapNode.width` / `height` persistence
+
+`map_nodes` has nullable `width` / `height` REAL columns. NULL ⇒ use
+the renderer's default. After `NodeResizer.onResizeEnd`, the new
+dimensions are persisted via `app.resizeMapNode(id, w, h)` and
+re-read on every flowNode rebuild (Sprint 12).
+
+### `markerEnd` on every edge
+
+`toFlowEdge` in MapEditor sets `markerEnd: { type:
+MarkerType.ArrowClosed, width: 18, height: 18 }`. Missing this hides
+the direction arrows.
+
+### Connections reject decorative kinds
+
+In `onConnect`, edges are rejected if either endpoint is `text`,
+`comment`, or `title`. `custom` IS connectable. The check lives in
+`MapEditor.svelte`'s `onConnect`.
+
+### IndexView → SummaryView
+
+The old free-text index doc is preserved in the `index_doc` table but
+not surfaced anywhere. `app.view = "index"` now renders
+`SummaryView.svelte` (tabbed list of all entities with
+pin/archive/delete actions).
+
+### Garden default layout is `radial`
+
+Force / radial / timeline; radial is best for "how much of each kind
+do I have?" and is the entry default (Sprint 11).
+
+## Database
+
+### Migrations
+
+Files in `src-tauri/migrations/0001_…sql` … `0010_…sql`, monotonically
+numbered, applied at startup. To add one:
+
+1. Create `00NN_<short_name>.sql`.
+2. Use plain `ALTER TABLE` when possible.
+3. **CHECK constraint changes require recreating the table** (SQLite
+   limitation). Pattern: `PRAGMA defer_foreign_keys = ON;` →
+   `CREATE TABLE foo_new (...)` → `INSERT INTO foo_new SELECT …` →
+   `DROP TABLE foo` → `ALTER TABLE foo_new RENAME TO foo`. If any other
+   table FKs to it, rebuild that one too in the same migration (we do
+   this in 0006, 0008, 0010 for `map_nodes` / `map_edges`).
+
+### Tables (high-level)
+
+- `lists` + `todos` + `tags` + `todo_tags`: daily todo plumbing.
+- `workflows` + `workflow_steps`: step chains with optional sublists.
+- `notes` / `articles`: markdown bodies, day-attached (notes) or
+  free-form (articles), with `{{kind:id}}` embed tokens parsed
+  client-side in articles.
+- `index_doc`: legacy single-row markdown summary, preserved for data
+  safety but unused in UI.
+- `map_nodes` + `map_edges`: the Alexandria canvas. `kind` is one of
+  `note · article · workflow · text · comment · custom · title`. The
+  first three reference an existing entity via `entity_id`; the last
+  four are decorative (entity_id = 0, content holds text). A partial
+  unique index `(kind, entity_id) WHERE kind NOT IN (text, comment,
+  custom, title)` enforces one-position-per-entity.
+- `feedback_boards` + `feedback_cards` + `feedback_card_comments`:
+  per-cycle kanban. Columns are hardcoded in a CHECK constraint.
+- All entity tables have `pinned` (sidebar visibility) and `archived`
+  (Summary's archive tab) booleans.
+
+### Tauri command conventions
+
+- Backend function name = command name (snake_case).
+- Register in `src-tauri/src/lib.rs` `tauri::generate_handler![]`.
+- Frontend `invoke("snake_case_cmd", { camelCaseArgs })`; Tauri does
+  the case conversion. **Don't** send snake_case from JS or args go
+  missing.
+- All models use `#[serde(rename_all = "camelCase")]` so JS sees
+  `createdAt`, `entityId`, etc.
+
+## Known quirks
+
+- **xyflow zoom pixelation** on HTML node bodies in WKWebView is
+  unavoidable for HTML content; we mitigate by using SVG inside
+  `MapNodeCard` and capping `fitViewOptions.maxZoom = 1`. Text /
+  custom / title nodes accept some softness on zoom.
+- **`cargo test`** can fail with `failed to read plugin permissions:
+  …bigpicture_app/…` referencing a stale build cache path. `cargo
+  clean` inside `src-tauri/` fixes it. The bug is in the cached Tauri
+  build script, not in our code.
+- **Migrations 0006 / 0008 / 0010** recreate `map_nodes` (and
+  `map_edges` to refresh the FK). If you alter `map_nodes`'s CHECK
+  again, follow the same pattern.
+
+## When developing
+
+- **Plan first for non-trivial changes.** Write a SPRINT doc in
+  `documentation/` before coding the feature. Existing sprints are the
+  template — keep them honest about tradeoffs.
+- **Test the round trip.** After any DB or IPC change: cargo check +
+  svelte-check + manually load the affected view.
+- **Don't try to fix xyflow zoom pixelation with CSS** — we've tried
+  every CSS hint over multiple sprints (Sprint 9-11 history). The only
+  fix is SVG content. Take the tradeoff.
+- **Treat the sprint docs as the deep context source.** Each sprint
+  records why a feature is shaped the way it is. Read the relevant
+  ones before changing related code.
+
+## Quick wins for a fresh Claude session
+
+1. Read this file (you're doing it).
+2. Skim `documentation/SPRINT*.md` in order; bias toward 9–12 for
+   anything canvas / kanban / activity-related.
+3. Open `src/lib/stores/app.svelte.ts` and `MapEditor.svelte`. These
+   two files encode most of the architectural choices.
+4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
+   your machine.
+
+Last updated: end of Sprint 12 (feedback kanban + Kandinsky activity
+grid + persistent text-label resize + canvas edge-loss fix).
