@@ -1,7 +1,7 @@
 <script lang="ts">
   import { app } from "$lib/stores/app.svelte";
 
-  type LinkKind = "note" | "list" | "workflow" | "article";
+  type LinkKind = "note" | "list" | "workflow" | "article" | "diagram";
   type Item = { kind: LinkKind; id: number; title: string; sub: string };
 
   type Props = {
@@ -22,6 +22,7 @@
     note: 217,
     article: 268,
     workflow: 32,
+    diagram: 190,
     list: 152,
   };
 
@@ -45,6 +46,10 @@
         title: w.title,
         sub: `${w.stepCount} ${w.stepCount === 1 ? "step" : "steps"}`,
       });
+    }
+    for (const d of app.diagrams) {
+      if (d.archived) continue;
+      out.push({ kind: "diagram", id: d.id, title: d.title, sub: "diagram" });
     }
     for (const l of app.lists) {
       if (l.archived) continue;

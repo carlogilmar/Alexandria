@@ -55,6 +55,14 @@ import {
   updateArticleBody,
   deleteArticle as deleteArticleIpc,
   setArticlePinned,
+  setDiagramArchived,
+  listDiagrams,
+  diagramById,
+  createDiagram as createDiagramIpc,
+  renameDiagram as renameDiagramIpc,
+  updateDiagramSource,
+  deleteDiagram as deleteDiagramIpc,
+  setDiagramPinned,
   getMap,
   addMapNode as addMapNodeIpc,
   addMapText as addMapTextIpc,
@@ -86,6 +94,8 @@ import {
   getWeeklyActivity,
   type Article,
   type ArticleSummary,
+  type Diagram,
+  type DiagramSummary,
   type DayStats,
   type FeedbackBoardSummary,
   type FeedbackCardComment,
@@ -152,6 +162,7 @@ class AppStore {
     | "note"
     | "index"
     | "article"
+    | "diagram"
     | "garden"
     | "map"
     | "feedback"
@@ -175,6 +186,9 @@ class AppStore {
 
   articles = $state<ArticleSummary[]>([]);
   selectedArticle = $state<Article | null>(null);
+
+  diagrams = $state<DiagramSummary[]>([]);
+  selectedDiagram = $state<Diagram | null>(null);
 
   allTodos = $state<TodoHit[]>([]);
 
@@ -235,6 +249,7 @@ class AppStore {
       this.workflows = await listWorkflows();
       this.notes = await listNotes();
       this.articles = await listArticles();
+      this.diagrams = await listDiagrams();
       this.allTodos = await listAllTodos();
       this.indexDoc = await getIndexDoc();
     } catch (e) {
@@ -358,6 +373,7 @@ class AppStore {
       this.lists = await listAll();
       this.notes = await listNotes();
       this.articles = await listArticles();
+      this.diagrams = await listDiagrams();
       this.allTodos = await listAllTodos();
       this.workflows = await listWorkflows();
     } catch (e) {
@@ -719,6 +735,75 @@ class AppStore {
     this.setFlash(next ? "Pinned" : "Unpinned");
   }
 
+  // ---- Diagrams ----
+
+  async refreshDiagrams() {
+    this.diagrams = await listDiagrams();
+  }
+
+  async selectDiagram(id: number) {
+    try {
+      this.view = "diagram";
+      this.selected = null;
+      this.todos = [];
+      this.selectedTodoId = null;
+      this.selectedTodoTags = [];
+      this.selectedWorkflow = null;
+      this.workflowSteps = [];
+      this.selectedNote = null;
+      this.selectedArticle = null;
+      this.selectedDiagram = await diagramById(id);
+    } catch (e) {
+      this.error = String(e);
+    }
+  }
+
+  async newDiagram(title = "New diagram") {
+    const created = await createDiagramIpc(title);
+    await this.refreshDiagrams();
+    await this.selectDiagram(created.id);
+  }
+
+  async renameSelectedDiagram(title: string) {
+    if (!this.selectedDiagram) return;
+    const updated = await renameDiagramIpc(this.selectedDiagram.id, title);
+    this.selectedDiagram = updated;
+    await this.refreshDiagrams();
+  }
+
+  async updateSelectedDiagramSource(source: string) {
+    if (!this.selectedDiagram) return;
+    if (source === this.selectedDiagram.source) return;
+    const updated = await updateDiagramSource(this.selectedDiagram.id, source);
+    this.selectedDiagram = updated;
+    await this.refreshDiagrams();
+  }
+
+  async deleteSelectedDiagram() {
+    if (!this.selectedDiagram) return;
+    const ok = await confirm(
+      `"${this.selectedDiagram.title}" will be permanently removed.`,
+      { title: "Delete this diagram?", kind: "warning" },
+    );
+    if (!ok) return;
+    await deleteDiagramIpc(this.selectedDiagram.id);
+    this.selectedDiagram = null;
+    this.view = "home";
+    await this.refreshDiagrams();
+    this.setFlash("Diagram deleted");
+  }
+
+  async toggleSelectedDiagramPin() {
+    if (!this.selectedDiagram) return;
+    const next = !this.selectedDiagram.pinned;
+    this.selectedDiagram = await setDiagramPinned(
+      this.selectedDiagram.id,
+      next,
+    );
+    await this.refreshDiagrams();
+    this.setFlash(next ? "Pinned" : "Unpinned");
+  }
+
   // ---- Pin toggles (shared) ----
 
   async toggleSelectedNotePin() {
@@ -762,6 +847,12 @@ class AppStore {
     this.setFlash(pinned ? "Pinned" : "Unpinned");
   }
 
+  async setDiagramPinnedById(id: number, pinned: boolean) {
+    await setDiagramPinned(id, pinned);
+    await this.refreshDiagrams();
+    this.setFlash(pinned ? "Pinned" : "Unpinned");
+  }
+
   async setWorkflowPinnedById(id: number, pinned: boolean) {
     await setWorkflowPinned(id, pinned);
     await this.refreshWorkflows();
@@ -788,6 +879,12 @@ class AppStore {
     this.setFlash(archived ? "Archived" : "Unarchived");
   }
 
+  async setDiagramArchived(id: number, archived: boolean) {
+    await setDiagramArchived(id, archived);
+    await this.refreshDiagrams();
+    this.setFlash(archived ? "Archived" : "Unarchived");
+  }
+
   async setWorkflowArchived(id: number, archived: boolean) {
     await setWorkflowArchived(id, archived);
     await this.refreshWorkflows();
@@ -803,13 +900,18 @@ class AppStore {
 
   // ---- Generic "new entity" used by the sidebar's Add modal ----
 
-  async newEntity(kind: "note" | "article" | "workflow", title: string) {
+  async newEntity(
+    kind: "note" | "article" | "workflow" | "diagram",
+    title: string,
+  ) {
     const t = title.trim();
     if (kind === "note") {
       const finalTitle = t || `Note — ${defaultListTitleForDate(todayIso())}`;
       await this.newNote(undefined, finalTitle);
     } else if (kind === "article") {
       await this.newArticle(t || "New article");
+    } else if (kind === "diagram") {
+      await this.newDiagram(t || "New diagram");
     } else {
       await this.newWorkflow(t || "New workflow");
     }
@@ -843,6 +945,20 @@ class AppStore {
     await this.refreshArticles();
     if (this.selectedArticle?.id === id) this.selectedArticle = null;
     this.setFlash("Article deleted");
+  }
+
+  async deleteDiagramById(id: number) {
+    const diagram = this.diagrams.find((d) => d.id === id);
+    const label = diagram?.title ?? `diagram ${id}`;
+    const ok = await confirm(`"${label}" will be permanently removed.`, {
+      title: "Delete this diagram?",
+      kind: "warning",
+    });
+    if (!ok) return;
+    await deleteDiagramIpc(id);
+    await this.refreshDiagrams();
+    if (this.selectedDiagram?.id === id) this.selectedDiagram = null;
+    this.setFlash("Diagram deleted");
   }
 
   async deleteWorkflowById(id: number) {

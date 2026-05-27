@@ -168,6 +168,28 @@ pub struct ArticleSummary {
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
+pub struct Diagram {
+    pub id: i64,
+    pub title: String,
+    pub source: String,
+    pub pinned: bool,
+    pub archived: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct DiagramSummary {
+    pub id: i64,
+    pub title: String,
+    pub pinned: bool,
+    pub archived: bool,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct MapNode {
     pub id: i64,
     pub kind: String,

@@ -25,3 +25,12 @@ pub async fn save_text_file(path: String, content: String) -> AppResult<()> {
     std::fs::write(&path, content)?;
     Ok(())
 }
+
+#[tauri::command]
+pub async fn save_binary_file(path: String, bytes: Vec<u8>) -> AppResult<()> {
+    if path.trim().is_empty() {
+        return Err(AppError::BadInput("path cannot be empty".into()));
+    }
+    std::fs::write(&path, bytes)?;
+    Ok(())
+}

@@ -116,7 +116,7 @@ destination, add a string to the union, add a `route` case, add a
 sidebar button.
 
 Current view values: `home · list · workflow · note · index · article ·
-garden · map · feedback · feedback-board · activity`.
+diagram · garden · map · feedback · feedback-board · activity`.
 
 UI labels diverge from internal names where renames happened — the
 internal name stays to avoid touching every callsite:
@@ -216,7 +216,7 @@ do I have?" and is the entry default (Sprint 11).
 
 ### Migrations
 
-Files in `src-tauri/migrations/0001_…sql` … `0010_…sql`, monotonically
+Files in `src-tauri/migrations/0001_…sql` … `0011_…sql`, monotonically
 numbered, applied at startup. To add one:
 
 1. Create `00NN_<short_name>.sql`.
@@ -245,6 +245,12 @@ numbered, applied at startup. To add one:
   custom, title)` enforces one-position-per-entity.
 - `feedback_boards` + `feedback_cards` + `feedback_card_comments`:
   per-cycle kanban. Columns are hardcoded in a CHECK constraint.
+- `diagrams`: Mermaid diagrams-as-code (`source` holds the text; the SVG
+  is rendered client-side via `$lib/mermaid.ts`, which dynamic-imports
+  mermaid). A first-class entity like notes/articles — created freely,
+  shown/edited/pinned/archived/deleted, embeddable as `{{diagram:id}}`
+  and linkable as `diagram:id`. NOT yet a canvas node (deferred — that's
+  where the `map_nodes` CHECK change will land).
 - All entity tables have `pinned` (sidebar visibility) and `archived`
   (Summary's archive tab) booleans.
 
@@ -296,7 +302,12 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 13 (Alexandria rename — identifier kept;
-planning calendar with clickable future days; markdown editor polish —
-explicit Edit button, auto-growing textarea via `$lib/autosize`, table
-insert, and entity links `[label](note:5)` + `EntityLinkPicker`).
+Last updated: end of Sprint 14 (Diagrams — Mermaid diagrams-as-code as a
+first-class entity: `diagrams` table + `commands/diagrams.rs`,
+`DiagramView`/`DiagramEditor` with live preview via `$lib/mermaid.ts`
+(dynamic-imported), PNG export via `save_binary_file`, `{{diagram:id}}`
+embeds + `diagram:id` links. Canvas node deferred).
+
+Sprint 13 (Alexandria rename — identifier kept; planning calendar with
+clickable future days; markdown editor polish — explicit Edit button,
+auto-growing textarea via `$lib/autosize`, table insert, entity links).

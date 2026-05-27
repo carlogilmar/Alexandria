@@ -40,6 +40,10 @@
     return app.view === "article" && app.selectedArticle?.id === id;
   }
 
+  function isDiagramSelected(id: number): boolean {
+    return app.view === "diagram" && app.selectedDiagram?.id === id;
+  }
+
   let isSearching = $derived(query.trim().length > 0);
 
   // The sidebar now shows ONLY pinned items per section. The full list of
@@ -52,6 +56,9 @@
     app.articles.filter((a) => a.pinned && !a.archived),
   );
   let pinnedNotes = $derived(app.notes.filter((n) => n.pinned && !n.archived));
+  let pinnedDiagrams = $derived(
+    app.diagrams.filter((d) => d.pinned && !d.archived),
+  );
 
   // Today's-list quick access: detect by date string match.
   let today = $derived(todayIso());
@@ -337,7 +344,34 @@
         </div>
       {/if}
 
-      {#if pinnedWorkflows.length === 0 && pinnedArticles.length === 0 && pinnedNotes.length === 0}
+      <!-- Pinned diagrams -->
+      {#if pinnedDiagrams.length > 0}
+        <h2 class="mb-1 px-2 text-xs font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+          Diagrams
+        </h2>
+        <div class="mb-3">
+          {#each pinnedDiagrams as d (d.id)}
+            <button
+              type="button"
+              class="w-full rounded-md px-2 py-1 text-left transition-colors"
+              class:bg-neutral-300={isDiagramSelected(d.id)}
+              class:dark:bg-neutral-700={isDiagramSelected(d.id)}
+              class:hover:bg-neutral-200={!isDiagramSelected(d.id)}
+              class:dark:hover:bg-neutral-800={!isDiagramSelected(d.id)}
+              onclick={() => app.selectDiagram(d.id)}
+            >
+              <div class="flex items-center gap-1">
+                <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 shrink-0 text-amber-500" aria-label="pinned">
+                  <path d="M10 1.5a.75.75 0 01.75.75v1.293l3.116 3.116a.75.75 0 01.184.74l-.842 2.526L15 11.5v.75a.75.75 0 01-.75.75H11v4l-1 1-1-1v-4H5.75A.75.75 0 015 12.25v-.75l1.792-1.575-.842-2.526a.75.75 0 01.184-.74L9.25 3.543V2.25A.75.75 0 0110 1.5z"/>
+                </svg>
+                <span class="truncate text-sm text-neutral-700 dark:text-neutral-300">{d.title}</span>
+              </div>
+            </button>
+          {/each}
+        </div>
+      {/if}
+
+      {#if pinnedWorkflows.length === 0 && pinnedArticles.length === 0 && pinnedNotes.length === 0 && pinnedDiagrams.length === 0}
         <p class="px-2 text-[11px] italic text-neutral-400 dark:text-neutral-500">
           Pin items from Summary to keep them one click away here.
         </p>
