@@ -1,6 +1,6 @@
 # Architecture overview
 
-A plain-language walkthrough of how **AlertMediaBigPicture** is put together. The goal of this document is that a developer who has never touched Rust, Svelte or Tauri can read it once and know where to look for any piece of behavior in the codebase.
+A plain-language walkthrough of how **Alexandria** is put together. The goal of this document is that a developer who has never touched Rust, Svelte or Tauri can read it once and know where to look for any piece of behavior in the codebase.
 
 If you want to go deeper into either language afterwards:
 - [rust.md](./rust.md) — Rust fundamentals + the Rust backend
@@ -18,7 +18,7 @@ It is shipped as a single `.app` bundle and lives in `/Applications` like any ot
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  AlertMediaBigPicture.app                                │
+│  Alexandria.app                                │
 │                                                          │
 │  ┌────────────────────────────────────────────────────┐  │
 │  │  WKWebView (the macOS system web view)             │  │

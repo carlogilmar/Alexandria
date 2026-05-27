@@ -28,9 +28,16 @@
   let sortedArticles = $derived<ArticleSummary[]>(app.articles);
   let sortedTasks = $derived<TodoHit[]>(app.allTodos);
 
+  // Calendar grid spans PAST_WEEKS of history plus FUTURE_WEEKS of runway,
+  // so you can plan lists for upcoming days. Future cells stay clickable but
+  // never take the done/partial completion colors.
+  const PAST_WEEKS = 53;
+  const FUTURE_WEEKS = 4;
+  const TOTAL_WEEKS = PAST_WEEKS + FUTURE_WEEKS;
+
   type Cell = {
     date: string;
-    state: "future" | "empty" | "partial" | "done";
+    state: "future-empty" | "future-planned" | "empty" | "partial" | "done";
     total: number;
     done: number;
   };
@@ -41,17 +48,23 @@
 
   function classifyForDate(today: Date, d: Date, s: DayStats | undefined): Cell {
     const iso = isoDate(d);
+    const hasData = !!s && s.total > 0;
     if (d > today) {
-      return { date: iso, state: "future", total: 0, done: 0 };
+      return {
+        date: iso,
+        state: hasData ? "future-planned" : "future-empty",
+        total: s?.total ?? 0,
+        done: s?.done ?? 0,
+      };
     }
-    if (!s || s.total === 0) {
+    if (!hasData) {
       return { date: iso, state: "empty", total: 0, done: 0 };
     }
     return {
       date: iso,
-      state: s.done === s.total ? "done" : "partial",
-      total: s.total,
-      done: s.done,
+      state: s!.done === s!.total ? "done" : "partial",
+      total: s!.total,
+      done: s!.done,
     };
   }
 
@@ -60,9 +73,9 @@
     today.setHours(0, 0, 0, 0);
 
     const endSunday = new Date(today);
-    endSunday.setDate(today.getDate() + (7 - today.getDay()));
+    endSunday.setDate(today.getDate() + (7 - today.getDay()) + FUTURE_WEEKS * 7);
     const startSunday = new Date(endSunday);
-    startSunday.setDate(endSunday.getDate() - 53 * 7);
+    startSunday.setDate(endSunday.getDate() - TOTAL_WEEKS * 7);
 
     const byDate = new Map<string, DayStats>(
       app.dailyStats.map((s) => [s.date, s]),
@@ -73,7 +86,7 @@
     let lastMonth = -1;
 
     const cursor = new Date(startSunday);
-    for (let i = 0; i < 53 * 7; i++) {
+    for (let i = 0; i < TOTAL_WEEKS * 7; i++) {
       const cell = classifyForDate(today, cursor, byDate.get(isoDate(cursor)));
       cells.push(cell);
       if (cursor.getDay() === 0 && cursor.getMonth() !== lastMonth) {
@@ -144,7 +157,8 @@
   );
 
   function pickCell(cell: Cell) {
-    if (cell.state === "future") return;
+    // Future days are selectable too — picking one opens the day panel so you
+    // can plan a list/note for it.
     selectedDate = cell.date;
   }
 
@@ -398,6 +412,10 @@
           ></span> all done
         </span>
         <span class="inline-flex items-center gap-1">
+          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-indigo-300 dark:bg-indigo-500/70"
+          ></span> planned
+        </span>
+        <span class="inline-flex items-center gap-1">
           <span
             class="inline-block h-2.5 w-2.5 rounded-sm ring-2 ring-blue-500"
           ></span> today
@@ -409,9 +427,9 @@
       <div class="inline-block">
         <div
           class="mb-1 grid h-3 text-[10px] text-neutral-400 dark:text-neutral-500"
-          style="grid-template-columns: repeat(53, 14px); column-gap: 2px;"
+          style="grid-template-columns: repeat({TOTAL_WEEKS}, 14px); column-gap: 2px;"
         >
-          {#each Array(53) as _, col}
+          {#each Array(TOTAL_WEEKS) as _, col}
             {@const m = grid.months.find((mm) => mm.col === col)}
             <div class="flex items-end justify-start">
               {m ? m.label : ""}
@@ -420,17 +438,22 @@
         </div>
         <div
           class="grid"
-          style="grid-template-columns: repeat(53, 14px); grid-template-rows: repeat(7, 14px); gap: 2px; grid-auto-flow: column;"
+          style="grid-template-columns: repeat({TOTAL_WEEKS}, 14px); grid-template-rows: repeat(7, 14px); gap: 2px; grid-auto-flow: column;"
         >
           {#each grid.cells as cell (cell.date)}
             <button
               type="button"
               aria-label={`${cell.date} — ${cell.state}`}
-              disabled={cell.state === "future"}
-              class="h-3 w-3 rounded-sm transition-transform hover:scale-125 disabled:hover:scale-100"
+              class="h-3 w-3 rounded-sm transition-transform hover:scale-125"
               class:bg-neutral-300={cell.state === "empty"}
               class:dark:bg-neutral-700={cell.state === "empty"}
-              class:bg-transparent={cell.state === "future"}
+              class:bg-transparent={cell.state === "future-empty"}
+              class:ring-1={cell.state === "future-empty"}
+              class:ring-inset={cell.state === "future-empty"}
+              class:ring-neutral-300={cell.state === "future-empty"}
+              class:dark:ring-neutral-600={cell.state === "future-empty"}
+              class:bg-indigo-300={cell.state === "future-planned"}
+              class:dark:bg-indigo-500={cell.state === "future-planned"}
               class:bg-rose-400={cell.state === "partial"}
               class:bg-emerald-500={cell.state === "done"}
               class:ring-2={cell.date === today}
@@ -442,11 +465,13 @@
               class:dark:outline-neutral-100={selectedDate === cell.date}
               title={cell.date === today
                 ? `Today (${cell.date}) — ${cell.state === "done" ? "all done" : cell.state === "partial" ? `${cell.done}/${cell.total}` : "no todos yet"}`
-                : cell.state === "future"
-                  ? ""
-                  : cell.state === "empty"
-                    ? `${cell.date} — no list`
-                    : `${cell.date} — ${cell.done}/${cell.total}`}
+                : cell.state === "future-empty"
+                  ? `${cell.date} — plan a list`
+                  : cell.state === "future-planned"
+                    ? `${cell.date} — planned (${cell.done}/${cell.total})`
+                    : cell.state === "empty"
+                      ? `${cell.date} — no list`
+                      : `${cell.date} — ${cell.done}/${cell.total}`}
               onclick={() => pickCell(cell)}
             ></button>
           {/each}

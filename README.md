@@ -1,4 +1,4 @@
-# AlertMediaBigPicture
+# Alexandria
 
 A native macOS TODO app. Lists per day, drag-to-reorder, notes + tags, full-text search, day-streak stats, and Markdown export. Built with Rust + Tauri 2 + Svelte 5 + Tailwind v4. Stores everything locally in SQLite — no accounts, no cloud, fully offline.
 
@@ -63,7 +63,7 @@ pnpm tauri build --bundles app
 The resulting bundle is at:
 
 ```
-src-tauri/target/release/bundle/macos/AlertMediaBigPicture.app
+src-tauri/target/release/bundle/macos/Alexandria.app
 ```
 
 Drag it into `/Applications`. The build is unsigned, so the first time you open it macOS will refuse to launch it by double-click — right-click the app and choose **Open**, then confirm the security prompt once. Subsequent launches open normally.
@@ -83,7 +83,7 @@ Once you've installed the app to `/Applications`, here's how to push code change
    ```bash
    pnpm tauri build --bundles app
    ```
-3. In Finder, open `src-tauri/target/release/bundle/macos/`, drag `AlertMediaBigPicture.app` onto `/Applications`, and pick **Replace** when prompted.
+3. In Finder, open `src-tauri/target/release/bundle/macos/`, drag `Alexandria.app` onto `/Applications`, and pick **Replace** when prompted.
 4. Open the new copy. Because the bundle identifier (`com.alertmedia.bigpicture`) is unchanged, macOS usually skips the Gatekeeper prompt; if it shows up, right-click → **Open** like the first install.
 
 ### One-liner
@@ -92,11 +92,11 @@ Same flow, scripted:
 
 ```bash
 pnpm tauri build --bundles app && \
-  osascript -e 'quit app "AlertMediaBigPicture"' 2>/dev/null; \
+  osascript -e 'quit app "Alexandria"' 2>/dev/null; \
   sleep 1 && \
-  rm -rf /Applications/AlertMediaBigPicture.app && \
-  cp -R src-tauri/target/release/bundle/macos/AlertMediaBigPicture.app /Applications/ && \
-  open /Applications/AlertMediaBigPicture.app
+  rm -rf /Applications/Alexandria.app && \
+  cp -R src-tauri/target/release/bundle/macos/Alexandria.app /Applications/ && \
+  open /Applications/Alexandria.app
 ```
 
 `osascript` asks the app to quit cleanly (rather than `killall`, which would force-terminate it).

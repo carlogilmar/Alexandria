@@ -71,7 +71,7 @@
       {#if !logoFailed}
         <img
           src={theme.resolved === "dark" ? "/logo-dark.png" : "/logo.png"}
-          alt="AlertMediaBigPicture"
+          alt="Alexandria"
           class="pointer-events-none h-12 w-auto max-w-full select-none"
           draggable="false"
           onerror={() => (logoFailed = true)}
@@ -80,7 +80,7 @@
         <span
           class="text-sm font-semibold tracking-tight text-neutral-700 dark:text-neutral-200"
         >
-          AlertMediaBigPicture
+          Alexandria
         </span>
       {/if}
     </button>

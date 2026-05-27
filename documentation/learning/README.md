@@ -1,4 +1,4 @@
-# Learning · AlertMediaBigPicture
+# Learning · Alexandria
 
 Welcome. This folder is the **knowledge base for new contributors**. It's aimed at developers who are joining the project without prior experience in Rust or Svelte. If you can read TypeScript and SQL, you have enough to follow along.
 

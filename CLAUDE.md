@@ -1,13 +1,19 @@
-# BigPicture / Alexandria
+# Alexandria
 
 A single-user desktop personal knowledge system: daily lists, notes,
 articles, workflows, a curated canvas ("Alexandria"), a kanban for
 feedback planning, and two visualizations of activity. All data lives
 on-device.
 
+> The product is named **Alexandria** (after its centerpiece canvas).
+> The macOS bundle identifier is still `com.alertmedia.bigpicture` — it
+> was deliberately *not* renamed because it resolves the on-disk SQLite
+> path; changing it would orphan existing data. The "bigpicture" string
+> survives only in that identifier / DB path, never in the UI.
+
 > If you are a Claude session being onboarded to continue development:
 > read this file end-to-end, then skim `documentation/SPRINT*.md`
-> chronologically (1 → 12). The sprints are the *why* — this file is
+> chronologically (1 → 13). The sprints are the *why* — this file is
 > the *map*.
 
 ## Stack
@@ -290,5 +296,7 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 12 (feedback kanban + Kandinsky activity
-grid + persistent text-label resize + canvas edge-loss fix).
+Last updated: end of Sprint 13 (Alexandria rename — identifier kept;
+planning calendar with clickable future days; markdown editor polish —
+explicit Edit button, auto-growing textarea via `$lib/autosize`, table
+insert, and entity links `[label](note:5)` + `EntityLinkPicker`).
