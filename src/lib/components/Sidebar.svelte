@@ -8,6 +8,9 @@
   let logoFailed = $state(false);
   let addModalOpen = $state(false);
 
+  // Git commit this bundle was built from (injected by Vite — see vite.config.js).
+  const commitHash = __APP_COMMIT__;
+
   // Debounced search
   $effect(() => {
     const q = query.trim();
@@ -457,5 +460,12 @@
       <span>Shortcuts</span>
       <span class="font-mono text-[10px]">?</span>
     </button>
+    <div
+      class="mt-1.5 flex items-center justify-between px-1 text-[10px] text-neutral-300 dark:text-neutral-600"
+      title="Git commit this build was made from"
+    >
+      <span>build</span>
+      <span class="select-text font-mono">{commitHash}</span>
+    </div>
   </div>
 </aside>
