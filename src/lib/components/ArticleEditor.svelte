@@ -1,9 +1,10 @@
 <script lang="ts">
-  import MarkdownIt from "markdown-it";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { app } from "$lib/stores/app.svelte";
+  import { theme } from "$lib/stores/theme.svelte";
   import { saveImageFile } from "$lib/ipc";
   import { autosize } from "$lib/autosize";
+  import { createMarkdownIt, hydrateMermaidBlocks } from "$lib/markdownit";
   import EmbedBlock from "$lib/components/EmbedBlock.svelte";
   import EntityLinkPicker from "$lib/components/EntityLinkPicker.svelte";
 
@@ -21,27 +22,15 @@
     onCommit,
   }: Props = $props();
 
-  const md = new MarkdownIt({
-    html: false,
-    linkify: true,
-    breaks: true,
-    typographer: false,
-  });
-  const defaultLinkOpen =
-    md.renderer.rules.link_open ??
-    ((tokens, idx, opts, _env, self) => self.renderToken(tokens, idx, opts));
-  md.renderer.rules.link_open = (tokens, idx, opts, env, self) => {
-    const t = tokens[idx];
-    if (t.attrIndex("target") < 0) t.attrPush(["target", "_blank"]);
-    if (t.attrIndex("rel") < 0) t.attrPush(["rel", "noopener noreferrer"]);
-    return defaultLinkOpen(tokens, idx, opts, env, self);
-  };
+  const md = createMarkdownIt();
 
   let editing = $state(false);
   let draft = $state("");
   let textarea: HTMLTextAreaElement | undefined = $state();
   let linkPickerOpen = $state(false);
   let savedSel = { start: 0, end: 0 };
+  let previewEl: HTMLDivElement | undefined = $state();
+  let isLarge = $state(false);
 
   const btnCls =
     "inline-flex items-center gap-1 rounded-md border border-neutral-200/70 bg-white/60 px-2 py-0.5 text-[11px] text-neutral-600 transition-colors hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/40 dark:text-neutral-300 dark:hover:bg-neutral-800";
@@ -86,6 +75,39 @@
   });
 
   let hasContent = $derived(draft.trim().length > 0);
+
+  // Hydrate ```mermaid placeholders to SVG across every md segment. The segment
+  // {@html} blocks get rewritten on edit/commit/theme changes, so a one-shot
+  // effect can race the paint or get wiped. A MutationObserver re-runs hydration
+  // whenever the preview's HTML changes; the source+theme cache and renderedKey
+  // guard keep repeat passes cheap and non-looping. Re-established on theme flip.
+  $effect(() => {
+    const el = previewEl;
+    const t = theme.resolved === "dark" ? "dark" : "default";
+    if (!el) return;
+    hydrateMermaidBlocks(el, t);
+    const mo = new MutationObserver(() => hydrateMermaidBlocks(el, t));
+    mo.observe(el, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  });
+
+  // When the rendered article is taller than the viewport, the top Edit button
+  // scrolls out of reach — surface a second one at the bottom. ResizeObserver
+  // re-measures as content (incl. embeds/images) changes height.
+  $effect(() => {
+    const el = previewEl;
+    if (!el) {
+      isLarge = false;
+      return;
+    }
+    const measure = () => {
+      isLarge = el.scrollHeight > window.innerHeight;
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
 
   function startEditing() {
     editing = true;
@@ -159,6 +181,13 @@
     const before = draft.length > 0 && !draft.endsWith("\n") ? "\n" : "";
     insertAtCursor(
       `${before}\n| Column | Column |\n| --- | --- |\n| Cell | Cell |\n`,
+    );
+  }
+
+  function insertDiagram() {
+    const before = draft.length > 0 && !draft.endsWith("\n") ? "\n" : "";
+    insertAtCursor(
+      `${before}\n\`\`\`mermaid\nflowchart TD\n  A[Start] --> B[End]\n\`\`\`\n`,
     );
   }
 
@@ -277,6 +306,17 @@
       <button
         type="button"
         onmousedown={(e) => e.preventDefault()}
+        onclick={insertDiagram}
+        class={btnCls}
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3">
+          <path fill-rule="evenodd" d="M3 4.75A1.75 1.75 0 014.75 3h3.5A1.75 1.75 0 0110 4.75v2.5A1.75 1.75 0 018.25 9H7v2h3.5a.75.75 0 01.75.75V13h1A1.75 1.75 0 0113 14.75v.5A1.75 1.75 0 0111.25 17h-2.5A1.75 1.75 0 017 15.25v-.5A1.75 1.75 0 018.75 13h1v-1.5H5.5A.75.75 0 014.75 11V9h-.5A1.75 1.75 0 012.5 7.25v-2.5zm10.75 8.25h2.5A1.75 1.75 0 0118 14.75v.5A1.75 1.75 0 0116.25 17h-2.5A1.75 1.75 0 0112 15.25v-.5A1.75 1.75 0 0113.75 13z" clip-rule="evenodd" />
+        </svg>
+        Insert diagram
+      </button>
+      <button
+        type="button"
+        onmousedown={(e) => e.preventDefault()}
         onclick={pickAndInsertImage}
         class={btnCls}
       >
@@ -315,6 +355,7 @@
       Edit
     </button>
     <div
+      bind:this={previewEl}
       role="presentation"
       style="min-height: {minHeight};"
       class="markdown-body w-full overflow-x-hidden rounded-md px-3 py-2 text-sm leading-relaxed text-neutral-800 dark:text-neutral-200"
@@ -329,6 +370,20 @@
         {/if}
       {/each}
     </div>
+    {#if isLarge}
+      <div class="mt-2 flex justify-center">
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 rounded-md border border-neutral-200/70 bg-white/80 px-3 py-1 text-xs font-medium text-neutral-600 shadow-sm transition-colors hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/70 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          onclick={startEditing}
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3">
+            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+          </svg>
+          Edit
+        </button>
+      </div>
+    {/if}
   </div>
 {:else}
   <button
@@ -398,6 +453,24 @@
   :global(html.dark) .markdown-body :global(code) {
     background: rgba(255, 255, 255, 0.08);
   }
+  .markdown-body :global(.mermaid-block) {
+    display: flex;
+    justify-content: center;
+    margin: 0.6rem 0;
+  }
+  /* Before hydration the placeholder shows raw source — keep it monospace and
+     muted so the sub-second flash before the SVG swaps in reads as code. */
+  .markdown-body :global(.mermaid-block[data-rendered="0"]) {
+    white-space: pre-wrap;
+    justify-content: flex-start;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85em;
+    color: rgba(0, 0, 0, 0.4);
+  }
+  :global(html.dark) .markdown-body :global(.mermaid-block[data-rendered="0"]) {
+    color: rgba(255, 255, 255, 0.4);
+  }
+  .markdown-body :global(.mermaid-block svg) { max-width: 100%; height: auto; }
   .markdown-body :global(img) { max-width: 100%; height: auto; }
   .markdown-body :global(hr) {
     border: 0;
@@ -410,8 +483,7 @@
   .markdown-body :global(strong) { font-weight: 600; }
   .markdown-body :global(em) { font-style: italic; }
   .markdown-body :global(table) {
-    display: block;
-    overflow-x: auto;
+    width: 100%;
     max-width: 100%;
     border-collapse: collapse;
     margin: 0.5rem 0;
@@ -419,7 +491,12 @@
   .markdown-body :global(th),
   .markdown-body :global(td) {
     border: 1px solid rgba(0, 0, 0, 0.1);
-    padding: 0.25rem 0.5rem;
+    padding: 0.3rem 0.55rem;
+    /* Floor each column so a short first column (e.g. a title) stays
+       readable instead of collapsing while a long description hogs width. */
+    min-width: 7rem;
+    text-align: left;
+    vertical-align: top;
   }
   :global(html.dark) .markdown-body :global(th),
   :global(html.dark) .markdown-body :global(td) {

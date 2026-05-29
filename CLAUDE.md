@@ -302,7 +302,17 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 14 (Diagrams — Mermaid diagrams-as-code as a
+Last updated: end of Sprint 15 (Inline ```mermaid fences — write a fenced
+`mermaid` block anywhere you write markdown (notes, articles) and it renders
+inline, GitHub-style. Client-only: a shared `$lib/markdownit.ts` factory adds
+a markdown-it `fence` rule that emits a `.mermaid-block` placeholder, then
+`hydrateMermaidBlocks` swaps in the SVG after paint (markdown render is sync,
+`renderMermaid` is async) with a source+theme-keyed cache + last-good-render
+on syntax errors. No backend/migration/entity — distinct from the
+`{{diagram:id}}` Diagram entity, which stays the home for reusable/exportable
+diagrams).
+
+Sprint 14 (Diagrams — Mermaid diagrams-as-code as a
 first-class entity: `diagrams` table + `commands/diagrams.rs`,
 `DiagramView`/`DiagramEditor` with live preview via `$lib/mermaid.ts`
 (dynamic-imported), PNG export via `save_binary_file`, `{{diagram:id}}`
