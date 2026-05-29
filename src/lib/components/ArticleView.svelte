@@ -100,7 +100,7 @@
     {#key app.selectedArticle.id}
       <ArticleEditor
         value={app.selectedArticle.body}
-        placeholder={"Write your article in markdown. Embed any element on its own line — e.g. {{note:5}}, {{workflow:3}}, or {{diagram:7}}."}
+        placeholder={"Write your article in markdown. Embed any element on its own line — e.g. {{note:5}} or {{workflow:3}}. Use a ```mermaid fence for inline diagrams."}
         minHeight="24rem"
         onCommit={commitBody}
       />

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { app } from "$lib/stores/app.svelte";
 
-  type Kind = "note" | "article" | "workflow" | "diagram";
+  type Kind = "note" | "article" | "workflow";
   type Props = { onClose: () => void };
   let { onClose }: Props = $props();
 
@@ -18,7 +18,6 @@
     { value: "article", label: "Article", hue: 268, hint: "Long-form, can embed other items" },
     { value: "note", label: "Note", hue: 217, hint: "Daily markdown note" },
     { value: "workflow", label: "Workflow", hue: 32, hint: "Step-by-step process" },
-    { value: "diagram", label: "Diagram", hue: 190, hint: "Mermaid diagram-as-code" },
   ];
 
   async function submit() {

@@ -1,5 +1,4 @@
 pub mod articles;
-pub mod diagrams;
 pub mod export;
 pub mod feedback;
 pub mod images;

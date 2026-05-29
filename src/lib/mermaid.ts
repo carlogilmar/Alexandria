@@ -1,6 +1,6 @@
 // Lazy wrapper around Mermaid. The library is chunky, so it's dynamic-imported
-// on first use and kept out of the initial bundle. Used by the diagram editor
-// and by {{diagram:id}} embeds.
+// on first use and kept out of the initial bundle. Used by inline ```mermaid
+// fences in note/article markdown (see $lib/markdownit.ts).
 
 type MermaidApi = typeof import("mermaid")["default"];
 

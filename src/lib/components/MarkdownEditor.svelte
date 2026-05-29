@@ -104,7 +104,7 @@
         if (handled === true) return;
       }
       // Internal entity links: [label](note:5) etc. — navigate in-app.
-      const ent = href.match(/^(note|list|workflow|article|diagram):(\d+)$/);
+      const ent = href.match(/^(note|list|workflow|article):(\d+)$/);
       if (ent) {
         const id = Number(ent[2]);
         if (Number.isFinite(id)) {
@@ -112,7 +112,6 @@
           else if (ent[1] === "list") app.select(id);
           else if (ent[1] === "workflow") app.selectWorkflow(id);
           else if (ent[1] === "article") app.selectArticle(id);
-          else if (ent[1] === "diagram") app.selectDiagram(id);
         }
         return;
       }

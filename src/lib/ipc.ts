@@ -133,24 +133,6 @@ export type ArticleSummary = {
   updatedAt: string;
 };
 
-export type Diagram = {
-  id: number;
-  title: string;
-  source: string;
-  pinned: boolean;
-  archived: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type DiagramSummary = {
-  id: number;
-  title: string;
-  pinned: boolean;
-  archived: boolean;
-  updatedAt: string;
-};
-
 export type MapEntityKind = "note" | "article" | "workflow";
 export type MapNodeKind = MapEntityKind | "text" | "comment" | "custom" | "title";
 
@@ -360,23 +342,6 @@ export const setArticlePinned = (id: number, pinned: boolean) =>
   invoke<Article>("set_article_pinned", { id, pinned });
 export const setArticleArchived = (id: number, archived: boolean) =>
   invoke<Article>("set_article_archived", { id, archived });
-
-// Diagrams
-export const listDiagrams = () => invoke<DiagramSummary[]>("list_diagrams");
-export const diagramById = (id: number) =>
-  invoke<Diagram>("diagram_by_id", { id });
-export const createDiagram = (title: string) =>
-  invoke<Diagram>("create_diagram", { title });
-export const renameDiagram = (id: number, title: string) =>
-  invoke<Diagram>("rename_diagram", { id, title });
-export const updateDiagramSource = (id: number, source: string) =>
-  invoke<Diagram>("update_diagram_source", { id, source });
-export const deleteDiagram = (id: number) =>
-  invoke<void>("delete_diagram", { id });
-export const setDiagramPinned = (id: number, pinned: boolean) =>
-  invoke<Diagram>("set_diagram_pinned", { id, pinned });
-export const setDiagramArchived = (id: number, archived: boolean) =>
-  invoke<Diagram>("set_diagram_archived", { id, archived });
 
 // Index doc
 export const getIndexDoc = () => invoke<IndexDoc>("get_index_doc");

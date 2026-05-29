@@ -39,13 +39,13 @@
     if (!editing) draft = value;
   });
 
-  type EmbedKind = "note" | "list" | "workflow" | "todo" | "article" | "diagram";
+  type EmbedKind = "note" | "list" | "workflow" | "todo" | "article";
   type Segment =
     | { type: "md"; text: string }
     | { type: "embed"; kind: EmbedKind; id: number };
 
   const EMBED_LINE =
-    /^\s*\{\{(note|list|workflow|todo|article|diagram):(\d+)\}\}\s*$/;
+    /^\s*\{\{(note|list|workflow|todo|article):(\d+)\}\}\s*$/;
 
   let segments = $derived.by<Segment[]>(() => {
     const out: Segment[] = [];
@@ -131,7 +131,7 @@
       e.preventDefault();
       const href = anchor.getAttribute("href");
       if (!href) return;
-      const m = href.match(/^(note|list|workflow|article|diagram):(\d+)$/);
+      const m = href.match(/^(note|list|workflow|article):(\d+)$/);
       if (m) {
         const id = Number(m[2]);
         if (Number.isFinite(id)) {
@@ -139,7 +139,6 @@
           else if (m[1] === "list") app.select(id);
           else if (m[1] === "workflow") app.selectWorkflow(id);
           else if (m[1] === "article") app.selectArticle(id);
-          else if (m[1] === "diagram") app.selectDiagram(id);
         }
         return;
       }

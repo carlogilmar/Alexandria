@@ -116,7 +116,7 @@ destination, add a string to the union, add a `route` case, add a
 sidebar button.
 
 Current view values: `home · list · workflow · note · index · article ·
-diagram · garden · map · feedback · feedback-board · activity`.
+garden · map · feedback · feedback-board · activity`.
 
 UI labels diverge from internal names where renames happened — the
 internal name stays to avoid touching every callsite:
@@ -216,7 +216,7 @@ do I have?" and is the entry default (Sprint 11).
 
 ### Migrations
 
-Files in `src-tauri/migrations/0001_…sql` … `0011_…sql`, monotonically
+Files in `src-tauri/migrations/0001_…sql` … `0012_…sql`, monotonically
 numbered, applied at startup. To add one:
 
 1. Create `00NN_<short_name>.sql`.
@@ -245,12 +245,12 @@ numbered, applied at startup. To add one:
   custom, title)` enforces one-position-per-entity.
 - `feedback_boards` + `feedback_cards` + `feedback_card_comments`:
   per-cycle kanban. Columns are hardcoded in a CHECK constraint.
-- `diagrams`: Mermaid diagrams-as-code (`source` holds the text; the SVG
-  is rendered client-side via `$lib/mermaid.ts`, which dynamic-imports
-  mermaid). A first-class entity like notes/articles — created freely,
-  shown/edited/pinned/archived/deleted, embeddable as `{{diagram:id}}`
-  and linkable as `diagram:id`. NOT yet a canvas node (deferred — that's
-  where the `map_nodes` CHECK change will land).
+- Mermaid: there is **no diagram entity/table** (the Sprint 14 `diagrams`
+  table was removed in Sprint 16 — migration `0011` created it, `0012`
+  drops it). Mermaid now lives **only** as inline ```` ```mermaid ````
+  fences in note/article markdown bodies: `$lib/markdownit.ts` emits a
+  `.mermaid-block` placeholder and `hydrateMermaidBlocks` renders it to
+  SVG via `$lib/mermaid.ts` (`renderMermaid`, dynamic-imports mermaid).
 - All entity tables have `pinned` (sidebar visibility) and `archived`
   (Summary's archive tab) booleans.
 
@@ -302,21 +302,28 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 15 (Inline ```mermaid fences — write a fenced
-`mermaid` block anywhere you write markdown (notes, articles) and it renders
-inline, GitHub-style. Client-only: a shared `$lib/markdownit.ts` factory adds
-a markdown-it `fence` rule that emits a `.mermaid-block` placeholder, then
-`hydrateMermaidBlocks` swaps in the SVG after paint (markdown render is sync,
-`renderMermaid` is async) with a source+theme-keyed cache + last-good-render
-on syntax errors. No backend/migration/entity — distinct from the
-`{{diagram:id}}` Diagram entity, which stays the home for reusable/exportable
-diagrams).
+Last updated: end of Sprint 16 (Remove the Diagram entity — Sprint 15's inline
+```` ```mermaid ```` fences made the standalone Sprint 14 entity redundant, so
+it's gone: deleted `commands/diagrams.rs`, `DiagramView`/`DiagramEditor`, the
+`Diagram`/`DiagramSummary` models + ipc types + store actions, the `diagram`
+view, the Summary tab, the AddEntityModal option, sidebar pinned section, the
+`{{diagram:id}}` embed + `diagram:id` link plumbing, and the EntityLinkPicker
+option. DB: kept `0011_diagrams.sql`, added `0012_drop_diagrams.sql`
+(`DROP TABLE`) — additive so existing DBs don't fail sqlx's applied-migration
+checksum. No data migration (the DB had zero diagrams/embeds). Inline mermaid
+fences stay; the editors' "Insert diagram" button now inserts a fence).
 
-Sprint 14 (Diagrams — Mermaid diagrams-as-code as a
-first-class entity: `diagrams` table + `commands/diagrams.rs`,
-`DiagramView`/`DiagramEditor` with live preview via `$lib/mermaid.ts`
-(dynamic-imported), PNG export via `save_binary_file`, `{{diagram:id}}`
-embeds + `diagram:id` links. Canvas node deferred).
+Sprint 15 (Inline ```mermaid fences — write a fenced `mermaid` block anywhere
+you write markdown (notes, articles) and it renders inline, GitHub-style.
+Client-only: a shared `$lib/markdownit.ts` factory adds a markdown-it `fence`
+rule that emits a `.mermaid-block` placeholder, then `hydrateMermaidBlocks`
+swaps in the SVG via a MutationObserver — `{@html}` re-renders on edit/commit
+wipe manual injection, so a one-shot effect isn't enough. Source+theme cache +
+last-good-render on syntax errors).
+
+Sprint 14 (Diagrams — Mermaid diagrams-as-code as a first-class entity.
+REMOVED in Sprint 16; see above. Was: `diagrams` table + `commands/diagrams.rs`,
+`DiagramView`/`DiagramEditor`, PNG export, `{{diagram:id}}` embeds.)
 
 Sprint 13 (Alexandria rename — identifier kept; planning calendar with
 clickable future days; markdown editor polish — explicit Edit button,

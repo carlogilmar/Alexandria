@@ -12,7 +12,6 @@
   import NoteView from "$lib/components/NoteView.svelte";
   import SummaryView from "$lib/components/SummaryView.svelte";
   import ArticleView from "$lib/components/ArticleView.svelte";
-  import DiagramView from "$lib/components/DiagramView.svelte";
   import GardenView from "$lib/components/GardenView.svelte";
   import MapView from "$lib/components/MapView.svelte";
   import FeedbackBoardsView from "$lib/components/FeedbackBoardsView.svelte";
@@ -112,8 +111,6 @@
       <SummaryView />
     {:else if app.view === "article"}
       <ArticleView />
-    {:else if app.view === "diagram"}
-      <DiagramView />
     {:else if app.view === "garden"}
       <GardenView />
     {:else if app.view === "map"}
