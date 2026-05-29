@@ -121,7 +121,7 @@
 </script>
 
 {#if app.selected}
-  <main class="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-8 py-10">
+  <main class="mx-auto flex min-h-full w-full max-w-2xl flex-col px-8 py-10">
     <header class="mb-6 flex items-end justify-between">
       <div class="min-w-0 flex-1">
         {#if editingTitle}

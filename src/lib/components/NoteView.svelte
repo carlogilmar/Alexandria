@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app } from "$lib/stores/app.svelte";
+  import { formatTimestamp } from "$lib/format";
   import MarkdownEditor from "$lib/components/MarkdownEditor.svelte";
   import IdChip from "$lib/components/IdChip.svelte";
 
@@ -46,7 +47,7 @@
 </script>
 
 {#if app.selectedNote}
-  <main class="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-8 py-10">
+  <main class="mx-auto flex min-h-full w-full max-w-2xl flex-col px-8 py-10">
     <header class="mb-6 flex items-end justify-between">
       <div class="min-w-0 flex-1">
         {#if editingTitle}
@@ -115,5 +116,9 @@
         onCommit={commitBody}
       />
     {/key}
+
+    <footer class="mt-auto pt-8 text-xs text-neutral-400 dark:text-neutral-500">
+      Last updated {formatTimestamp(app.selectedNote.updatedAt)}
+    </footer>
   </main>
 {/if}

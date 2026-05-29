@@ -17,6 +17,7 @@
   import FeedbackBoardsView from "$lib/components/FeedbackBoardsView.svelte";
   import FeedbackBoardView from "$lib/components/FeedbackBoardView.svelte";
   import ActivityView from "$lib/components/ActivityView.svelte";
+  import TopNav from "$lib/components/TopNav.svelte";
 
   let sidebar: Sidebar | undefined = $state();
   let inspectorTodo = $derived(app.selectedTodo());
@@ -38,6 +39,11 @@
     if (mod && e.key === "f" && !e.shiftKey) {
       e.preventDefault();
       sidebar?.focus();
+      return;
+    }
+    if (mod && e.key === "[") {
+      e.preventDefault();
+      app.back();
       return;
     }
     if (!mod) {
@@ -89,9 +95,18 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="flex min-h-screen">
+<div class="flex h-screen overflow-hidden">
   <Sidebar bind:this={sidebar} />
-  <div class="flex-1 overflow-y-auto">
+  <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+    <!-- Reserved top toolbar row: holds the nav menu so it never overlaps the
+         content's own top-right controls (Edit, pin, etc.). Drag region too. -->
+    <div
+      class="flex h-11 shrink-0 items-center justify-end px-3"
+      data-tauri-drag-region
+    >
+      <TopNav />
+    </div>
+    <div class="flex-1 overflow-y-auto">
     {#if app.loading}
       <p class="p-8 text-sm text-neutral-400 dark:text-neutral-500">Loading…</p>
     {:else if app.error}
@@ -124,6 +139,7 @@
     {:else}
       <ListView />
     {/if}
+    </div>
   </div>
   {#if app.view === "list" && inspectorTodo}
     {#key inspectorTodo.id}

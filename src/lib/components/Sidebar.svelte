@@ -10,6 +10,18 @@
 
   // Git commit this bundle was built from (injected by Vite — see vite.config.js).
   const commitHash = __APP_COMMIT__;
+  const commitMessage = __APP_COMMIT_MESSAGE__;
+  const commitDate = __APP_COMMIT_DATE__;
+  let commitOpen = $state(false);
+
+  let commitDatePretty = $derived(
+    commitDate
+      ? new Date(commitDate).toLocaleString(undefined, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        })
+      : "",
+  );
 
   // Debounced search
   $effect(() => {
@@ -61,10 +73,12 @@
 </script>
 
 <aside
-  class="flex h-screen w-60 shrink-0 flex-col border-r border-neutral-300/40 px-3 pb-2 pt-12 dark:border-neutral-700/40"
+  class="flex h-screen w-60 shrink-0 flex-col border-r px-3 pb-2 pt-12"
+  class:dark={theme.isSidebarDark}
+  style="background-color: var(--sidebar-bg); border-color: var(--sidebar-border);"
   data-tauri-drag-region
 >
-  <div class="mb-3 flex h-14 items-center gap-1">
+  <div class="mb-3 flex h-14 items-center">
     <button
       type="button"
       onclick={() => app.goHome(true)}
@@ -73,7 +87,9 @@
     >
       {#if !logoFailed}
         <img
-          src={theme.resolved === "dark" ? "/logo-dark.png" : "/logo.png"}
+          src={theme.resolved === "dark" || theme.isSidebarDark
+            ? "/logo-dark.png"
+            : "/logo.png"}
           alt="Alexandria"
           class="pointer-events-none h-12 w-auto max-w-full select-none"
           draggable="false"
@@ -87,37 +103,6 @@
         </span>
       {/if}
     </button>
-    <button
-      type="button"
-      onclick={() => theme.cycle()}
-      aria-label="Switch theme"
-      title={`Theme: ${theme.preference} — click to switch`}
-      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-200 dark:text-neutral-400 dark:hover:bg-neutral-700"
-    >
-      {#if theme.preference === "dark"}
-        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
-          <path
-            d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"
-          />
-        </svg>
-      {:else if theme.preference === "light"}
-        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
-          <path
-            fill-rule="evenodd"
-            d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.95 2.05a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-2.05 4.95a1 1 0 01-1.414 0l-.707-.707a1 1 0 011.414-1.414l.707.707a1 1 0 010 1.414zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.95-.464a1 1 0 010-1.414l.707-.707a1 1 0 011.414 1.414l-.707.707a1 1 0 01-1.414 0zM4 10a1 1 0 01-1 1H2a1 1 0 110-2h1a1 1 0 011 1zm.464-5.95a1 1 0 011.414 0l.707.707A1 1 0 015.171 6.17l-.707-.707a1 1 0 010-1.414zM10 6a4 4 0 100 8 4 4 0 000-8z"
-            clip-rule="evenodd"
-          />
-        </svg>
-      {:else}
-        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
-          <path
-            fill-rule="evenodd"
-            d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-3v2h2a1 1 0 110 2H8a1 1 0 110-2h2v-2H5a2 2 0 01-2-2V5zm2 0v8h10V5H5z"
-            clip-rule="evenodd"
-          />
-        </svg>
-      {/if}
-    </button>
   </div>
 
   <div class="mb-2 px-1">
@@ -129,31 +114,6 @@
       class="w-full rounded-md border border-neutral-300/60 bg-white/60 px-2 py-1 text-xs outline-none transition-shadow placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
     />
   </div>
-
-  <!-- Library of Alexandria — primary destination, top of sidebar.
-       Cmd+2 (Cmd+1 = Home, via the logo button above). -->
-  <button
-    type="button"
-    onclick={() => app.openMap()}
-    class="mx-1 mb-3 flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm font-medium transition-colors"
-    class:bg-violet-600={app.view === "map"}
-    class:text-white={app.view === "map"}
-    class:hover:bg-violet-700={app.view === "map"}
-    class:bg-violet-50={app.view !== "map"}
-    class:text-violet-700={app.view !== "map"}
-    class:hover:bg-violet-100={app.view !== "map"}
-    class:dark:bg-violet-900={app.view === "map"}
-    class:dark:hover:bg-violet-800={app.view === "map"}
-    class:dark:bg-violet-950={app.view !== "map"}
-    class:dark:text-violet-200={app.view !== "map"}
-    class:dark:hover:bg-violet-900={app.view !== "map"}
-    title="Alexandria — ⌘2"
-  >
-    <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 shrink-0">
-      <path fill-rule="evenodd" d="M3 5a2 2 0 012-2h2.5a2 2 0 011.6.8L10 5h5a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm4 4a1 1 0 100 2h6a1 1 0 100-2H7zm0 4a1 1 0 100 2h4a1 1 0 100-2H7z" clip-rule="evenodd"/>
-    </svg>
-    <span class="flex-1">Alexandria</span>
-  </button>
 
   <nav class="flex-1 overflow-y-auto">
     {#if isSearching}
@@ -349,93 +309,6 @@
     <AddEntityModal onClose={() => (addModalOpen = false)} />
   {/if}
 
-  <!-- Bottom nav: Summary + Visualization. Cmd+3 / Cmd+4. -->
-  <div class="mt-2 flex flex-col gap-1 border-t border-neutral-300/40 px-1 pt-2 dark:border-neutral-700/40">
-    <button
-      type="button"
-      onclick={() => app.openIndex()}
-      class="flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm font-medium transition-colors"
-      class:bg-blue-600={app.view === "index"}
-      class:text-white={app.view === "index"}
-      class:hover:bg-blue-700={app.view === "index"}
-      class:text-blue-700={app.view !== "index"}
-      class:hover:bg-blue-50={app.view !== "index"}
-      class:dark:bg-blue-900={app.view === "index"}
-      class:dark:hover:bg-blue-800={app.view === "index"}
-      class:dark:text-blue-200={app.view !== "index"}
-      class:dark:hover:bg-blue-950={app.view !== "index"}
-      title="Summary — ⌘3"
-    >
-      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 shrink-0">
-        <path fill-rule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm3 2a1 1 0 100 2h8a1 1 0 100-2H6zm0 4a1 1 0 100 2h8a1 1 0 100-2H6zm0 4a1 1 0 100 2h5a1 1 0 100-2H6z" clip-rule="evenodd" />
-      </svg>
-      <span class="flex-1">Summary</span>
-    </button>
-
-    <button
-      type="button"
-      onclick={() => app.openGarden()}
-      class="flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm font-medium transition-colors"
-      class:bg-emerald-600={app.view === "garden"}
-      class:text-white={app.view === "garden"}
-      class:hover:bg-emerald-700={app.view === "garden"}
-      class:text-emerald-700={app.view !== "garden"}
-      class:hover:bg-emerald-50={app.view !== "garden"}
-      class:dark:bg-emerald-900={app.view === "garden"}
-      class:dark:hover:bg-emerald-800={app.view === "garden"}
-      class:dark:text-emerald-200={app.view !== "garden"}
-      class:dark:hover:bg-emerald-950={app.view !== "garden"}
-      title="Visualization — ⌘4"
-    >
-      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 shrink-0">
-        <path d="M10 2C7.5 2 5 4 5 6.5c0 1.4.7 2.6 1.8 3.4-.5.4-.8 1-.8 1.6 0 1.1.9 2 2 2h.5v3a1 1 0 102 0v-3h.5c1.1 0 2-.9 2-2 0-.6-.3-1.2-.8-1.6C14.3 9.1 15 7.9 15 6.5 15 4 12.5 2 10 2z"/>
-      </svg>
-      <span class="flex-1">Visualization</span>
-    </button>
-
-    <button
-      type="button"
-      onclick={() => app.openFeedback()}
-      class="flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm font-medium transition-colors"
-      class:bg-rose-600={app.view === "feedback" || app.view === "feedback-board"}
-      class:text-white={app.view === "feedback" || app.view === "feedback-board"}
-      class:hover:bg-rose-700={app.view === "feedback" || app.view === "feedback-board"}
-      class:text-rose-700={!(app.view === "feedback" || app.view === "feedback-board")}
-      class:hover:bg-rose-50={!(app.view === "feedback" || app.view === "feedback-board")}
-      class:dark:bg-rose-900={app.view === "feedback" || app.view === "feedback-board"}
-      class:dark:hover:bg-rose-800={app.view === "feedback" || app.view === "feedback-board"}
-      class:dark:text-rose-200={!(app.view === "feedback" || app.view === "feedback-board")}
-      class:dark:hover:bg-rose-950={!(app.view === "feedback" || app.view === "feedback-board")}
-      title="Feedback — ⌘5"
-    >
-      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 shrink-0">
-        <path fill-rule="evenodd" d="M3 4a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm9 0a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2V4zm-9 9a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3zm9 0a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2v-3z" clip-rule="evenodd"/>
-      </svg>
-      <span class="flex-1">Feedback</span>
-    </button>
-
-    <button
-      type="button"
-      onclick={() => app.openActivity()}
-      class="flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm font-medium transition-colors"
-      class:bg-orange-600={app.view === "activity"}
-      class:text-white={app.view === "activity"}
-      class:hover:bg-orange-700={app.view === "activity"}
-      class:text-orange-700={app.view !== "activity"}
-      class:hover:bg-orange-50={app.view !== "activity"}
-      class:dark:bg-orange-900={app.view === "activity"}
-      class:dark:hover:bg-orange-800={app.view === "activity"}
-      class:dark:text-orange-200={app.view !== "activity"}
-      class:dark:hover:bg-orange-950={app.view !== "activity"}
-      title="Activity — ⌘6"
-    >
-      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 shrink-0">
-        <path d="M3 3h6v6H3V3zm0 8h6v6H3v-6zm8-8h6v6h-6V3zm0 8h6v6h-6v-6z"/>
-      </svg>
-      <span class="flex-1">Activity</span>
-    </button>
-  </div>
-
   <div
     class="mt-2 border-t border-neutral-300/40 px-2 pt-2 text-[11px] text-neutral-400 dark:border-neutral-700/40 dark:text-neutral-500"
   >
@@ -460,12 +333,50 @@
       <span>Shortcuts</span>
       <span class="font-mono text-[10px]">?</span>
     </button>
-    <div
-      class="mt-1.5 flex items-center justify-between px-1 text-[10px] text-neutral-300 dark:text-neutral-600"
-      title="Git commit this build was made from"
-    >
-      <span>build</span>
-      <span class="select-text font-mono">{commitHash}</span>
+    <div class="relative">
+      <button
+        type="button"
+        class="mt-1.5 flex w-full items-center justify-between rounded px-1 py-0.5 text-[10px] text-neutral-300 transition-colors hover:bg-neutral-200/60 hover:text-neutral-600 dark:text-neutral-600 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-300"
+        title="Show the commit this build was made from"
+        onclick={() => (commitOpen = !commitOpen)}
+      >
+        <span>build</span>
+        <span class="font-mono">{commitHash}</span>
+      </button>
+
+      {#if commitOpen}
+        <button
+          type="button"
+          class="fixed inset-0 z-40 cursor-default"
+          aria-label="Close commit details"
+          onclick={() => (commitOpen = false)}
+        ></button>
+        <div
+          class="absolute bottom-7 left-0 right-0 z-50 rounded-lg border border-neutral-200/70 bg-white/95 p-3 text-left shadow-lg backdrop-blur dark:border-neutral-700/70 dark:bg-neutral-900/95"
+        >
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <span class="text-[10px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+              Build commit
+            </span>
+            <span class="select-text font-mono text-[10px] text-neutral-500 dark:text-neutral-400">
+              {commitHash}
+            </span>
+          </div>
+          {#if commitDatePretty}
+            <p class="mb-1.5 text-[10px] text-neutral-400 dark:text-neutral-500">
+              {commitDatePretty}
+            </p>
+          {/if}
+          {#if commitMessage}
+            <pre
+              class="max-h-48 overflow-y-auto whitespace-pre-wrap break-words font-sans text-[11px] leading-relaxed text-neutral-700 dark:text-neutral-200">{commitMessage}</pre>
+          {:else}
+            <p class="text-[11px] italic text-neutral-400 dark:text-neutral-500">
+              No commit message available.
+            </p>
+          {/if}
+        </div>
+      {/if}
     </div>
   </div>
 </aside>

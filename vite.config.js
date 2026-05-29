@@ -8,23 +8,31 @@ const host = process.env.TAURI_DEV_HOST;
 // Capture the git commit the bundle was built from, so the running app can
 // show which local version is loaded. Resolved at dev-server start / build
 // time. A "-dirty" suffix flags uncommitted working-tree changes.
-function gitCommit() {
+function gitInfo() {
   try {
     const hash = execSync("git rev-parse --short HEAD").toString().trim();
     const dirty =
       execSync("git status --porcelain").toString().trim().length > 0;
-    return dirty ? `${hash}-dirty` : hash;
+    // Full message (subject + body) and committer ISO date of HEAD, so the UI
+    // can show "what was in this build" when the hash is clicked.
+    const message = execSync("git show -s --format=%B HEAD").toString().trim();
+    const date = execSync("git show -s --format=%cI HEAD").toString().trim();
+    return { hash: dirty ? `${hash}-dirty` : hash, message, date };
   } catch {
-    return "unknown";
+    return { hash: "unknown", message: "", date: "" };
   }
 }
+
+const git = gitInfo();
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [tailwindcss(), sveltekit()],
 
   define: {
-    __APP_COMMIT__: JSON.stringify(gitCommit()),
+    __APP_COMMIT__: JSON.stringify(git.hash),
+    __APP_COMMIT_MESSAGE__: JSON.stringify(git.message),
+    __APP_COMMIT_DATE__: JSON.stringify(git.date),
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

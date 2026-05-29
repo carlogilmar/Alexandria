@@ -166,7 +166,7 @@
   }
 </script>
 
-<main class="flex h-screen w-full flex-col bg-neutral-50 dark:bg-neutral-950">
+<main class="flex h-full w-full flex-col bg-neutral-50 dark:bg-neutral-950">
   <header class="flex items-center justify-between border-b border-neutral-200/70 px-6 py-4 dark:border-neutral-700/70">
     <div>
       <h1 class="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">

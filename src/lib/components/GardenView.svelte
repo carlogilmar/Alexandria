@@ -798,7 +798,7 @@
 
 <div
   bind:this={container}
-  class="relative h-screen w-full overflow-hidden bg-neutral-50 dark:bg-neutral-950"
+  class="relative h-full w-full overflow-hidden bg-neutral-50 dark:bg-neutral-950"
 >
   <!-- dotted background -->
   <div

@@ -11,6 +11,17 @@
     "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
+/* Sidebar tint vars — defaults (neutral). The theme store overrides these on
+   <html> per the selected tint + light/dark (see theme.svelte.ts). Declared
+   here so the first paint (before init) has sane values. */
+:root {
+  --sidebar-bg: transparent;
+  --sidebar-border: rgba(212, 212, 212, 0.4);
+}
+html.dark {
+  --sidebar-border: rgba(115, 115, 115, 0.25);
+}
+
 /* Vibrancy is provided by the native NSVisualEffectView underneath the
    webview; the body must be transparent for it to show through. */
 html,

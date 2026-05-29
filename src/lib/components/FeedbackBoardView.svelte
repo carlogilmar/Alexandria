@@ -206,7 +206,7 @@
 </script>
 
 {#if board}
-  <main class="mx-auto flex h-screen w-full max-w-[1400px] flex-col px-6 pb-6 pt-8">
+  <main class="mx-auto flex h-full w-full max-w-[1400px] flex-col px-6 pb-6 pt-8">
     <header class="mb-4 flex items-center justify-between gap-3">
       <div class="flex items-center gap-2">
         <button
@@ -388,7 +388,7 @@
     <FeedbackCardPanel cardId={app.selectedFeedbackCardId} />
   {/if}
 {:else}
-  <main class="mx-auto flex min-h-screen w-full items-center justify-center px-8">
+  <main class="mx-auto flex min-h-full w-full items-center justify-center px-8">
     <p class="text-sm text-neutral-400">Board not found.</p>
   </main>
 {/if}

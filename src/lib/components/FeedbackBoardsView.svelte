@@ -73,7 +73,7 @@
   }
 </script>
 
-<main class="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-8 py-10">
+<main class="mx-auto flex min-h-full w-full max-w-3xl flex-col px-8 py-10">
   <header class="mb-6 flex items-end justify-between">
     <div>
       <h1 class="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">

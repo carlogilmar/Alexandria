@@ -144,6 +144,16 @@ function firstOfMonthIso(): string {
   return d.toLocaleDateString("en-CA");
 }
 
+// A returnable location for the back button. Entity views carry their id.
+type NavLoc =
+  | { view: "home" }
+  | { view: "list"; id: number }
+  | { view: "note"; id: number }
+  | { view: "article"; id: number }
+  | { view: "workflow"; id: number }
+  | { view: "feedback-board"; id: number }
+  | { view: "index" | "garden" | "map" | "feedback" | "activity" };
+
 class AppStore {
   view = $state<
     | "home"
@@ -158,6 +168,10 @@ class AppStore {
     | "feedback-board"
     | "activity"
   >("home");
+  // Back-navigation history — locations we can pop back to. $state so the
+  // back button's enabled state stays reactive.
+  navStack = $state<NavLoc[]>([]);
+  private suppressNav = false;
   lists = $state<ListSummary[]>([]);
   selected = $state<List | null>(null);
   todos = $state<Todo[]>([]);
@@ -251,6 +265,7 @@ class AppStore {
   }
 
   async selectWorkflow(id: number) {
+    this.recordNav();
     try {
       this.view = "workflow";
       this.selected = null;
@@ -341,7 +356,112 @@ class AppStore {
     );
   }
 
+  // ---- Back navigation ----
+
+  // Snapshot the CURRENT location so we can return to it later.
+  private snapshotLoc(): NavLoc | null {
+    switch (this.view) {
+      case "home":
+        return { view: "home" };
+      case "list":
+        return this.selected ? { view: "list", id: this.selected.id } : null;
+      case "note":
+        return this.selectedNote
+          ? { view: "note", id: this.selectedNote.id }
+          : null;
+      case "article":
+        return this.selectedArticle
+          ? { view: "article", id: this.selectedArticle.id }
+          : null;
+      case "workflow":
+        return this.selectedWorkflow
+          ? { view: "workflow", id: this.selectedWorkflow.id }
+          : null;
+      case "feedback-board":
+        return this.selectedFeedbackBoardId !== null
+          ? { view: "feedback-board", id: this.selectedFeedbackBoardId }
+          : { view: "feedback" };
+      case "index":
+      case "garden":
+      case "map":
+      case "feedback":
+      case "activity":
+        return { view: this.view };
+      default:
+        return null;
+    }
+  }
+
+  // Called at the top of every navigation entry point: pushes where we ARE now
+  // so a later back() can return. No-op while restoring (suppressNav) and when
+  // the destination would duplicate the current top of stack.
+  private recordNav() {
+    if (this.suppressNav) return;
+    const loc = this.snapshotLoc();
+    if (!loc) return;
+    const top = this.navStack[this.navStack.length - 1] as
+      | (NavLoc & { id?: number })
+      | undefined;
+    if (top && top.view === loc.view && top.id === (loc as { id?: number }).id) {
+      return;
+    }
+    // Cap the stack so it can't grow without bound.
+    this.navStack = [...this.navStack, loc].slice(-50);
+  }
+
+  get canGoBack(): boolean {
+    return this.navStack.length > 0;
+  }
+
+  async back() {
+    if (this.navStack.length === 0) return;
+    const stack = [...this.navStack];
+    const loc = stack.pop()!;
+    this.navStack = stack;
+    this.suppressNav = true;
+    try {
+      switch (loc.view) {
+        case "home":
+          await this.goHome();
+          break;
+        case "list":
+          await this.select(loc.id);
+          break;
+        case "note":
+          await this.selectNote(loc.id);
+          break;
+        case "article":
+          await this.selectArticle(loc.id);
+          break;
+        case "workflow":
+          await this.selectWorkflow(loc.id);
+          break;
+        case "index":
+          await this.openIndex();
+          break;
+        case "garden":
+          await this.openGarden();
+          break;
+        case "map":
+          await this.openMap();
+          break;
+        case "feedback":
+          await this.openFeedback();
+          break;
+        case "feedback-board":
+          await this.openFeedbackBoard(loc.id);
+          break;
+        case "activity":
+          await this.openActivity();
+          break;
+      }
+    } finally {
+      this.suppressNav = false;
+    }
+  }
+
   async goHome(focusToday = false) {
+    this.recordNav();
     this.view = "home";
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
@@ -372,6 +492,7 @@ class AppStore {
   }
 
   async selectNote(id: number) {
+    this.recordNav();
     try {
       this.view = "note";
       this.selected = null;
@@ -427,6 +548,7 @@ class AppStore {
   // ---- Index doc ----
 
   async openIndex() {
+    this.recordNav();
     this.view = "index";
     this.selected = null;
     this.todos = [];
@@ -451,6 +573,7 @@ class AppStore {
   // ---- Garden ----
 
   async openGarden(force = false) {
+    this.recordNav();
     this.view = "garden";
     this.selected = null;
     this.todos = [];
@@ -489,6 +612,7 @@ class AppStore {
   // ---- Master Map ----
 
   async openMap() {
+    this.recordNav();
     this.view = "map";
     this.selected = null;
     this.todos = [];
@@ -658,6 +782,7 @@ class AppStore {
   }
 
   async selectArticle(id: number) {
+    this.recordNav();
     try {
       this.view = "article";
       this.selected = null;
@@ -863,6 +988,7 @@ class AppStore {
   }
 
   async select(id: number) {
+    this.recordNav();
     this.view = "list";
     this.selectedWorkflow = null;
     this.workflowSteps = [];
@@ -1101,6 +1227,7 @@ class AppStore {
   feedbackComments = $state<FeedbackCardComment[]>([]);
 
   async openFeedback() {
+    this.recordNav();
     this.view = "feedback";
     this.selected = null;
     this.todos = [];
@@ -1121,6 +1248,7 @@ class AppStore {
   }
 
   async openFeedbackBoard(boardId: number) {
+    this.recordNav();
     this.view = "feedback-board";
     this.selectedFeedbackBoardId = boardId;
     this.selectedFeedbackCardId = null;
@@ -1259,6 +1387,7 @@ class AppStore {
   activityLoading = $state(false);
 
   async openActivity() {
+    this.recordNav();
     this.view = "activity";
     this.selected = null;
     this.todos = [];

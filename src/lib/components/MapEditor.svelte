@@ -316,7 +316,7 @@
 
 <div
   bind:this={svelteFlowEl}
-  class="relative h-screen w-full bg-neutral-50 dark:bg-neutral-950"
+  class="relative h-full w-full bg-neutral-50 dark:bg-neutral-950"
   ondragover={onDragOver}
   ondrop={onDrop}
   role="application"

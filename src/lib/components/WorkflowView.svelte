@@ -190,7 +190,7 @@
 </script>
 
 {#if app.selectedWorkflow}
-  <main class="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-8 py-10">
+  <main class="mx-auto flex min-h-full w-full max-w-2xl flex-col px-8 py-10">
     <header class="mb-6 flex items-start justify-between gap-4">
       <div class="min-w-0 flex-1">
         <p
@@ -371,6 +371,10 @@
         />
       {/key}
     </section>
+
+    <footer class="mt-auto pt-8 text-xs text-neutral-400 dark:text-neutral-500">
+      Last updated {formatUpdatedAt(app.selectedWorkflow.updatedAt)}
+    </footer>
   </main>
 {/if}
 

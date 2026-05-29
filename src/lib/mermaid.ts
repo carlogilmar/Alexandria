@@ -33,6 +33,15 @@ export async function renderMermaid(
 ): Promise<string> {
   const mermaid = await getMermaid(theme);
   const id = `mmd-${Date.now()}-${renderSeq++}`;
-  const { svg } = await mermaid.render(id, source);
-  return svg;
+  try {
+    const { svg } = await mermaid.render(id, source);
+    return svg;
+  } finally {
+    // mermaid injects a temporary measuring element (id) into <body> — and on a
+    // parse error an error diagram (id "d" + id) — and doesn't always remove
+    // them. Without this, every failed render leaves a "Syntax error in text"
+    // graphic stacked at the bottom of the page. Clean up any orphans.
+    document.getElementById(id)?.remove();
+    document.getElementById("d" + id)?.remove();
+  }
 }

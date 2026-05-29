@@ -119,16 +119,24 @@ Current view values: `home · list · workflow · note · index · article ·
 garden · map · feedback · feedback-board · activity`.
 
 UI labels diverge from internal names where renames happened — the
-internal name stays to avoid touching every callsite:
+internal name stays to avoid touching every callsite. The six primary
+destinations live in `TopNav.svelte`, an icon cluster in a reserved top
+toolbar row of the main column (Sprint 17/18), not the sidebar; shortcuts
+unchanged:
 
-| Internal | UI label             | Sidebar shortcut |
-|----------|----------------------|------------------|
-| home     | (logo button)        | ⌘1               |
-| map      | Alexandria           | ⌘2               |
-| index    | Summary              | ⌘3               |
-| garden   | Visualization        | ⌘4               |
-| feedback | Feedback             | ⌘5               |
-| activity | Activity             | ⌘6               |
+| Internal | UI label             | Shortcut |
+|----------|----------------------|----------|
+| home     | Home (also logo)     | ⌘1       |
+| map      | Alexandria           | ⌘2       |
+| index    | Summary              | ⌘3       |
+| garden   | Visualization        | ⌘4       |
+| feedback | Feedback             | ⌘5       |
+| activity | Activity             | ⌘6       |
+
+`TopNav.svelte` also hosts the **back** button (`app.back()`, ⌘[) —
+backed by `app.navStack`, a history stack each `select*`/`open*`/`goHome`
+pushes to — plus the theme toggle and the sidebar-tint picker. The
+sidebar is now search + pinned items + footer only.
 
 ## Svelte 5 patterns we follow
 
@@ -302,7 +310,30 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 16 (Remove the Diagram entity — Sprint 15's inline
+Last updated: end of Sprint 18 (UI follow-ups — the top nav menu moved from a
+floating overlay into a reserved 44px toolbar **row** at the top of the main
+column (`+page.svelte`: main column = toolbar row + scroll area), so it no
+longer overlaps a view's own top-right controls; full-bleed views switched
+`h-screen`→`h-full` and padded views `min-h-screen`→`min-h-full` to fit the
+reduced scroll area. Added a "Last updated <timestamp>" footer to note/article/
+workflow views (`$lib/format.ts` `formatTimestamp`, `mt-auto` pins it to the
+bottom). Added dark sidebar tints (ink/graphite/navy/forest/wine) — when a
+`dark` tint is active the sidebar adds a local `dark` class so its content flips
+to light text regardless of app theme (`theme.isSidebarDark`)).
+
+Sprint 17 (UI polish — moved the six nav destinations out
+of the sidebar into a floating top-right icon bar (`TopNav.svelte`) to free
+sidebar space; added a back button + `app.navStack` history (⌘[); made the
+sidebar footer stick to the bottom and the app shell fixed-height
+(`h-screen overflow-hidden`, only the main column scrolls) so the footer no
+longer drifts on long notes; clickable build-hash → commit message/date popover
+(vite injects `__APP_COMMIT_MESSAGE__`/`__APP_COMMIT_DATE__`); customizable
+sidebar tint via CSS vars `--sidebar-bg`/`--sidebar-border` set by the theme
+store (`SIDEBAR_TINTS`, persisted, light/dark-aware); fixed mermaid leaving
+orphan "Syntax error in text" nodes stacked at the page bottom — `renderMermaid`
+now removes them in a finally).
+
+Sprint 16 (Remove the Diagram entity — Sprint 15's inline
 ```` ```mermaid ```` fences made the standalone Sprint 14 entity redundant, so
 it's gone: deleted `commands/diagrams.rs`, `DiagramView`/`DiagramEditor`, the
 `Diagram`/`DiagramSummary` models + ipc types + store actions, the `diagram`
