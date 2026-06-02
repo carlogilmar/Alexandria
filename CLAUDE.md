@@ -116,7 +116,7 @@ destination, add a string to the union, add a `route` case, add a
 sidebar button.
 
 Current view values: `home · list · workflow · note · index · article ·
-garden · map · feedback · feedback-board · activity`.
+garden · map · feedback · feedback-board · activity · flashdeck`.
 
 UI labels diverge from internal names where renames happened — the
 internal name stays to avoid touching every callsite. The six primary
@@ -132,6 +132,7 @@ unchanged:
 | garden   | Visualization        | ⌘4       |
 | feedback | Feedback             | ⌘5       |
 | activity | Activity             | ⌘6       |
+| flashdeck| Flash Deck           | ⌘7       |
 
 `TopNav.svelte` also hosts the **back** button (`app.back()`, ⌘[) —
 backed by `app.navStack`, a history stack each `select*`/`open*`/`goHome`

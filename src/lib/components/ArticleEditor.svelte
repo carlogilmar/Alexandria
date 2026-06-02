@@ -39,13 +39,19 @@
     if (!editing) draft = value;
   });
 
-  type EmbedKind = "note" | "list" | "workflow" | "todo" | "article";
+  type EmbedKind =
+    | "note"
+    | "list"
+    | "workflow"
+    | "todo"
+    | "article"
+    | "flashcard";
   type Segment =
     | { type: "md"; text: string }
     | { type: "embed"; kind: EmbedKind; id: number };
 
   const EMBED_LINE =
-    /^\s*\{\{(note|list|workflow|todo|article):(\d+)\}\}\s*$/;
+    /^\s*\{\{(note|list|workflow|todo|article|flashcard):(\d+)\}\}\s*$/;
 
   let segments = $derived.by<Segment[]>(() => {
     const out: Segment[] = [];
@@ -132,7 +138,7 @@
       e.preventDefault();
       const href = anchor.getAttribute("href");
       if (!href) return;
-      const m = href.match(/^(note|list|workflow|article):(\d+)$/);
+      const m = href.match(/^(note|list|workflow|article|flashcard):(\d+)$/);
       if (m) {
         const id = Number(m[2]);
         if (Number.isFinite(id)) navigateEntity(m[1], id);
@@ -163,6 +169,9 @@
     } else if (kind === "list") {
       if (app.lists.some((l) => l.id === id)) app.select(id);
       else app.setFlash("That list no longer exists");
+    } else if (kind === "flashcard") {
+      if (app.flashcards.some((c) => c.id === id)) app.openFlashcardInDeck(id);
+      else app.setFlash("That flashcard no longer exists");
     }
   }
 

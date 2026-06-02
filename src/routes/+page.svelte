@@ -17,6 +17,7 @@
   import FeedbackBoardsView from "$lib/components/FeedbackBoardsView.svelte";
   import FeedbackBoardView from "$lib/components/FeedbackBoardView.svelte";
   import ActivityView from "$lib/components/ActivityView.svelte";
+  import FlashDeckView from "$lib/components/FlashDeckView.svelte";
   import TopNav from "$lib/components/TopNav.svelte";
 
   let sidebar: Sidebar | undefined = $state();
@@ -94,6 +95,9 @@
     } else if (e.key === "6") {
       e.preventDefault();
       app.openActivity();
+    } else if (e.key === "7") {
+      e.preventDefault();
+      app.openFlashDeck();
     }
   }
 </script>
@@ -158,6 +162,8 @@
       <FeedbackBoardView />
     {:else if app.view === "activity"}
       <ActivityView />
+    {:else if app.view === "flashdeck"}
+      <FlashDeckView />
     {:else}
       <ListView />
     {/if}

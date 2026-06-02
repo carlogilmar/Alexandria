@@ -107,7 +107,7 @@
       // Internal entity links: [label](note:5) etc. — navigate in-app, but
       // guard against links to entities that have since been deleted so we
       // surface a friendly flash instead of an error screen.
-      const ent = href.match(/^(note|list|workflow|article):(\d+)$/);
+      const ent = href.match(/^(note|list|workflow|article|flashcard):(\d+)$/);
       if (ent) {
         const id = Number(ent[2]);
         if (Number.isFinite(id)) navigateEntity(ent[1], id);
@@ -138,6 +138,9 @@
     } else if (kind === "list") {
       if (app.lists.some((l) => l.id === id)) app.select(id);
       else app.setFlash("That list no longer exists");
+    } else if (kind === "flashcard") {
+      if (app.flashcards.some((c) => c.id === id)) app.openFlashcardInDeck(id);
+      else app.setFlash("That flashcard no longer exists");
     }
   }
 

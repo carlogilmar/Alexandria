@@ -226,3 +226,44 @@ trick for category colors.
 Risk note: Phases 1–2, 4–5 are low-risk (proven recipe). Phase 3 is the design
 investment — budget the most iteration there, especially the generative art and
 the flip feel.
+
+---
+
+## What shipped
+
+Decisions locked: **geometric generative art** (a fluid "Refik Anadol"-style
+turbulence variant was prototyped and **rejected** by the user as too much; the
+flat Bauhaus-style seeded SVG was approved) + image-upload override + emoji/color
+accents · categories as **color/icon "suits"** · **detail panel with front↔back
+flip** + a minimal **Study mode** · single global deck · canvas node **deferred**.
+
+- **Backend** — migration `0016_flashcards.sql` (additive: `flashcards` +
+  `flashcard_categories`, FK `ON DELETE SET NULL`), `models.rs` structs,
+  `commands/flashcards.rs` (category CRUD; card create/update/reorder/delete +
+  dedicated nullable setters for category/color/emoji/image; pin/archive).
+  5 tests; 91 backend tests pass.
+- **ipc + store** — types/wrappers; `flashcards` + `flashcardCategories` state,
+  `openFlashDeck`/`openFlashcardInDeck` + all actions; deck loaded on init.
+- **Art + UI** — `$lib/cardArt.ts` (deterministic seeded geometric SVG, namespaced
+  ids), `$lib/cardColors.ts` reused for palettes. `FlashCard.svelte` (front),
+  `FlashDeckView.svelte` (grid + pointer-DnD reorder + search + category filter +
+  inline category manager + "+ New card" + "Study"), `FlashCardPanel.svelte`
+  (slide-in: flip preview, title/body/category/color/emoji/image editors),
+  `FlashStudyView.svelte` (fullscreen shuffle/flip/←→/esc).
+- **Nav + surfaces** — `flashdeck` view, ⌘7 + `TopNav` icon, AddEntityModal
+  option, Summary "Cards" tab, sidebar pinned "Cards" section.
+- **Embeds + links** — `{{flashcard:id}}` (renders a mini card front + body in
+  `EmbedBlock`) and `[label](flashcard:id)` links (both editors + EntityLinkPicker),
+  broken-link guard included.
+
+**Verification:** `cargo test --lib` 91 pass · `svelte-check` 0 errors · `pnpm
+build` ok · migration `0016` applies on the live DB and the app boots clean.
+
+## Deferred (as agreed)
+- **Canvas node** for flashcards (same `map_nodes` CHECK-recreate pattern as
+  Sprint 19's board node, when wanted).
+- **Spaced repetition** (Leitner/SM-2) on top of Study mode.
+- **Column/grid reorder while a category filter or search is active** — reorder
+  is enabled when search is empty; it moves by the target card's absolute deck
+  position.
+- The fluid generative-art style (kept the geometric one).

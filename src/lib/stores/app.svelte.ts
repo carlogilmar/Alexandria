@@ -90,6 +90,22 @@ import {
   addFeedbackCardComment as addFeedbackCardCommentIpc,
   deleteFeedbackCardComment as deleteFeedbackCardCommentIpc,
   getWeeklyActivity,
+  listFlashcards,
+  listFlashcardCategories,
+  flashcardById,
+  createFlashcard as createFlashcardIpc,
+  updateFlashcard as updateFlashcardIpc,
+  setFlashcardCategory as setFlashcardCategoryIpc,
+  setFlashcardColor as setFlashcardColorIpc,
+  setFlashcardEmoji as setFlashcardEmojiIpc,
+  setFlashcardImage as setFlashcardImageIpc,
+  setFlashcardPinned as setFlashcardPinnedIpc,
+  setFlashcardArchived as setFlashcardArchivedIpc,
+  moveFlashcard as moveFlashcardIpc,
+  deleteFlashcard as deleteFlashcardIpc,
+  createFlashcardCategory as createFlashcardCategoryIpc,
+  updateFlashcardCategory as updateFlashcardCategoryIpc,
+  deleteFlashcardCategory as deleteFlashcardCategoryIpc,
   type Article,
   type ArticleSummary,
   type DayStats,
@@ -97,6 +113,8 @@ import {
   type FeedbackCardComment,
   type FeedbackCardSummary,
   type FeedbackColumn,
+  type Flashcard,
+  type FlashcardCategory,
   type IndexDoc,
   type List,
   type ListSummary,
@@ -158,7 +176,7 @@ type NavLoc =
   | { view: "article"; id: number }
   | { view: "workflow"; id: number }
   | { view: "feedback-board"; id: number }
-  | { view: "index" | "garden" | "map" | "feedback" | "activity" };
+  | { view: "index" | "garden" | "map" | "feedback" | "activity" | "flashdeck" };
 
 class AppStore {
   view = $state<
@@ -173,6 +191,7 @@ class AppStore {
     | "feedback"
     | "feedback-board"
     | "activity"
+    | "flashdeck"
   >("home");
   // Back-navigation history — locations we can pop back to. $state so the
   // back button's enabled state stays reactive.
@@ -264,6 +283,8 @@ class AppStore {
       this.allTodos = await listAllTodos();
       this.indexDoc = await getIndexDoc();
       await this.refreshFeedbackBoards();
+      await this.refreshFlashcards();
+      await this.refreshFlashcardCategories();
     } catch (e) {
       this.error = String(e);
     } finally {
@@ -399,6 +420,7 @@ class AppStore {
       case "map":
       case "feedback":
       case "activity":
+      case "flashdeck":
         return { view: this.view };
       default:
         return null;
@@ -467,6 +489,9 @@ class AppStore {
         case "activity":
           await this.openActivity();
           break;
+        case "flashdeck":
+          await this.openFlashDeck();
+          break;
       }
     } finally {
       this.suppressNav = false;
@@ -494,6 +519,7 @@ class AppStore {
       this.allTodos = await listAllTodos();
       this.workflows = await listWorkflows();
       await this.refreshFeedbackBoards();
+      await this.refreshFlashcards();
     } catch (e) {
       this.error = String(e);
     }
@@ -943,7 +969,7 @@ class AppStore {
   // ---- Generic "new entity" used by the sidebar's Add modal ----
 
   async newEntity(
-    kind: "note" | "article" | "workflow",
+    kind: "note" | "article" | "workflow" | "flashcard",
     title: string,
   ) {
     const t = title.trim();
@@ -952,6 +978,9 @@ class AppStore {
       await this.newNote(undefined, finalTitle);
     } else if (kind === "article") {
       await this.newArticle(t || "New article");
+    } else if (kind === "flashcard") {
+      await this.openFlashDeck();
+      await this.newFlashcard(t || "New card");
     } else {
       await this.newWorkflow(t || "New workflow");
     }
@@ -1433,6 +1462,143 @@ class AppStore {
       this.selectedFeedbackCardId,
     );
     await this.refreshFeedbackCards();
+  }
+
+  // ---- Flash Deck ----
+
+  flashcards = $state<Flashcard[]>([]);
+  flashcardCategories = $state<FlashcardCategory[]>([]);
+  selectedFlashcardId = $state<number | null>(null);
+
+  async openFlashDeck() {
+    this.recordNav();
+    this.view = "flashdeck";
+    this.selected = null;
+    this.todos = [];
+    this.selectedTodoId = null;
+    this.selectedTodoTags = [];
+    this.selectedWorkflow = null;
+    this.workflowSteps = [];
+    this.selectedNote = null;
+    this.selectedArticle = null;
+    this.selectedFlashcardId = null;
+    await this.refreshFlashcards();
+    await this.refreshFlashcardCategories();
+  }
+
+  async refreshFlashcards() {
+    this.flashcards = await listFlashcards();
+  }
+
+  async refreshFlashcardCategories() {
+    this.flashcardCategories = await listFlashcardCategories();
+  }
+
+  openFlashcard(id: number) {
+    this.selectedFlashcardId = id;
+  }
+  // Navigate to the deck and open a card's panel (used from Summary/sidebar).
+  async openFlashcardInDeck(id: number) {
+    await this.openFlashDeck();
+    this.selectedFlashcardId = id;
+  }
+  closeFlashcard() {
+    this.selectedFlashcardId = null;
+  }
+
+  async newFlashcard(title = "New card") {
+    const created = await createFlashcardIpc(title);
+    await this.refreshFlashcards();
+    this.selectedFlashcardId = created.id;
+    return created;
+  }
+
+  async updateFlashcardText(
+    id: number,
+    title: string | null,
+    body: string | null,
+  ) {
+    await updateFlashcardIpc(id, title, body);
+    await this.refreshFlashcards();
+  }
+
+  async setFlashcardCategory(id: number, categoryId: number | null) {
+    await setFlashcardCategoryIpc(id, categoryId);
+    await this.refreshFlashcards();
+  }
+  async setFlashcardColor(id: number, color: string | null) {
+    await setFlashcardColorIpc(id, color);
+    await this.refreshFlashcards();
+  }
+  async setFlashcardEmoji(id: number, emoji: string | null) {
+    await setFlashcardEmojiIpc(id, emoji);
+    await this.refreshFlashcards();
+  }
+  async setFlashcardImage(id: number, imageUrl: string | null) {
+    await setFlashcardImageIpc(id, imageUrl);
+    await this.refreshFlashcards();
+  }
+  async moveFlashcard(id: number, targetPosition: number) {
+    await moveFlashcardIpc(id, targetPosition);
+    await this.refreshFlashcards();
+  }
+  async toggleFlashcardPin(id: number) {
+    const c = this.flashcards.find((f) => f.id === id);
+    if (!c) return;
+    await setFlashcardPinnedIpc(id, !c.pinned);
+    await this.refreshFlashcards();
+    this.setFlash(!c.pinned ? "Pinned" : "Unpinned");
+  }
+  async setFlashcardArchived(id: number, archived: boolean) {
+    await setFlashcardArchivedIpc(id, archived);
+    await this.refreshFlashcards();
+    this.setFlash(archived ? "Archived" : "Unarchived");
+  }
+  async deleteFlashcardById(id: number) {
+    const c = this.flashcards.find((f) => f.id === id);
+    const ok = await confirm(
+      `"${c?.title ?? `card ${id}`}" will be permanently removed.`,
+      { title: "Delete card?", kind: "warning" },
+    );
+    if (!ok) return;
+    await deleteFlashcardIpc(id);
+    if (this.selectedFlashcardId === id) this.selectedFlashcardId = null;
+    await this.refreshFlashcards();
+    this.setFlash("Card deleted");
+  }
+
+  async newFlashcardCategory(
+    name: string,
+    color: string | null = null,
+    icon: string | null = null,
+  ) {
+    const n = name.trim();
+    if (!n) return null;
+    const created = await createFlashcardCategoryIpc(n, color, icon);
+    await this.refreshFlashcardCategories();
+    return created;
+  }
+  async updateFlashcardCategoryById(
+    id: number,
+    name: string | null,
+    color: string | null,
+    icon: string | null,
+  ) {
+    await updateFlashcardCategoryIpc(id, name, color, icon);
+    await this.refreshFlashcardCategories();
+    await this.refreshFlashcards();
+  }
+  async deleteFlashcardCategoryById(id: number) {
+    const cat = this.flashcardCategories.find((c) => c.id === id);
+    const ok = await confirm(
+      `Delete category "${cat?.name ?? id}"? Cards keep, but lose this category.`,
+      { title: "Delete category?", kind: "warning" },
+    );
+    if (!ok) return;
+    await deleteFlashcardCategoryIpc(id);
+    await this.refreshFlashcardCategories();
+    await this.refreshFlashcards();
+    this.setFlash("Category deleted");
   }
 
   // ---- Activity (Kandinsky weekly grid) ----

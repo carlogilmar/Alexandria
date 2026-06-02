@@ -72,6 +72,15 @@
       go: () => app.openActivity(),
       active: (v) => v === "activity",
     },
+    {
+      key: "flashdeck",
+      title: "Flash Deck",
+      sc: "⌘7",
+      hue: 175,
+      d: "M5 4a2 2 0 00-2 2v7a2 2 0 002 2h1V6a2 2 0 012-2h6a2 2 0 00-2-2H5zm4 3a2 2 0 00-2 2v7a2 2 0 002 2h6a2 2 0 002-2V9a2 2 0 00-2-2H9zm1 3a1 1 0 100 2h4a1 1 0 100-2h-4z",
+      go: () => app.openFlashDeck(),
+      active: (v) => v === "flashdeck",
+    },
   ];
 
   const btn =

@@ -1,6 +1,7 @@
 pub mod articles;
 pub mod export;
 pub mod feedback;
+pub mod flashcards;
 pub mod images;
 pub mod lists;
 pub mod map;

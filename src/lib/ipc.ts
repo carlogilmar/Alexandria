@@ -474,3 +474,77 @@ export const saveTextFile = (path: string, content: string) =>
   invoke<void>("save_text_file", { path, content });
 export const saveBinaryFile = (path: string, bytes: number[]) =>
   invoke<void>("save_binary_file", { path, bytes });
+
+// Flashcards (Sprint 20)
+export type FlashcardCategory = {
+  id: number;
+  name: string;
+  color: string | null;
+  icon: string | null;
+  position: number;
+  createdAt: string;
+};
+
+export type Flashcard = {
+  id: number;
+  title: string;
+  categoryId: number | null;
+  body: string;
+  imageUrl: string | null;
+  emoji: string | null;
+  color: string | null;
+  position: number;
+  pinned: boolean;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const listFlashcardCategories = () =>
+  invoke<FlashcardCategory[]>("list_flashcard_categories");
+export const createFlashcardCategory = (
+  name: string,
+  color: string | null = null,
+  icon: string | null = null,
+) => invoke<FlashcardCategory>("create_flashcard_category", { name, color, icon });
+export const updateFlashcardCategory = (
+  id: number,
+  name: string | null,
+  color: string | null,
+  icon: string | null,
+) =>
+  invoke<FlashcardCategory>("update_flashcard_category", {
+    id,
+    name,
+    color,
+    icon,
+  });
+export const deleteFlashcardCategory = (id: number) =>
+  invoke<void>("delete_flashcard_category", { id });
+
+export const listFlashcards = () => invoke<Flashcard[]>("list_flashcards");
+export const flashcardById = (id: number) =>
+  invoke<Flashcard>("flashcard_by_id", { id });
+export const createFlashcard = (title: string) =>
+  invoke<Flashcard>("create_flashcard", { title });
+export const updateFlashcard = (
+  id: number,
+  title: string | null,
+  body: string | null,
+) => invoke<Flashcard>("update_flashcard", { id, title, body });
+export const setFlashcardCategory = (id: number, categoryId: number | null) =>
+  invoke<Flashcard>("set_flashcard_category", { id, categoryId });
+export const setFlashcardColor = (id: number, color: string | null) =>
+  invoke<Flashcard>("set_flashcard_color", { id, color });
+export const setFlashcardEmoji = (id: number, emoji: string | null) =>
+  invoke<Flashcard>("set_flashcard_emoji", { id, emoji });
+export const setFlashcardImage = (id: number, imageUrl: string | null) =>
+  invoke<Flashcard>("set_flashcard_image", { id, imageUrl });
+export const setFlashcardPinned = (id: number, pinned: boolean) =>
+  invoke<Flashcard>("set_flashcard_pinned", { id, pinned });
+export const setFlashcardArchived = (id: number, archived: boolean) =>
+  invoke<Flashcard>("set_flashcard_archived", { id, archived });
+export const moveFlashcard = (id: number, targetPosition: number) =>
+  invoke<Flashcard>("move_flashcard", { id, targetPosition });
+export const deleteFlashcard = (id: number) =>
+  invoke<void>("delete_flashcard", { id });

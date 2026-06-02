@@ -1,7 +1,7 @@
 <script lang="ts">
   import { app } from "$lib/stores/app.svelte";
 
-  type LinkKind = "note" | "list" | "workflow" | "article";
+  type LinkKind = "note" | "list" | "workflow" | "article" | "flashcard";
   type Item = { kind: LinkKind; id: number; title: string; sub: string };
 
   type Props = {
@@ -23,6 +23,7 @@
     article: 268,
     workflow: 32,
     list: 152,
+    flashcard: 175,
   };
 
   // Flatten the store's entity summaries into one searchable list. Archived
@@ -49,6 +50,10 @@
     for (const l of app.lists) {
       if (l.archived) continue;
       out.push({ kind: "list", id: l.id, title: l.title, sub: l.date });
+    }
+    for (const c of app.flashcards) {
+      if (c.archived) continue;
+      out.push({ kind: "flashcard", id: c.id, title: c.title, sub: "card" });
     }
     return out;
   });

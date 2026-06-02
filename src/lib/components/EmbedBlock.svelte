@@ -1,6 +1,7 @@
 <script lang="ts">
   import MarkdownIt from "markdown-it";
   import { app } from "$lib/stores/app.svelte";
+  import FlashCard from "$lib/components/FlashCard.svelte";
   import {
     articleById,
     listById,
@@ -9,6 +10,7 @@
     noteById,
     workflowById,
     type Article,
+    type Flashcard,
     type List,
     type Note,
     type Todo,
@@ -17,7 +19,7 @@
   } from "$lib/ipc";
 
   type Props = {
-    kind: "note" | "list" | "workflow" | "todo" | "article";
+    kind: "note" | "list" | "workflow" | "todo" | "article" | "flashcard";
     id: number;
   };
   let { kind, id }: Props = $props();
@@ -40,6 +42,7 @@
   let todo = $state<Todo | null>(null);
   let todoListTitle = $state<string | null>(null);
   let article = $state<Article | null>(null);
+  let flashcard = $state<Flashcard | null>(null);
 
   $effect(() => {
     loading = true;
@@ -52,6 +55,7 @@
     todo = null;
     todoListTitle = null;
     article = null;
+    flashcard = null;
 
     (async () => {
       try {
@@ -83,6 +87,9 @@
           }
         } else if (kind === "article") {
           article = await articleById(id);
+        } else if (kind === "flashcard") {
+          flashcard = app.flashcards.find((c) => c.id === id) ?? null;
+          if (!flashcard) error = `flashcard ${id} not found`;
         }
       } catch (e) {
         error = String(e);
@@ -101,6 +108,7 @@
     else if (kind === "list") app.select(id);
     else if (kind === "workflow") app.selectWorkflow(id);
     else if (kind === "article") app.selectArticle(id);
+    else if (kind === "flashcard") app.openFlashcardInDeck(id);
     else if (kind === "todo" && todo) app.select(todo.listId);
   }
 </script>
@@ -204,6 +212,17 @@
       {:else}
         <p class="text-xs italic text-neutral-400 dark:text-neutral-500">(empty article)</p>
       {/if}
+    {:else if kind === "flashcard" && flashcard}
+      <div class="flex items-center gap-3">
+        <div class="shrink-0" style="width: 110px; aspect-ratio: 200/300;">
+          <FlashCard card={flashcard} />
+        </div>
+        {#if flashcard.body.trim()}
+          <div class="markdown-body min-w-0 flex-1 text-sm leading-relaxed text-neutral-800 dark:text-neutral-200">
+            {@html md.render(flashcard.body)}
+          </div>
+        {/if}
+      </div>
     {/if}
   </div>
 </aside>

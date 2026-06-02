@@ -278,3 +278,31 @@ pub struct WeeklyActivity {
     pub workflows: i64,
     pub lists: i64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct FlashcardCategory {
+    pub id: i64,
+    pub name: String,
+    pub color: Option<String>,
+    pub icon: Option<String>,
+    pub position: i64,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct Flashcard {
+    pub id: i64,
+    pub title: String,
+    pub category_id: Option<i64>,
+    pub body: String,
+    pub image_url: Option<String>,
+    pub emoji: Option<String>,
+    pub color: Option<String>,
+    pub position: i64,
+    pub pinned: bool,
+    pub archived: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
