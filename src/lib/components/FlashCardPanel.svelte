@@ -81,7 +81,20 @@
   function close() {
     app.closeFlashcard();
   }
+  // Esc closes — unless focus is in a field (the field cancels its own edit).
+  function onKey(e: KeyboardEvent) {
+    if (e.key !== "Escape") return;
+    const t = e.target;
+    if (
+      t instanceof HTMLElement &&
+      (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)
+    )
+      return;
+    close();
+  }
 </script>
+
+<svelte:window onkeydown={onKey} />
 
 {#if card}
   <button

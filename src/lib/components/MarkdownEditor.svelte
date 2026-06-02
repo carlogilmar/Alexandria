@@ -280,6 +280,15 @@
       <button
         type="button"
         onmousedown={(e) => e.preventDefault()}
+        onclick={() => (app.formattingHelpOpen = true)}
+        class={btnCls}
+        title="Formatting reference"
+      >
+        Aa
+      </button>
+      <button
+        type="button"
+        onmousedown={(e) => e.preventDefault()}
         onclick={openLinkPicker}
         class={btnCls}
       >

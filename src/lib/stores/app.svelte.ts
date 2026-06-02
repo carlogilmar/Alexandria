@@ -204,6 +204,9 @@ class AppStore {
   error = $state<string | null>(null);
   flash = $state<string | null>(null);
   helpOpen = $state(false);
+  // Global command palette (⌘K) + in-app formatting reference.
+  paletteOpen = $state(false);
+  formattingHelpOpen = $state(false);
   // Collapse the sidebar for distraction-free, full-width reading.
   sidebarCollapsed = $state(false);
 

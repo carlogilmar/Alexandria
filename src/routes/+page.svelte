@@ -19,9 +19,29 @@
   import ActivityView from "$lib/components/ActivityView.svelte";
   import FlashDeckView from "$lib/components/FlashDeckView.svelte";
   import TopNav from "$lib/components/TopNav.svelte";
+  import CommandPalette from "$lib/components/CommandPalette.svelte";
+  import FormattingHelp from "$lib/components/FormattingHelp.svelte";
 
   let sidebar: Sidebar | undefined = $state();
   let inspectorTodo = $derived(app.selectedTodo());
+
+  // Friendly label for the current section (shown in the toolbar so the
+  // icon-only nav isn't a mystery).
+  const VIEW_LABELS: Record<string, string> = {
+    home: "Home",
+    list: "List",
+    note: "Note",
+    article: "Article",
+    workflow: "Workflow",
+    map: "Alexandria",
+    index: "Summary",
+    garden: "Visualization",
+    feedback: "Feedback",
+    "feedback-board": "Feedback",
+    activity: "Activity",
+    flashdeck: "Flash Deck",
+  };
+  let viewLabel = $derived(VIEW_LABELS[app.view] ?? "");
 
   onMount(() => {
     theme.init();
@@ -37,6 +57,11 @@
 
   function handleKeydown(e: KeyboardEvent) {
     const mod = e.metaKey || e.ctrlKey;
+    if (mod && (e.key === "k" || e.key === "K")) {
+      e.preventDefault();
+      app.paletteOpen = !app.paletteOpen;
+      return;
+    }
     if (mod && e.key === "f" && !e.shiftKey) {
       e.preventDefault();
       sidebar?.focus();
@@ -115,22 +140,35 @@
       class="flex h-11 shrink-0 items-center justify-between gap-2 px-3"
       data-tauri-drag-region
     >
-      {#if app.sidebarCollapsed}
+      <div class="flex min-w-0 items-center gap-2">
+        {#if app.sidebarCollapsed}
+          <button
+            type="button"
+            class="flex h-8 items-center gap-1 rounded-md border border-neutral-200/60 bg-white/70 px-2 text-xs text-neutral-500 shadow-sm backdrop-blur transition-colors hover:bg-neutral-100 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:text-neutral-400 dark:hover:bg-neutral-800"
+            title="Show sidebar"
+            onclick={() => app.toggleSidebar()}
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+              <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm1 4a1 1 0 100 2h12a1 1 0 100-2H4z" clip-rule="evenodd" />
+            </svg>
+            Sidebar
+          </button>
+        {/if}
+        <span class="truncate text-sm font-medium text-neutral-500 dark:text-neutral-400">{viewLabel}</span>
+      </div>
+      <div class="flex items-center gap-2">
         <button
           type="button"
-          class="flex h-8 items-center gap-1 rounded-md border border-neutral-200/60 bg-white/70 px-2 text-xs text-neutral-500 shadow-sm backdrop-blur transition-colors hover:bg-neutral-100 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:text-neutral-400 dark:hover:bg-neutral-800"
-          title="Show sidebar"
-          onclick={() => app.toggleSidebar()}
+          class="flex h-8 items-center gap-1.5 rounded-md border border-neutral-200/60 bg-white/70 px-2.5 text-xs text-neutral-500 shadow-sm backdrop-blur transition-colors hover:bg-neutral-100 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:text-neutral-400 dark:hover:bg-neutral-800"
+          title="Search everything & jump anywhere"
+          onclick={() => (app.paletteOpen = true)}
         >
-          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
-            <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm1 4a1 1 0 100 2h12a1 1 0 100-2H4z" clip-rule="evenodd" />
-          </svg>
-          Sidebar
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.39l3.08 3.08a1 1 0 01-1.42 1.42l-3.08-3.08A7 7 0 012 9z" clip-rule="evenodd"/></svg>
+          <span class="hidden sm:inline">Search</span>
+          <kbd class="rounded border border-neutral-300/70 px-1 text-[10px] dark:border-neutral-600/70">⌘K</kbd>
         </button>
-      {:else}
-        <span></span>
-      {/if}
-      <TopNav />
+        <TopNav />
+      </div>
     </div>
     <div class="flex-1 overflow-y-auto">
     {#if app.loading}
@@ -175,6 +213,14 @@
     {/key}
   {/if}
 </div>
+
+{#if app.paletteOpen}
+  <CommandPalette />
+{/if}
+
+{#if app.formattingHelpOpen}
+  <FormattingHelp />
+{/if}
 
 {#if app.helpOpen}
   <HelpModal />

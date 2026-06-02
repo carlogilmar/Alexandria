@@ -326,6 +326,13 @@
     <div class="absolute inset-0 z-10 flex items-center justify-center">
       <p class="text-sm text-neutral-500">Loading the map…</p>
     </div>
+  {:else if app.mapLoaded && app.mapNodes.length === 0}
+    <div class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-8 text-center">
+      <div class="max-w-md rounded-xl border border-violet-200/60 bg-white/80 px-6 py-5 text-sm text-neutral-600 backdrop-blur dark:border-violet-900/40 dark:bg-neutral-900/80 dark:text-neutral-300">
+        <p class="mb-2 text-base font-semibold text-violet-700 dark:text-violet-300">This is Alexandria — your canvas.</p>
+        <p>Open the <strong>＋ palette</strong> (top-left) to drop notes, articles, workflows, or boards here, then drag from one card's edge to another to connect them.</p>
+      </div>
+    </div>
   {/if}
 
   <SvelteFlow

@@ -5,26 +5,31 @@
   type Section = { title: string; items: { keys: string; label: string }[] };
   const sections: Section[] = [
     {
-      title: "Navigate",
+      title: "Find & navigate",
       items: [
-        { keys: "⌘ 1", label: "Home" },
-        { keys: "⌘ 2", label: "Alexandria (canvas)" },
-        { keys: "⌘ 3", label: "Summary" },
-        { keys: "⌘ 4", label: "Visualization" },
-        { keys: "⌘ 5", label: "Feedback (kanban)" },
-        { keys: "⌘ 6", label: "Activity (Kandinsky grid)" },
+        { keys: "⌘ K", label: "Search everything · jump anywhere (command palette)" },
+        { keys: "⌘ 1", label: "Home — today & activity" },
+        { keys: "⌘ 2", label: "Alexandria — your canvas" },
+        { keys: "⌘ 3", label: "Summary — catalog of everything" },
+        { keys: "⌘ 4", label: "Visualization — graph of links" },
+        { keys: "⌘ 5", label: "Feedback — kanban boards" },
+        { keys: "⌘ 6", label: "Activity — when you've worked" },
+        { keys: "⌘ 7", label: "Flash Deck — flashcards" },
+        { keys: "⌘ [", label: "Back to the previous view" },
+        { keys: "⌘ \\", label: "Collapse / show the sidebar" },
       ],
     },
     {
       title: "Lists & editing",
       items: [
         { keys: "⌘ N", label: "New list (today)" },
-        { keys: "⌘ F", label: "Focus search" },
+        { keys: "⌘ F", label: "Focus the sidebar todo search" },
         { keys: "⌘ E", label: "Save current list as .md" },
         { keys: "⌘ ⇧ C", label: "Copy current list to clipboard" },
+        { keys: "Tab", label: "Indent (inserts spaces) in editors" },
         { keys: "⌘ ↩", label: "Submit comment · description" },
         { keys: "Enter", label: "Commit edit" },
-        { keys: "Esc", label: "Cancel edit · close inspector · close help" },
+        { keys: "Esc", label: "Cancel edit · close panel · close help" },
       ],
     },
     {
@@ -90,6 +95,20 @@
           </ul>
         </section>
       {/each}
+    </div>
+
+    <div class="mt-4 border-t border-neutral-200/60 pt-3 dark:border-neutral-700/60">
+      <button
+        type="button"
+        class="flex w-full items-center justify-between rounded-md px-1 py-1 text-sm text-neutral-600 transition-colors hover:bg-neutral-200/50 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-100"
+        onclick={() => {
+          app.helpOpen = false;
+          app.formattingHelpOpen = true;
+        }}
+      >
+        <span>Markdown & formatting reference</span>
+        <span aria-hidden="true">→</span>
+      </button>
     </div>
   </div>
 </div>

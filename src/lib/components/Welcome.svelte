@@ -13,6 +13,27 @@
   type Bucket = "lists" | "tasks" | "workflows" | "notes" | "articles";
   let openBucket = $state<Bucket | null>(null);
 
+  // First-run orientation. Shown until there's any content or the user dismisses
+  // it (persisted). Helps a brand-new user understand what to do.
+  let startDismissed = $state(
+    typeof localStorage !== "undefined" &&
+      localStorage.getItem("startHereDismissed") === "1",
+  );
+  let isEmpty = $derived(
+    app.lists.length === 0 &&
+      app.notes.length === 0 &&
+      app.articles.length === 0 &&
+      app.workflows.length === 0 &&
+      app.flashcards.length === 0 &&
+      app.feedbackBoards.length === 0,
+  );
+  let showStartHere = $derived(isEmpty && !startDismissed);
+  function dismissStart() {
+    startDismissed = true;
+    if (typeof localStorage !== "undefined")
+      localStorage.setItem("startHereDismissed", "1");
+  }
+
   function toggleBucket(b: Bucket) {
     openBucket = openBucket === b ? null : b;
   }
@@ -184,7 +205,7 @@
         Welcome back
       </h1>
       <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-        A quick look at how things are going.
+        Today and how things are going over time.
       </p>
     </div>
     <button
@@ -195,6 +216,30 @@
       + New list for today
     </button>
   </header>
+
+  {#if showStartHere}
+    <section class="mb-8 rounded-2xl border border-blue-200/70 bg-blue-50/50 p-5 dark:border-blue-900/50 dark:bg-blue-950/20">
+      <div class="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100">Welcome to Alexandria 👋</h2>
+          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+            A personal knowledge system. Everything lives on your device. Here's how to start:
+          </p>
+        </div>
+        <button type="button" class="rounded-md p-1 text-neutral-400 hover:bg-neutral-200/60 hover:text-neutral-700 dark:hover:bg-neutral-700/40" aria-label="Dismiss" onclick={dismissStart}>
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+        </button>
+      </div>
+      <ul class="flex flex-col gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+        <li class="flex items-center gap-2"><kbd class="rounded border border-neutral-300/70 px-1.5 py-0.5 font-mono text-[11px] dark:border-neutral-600/70">＋ Add</kbd> a note, article, workflow, or flashcard from the sidebar.</li>
+        <li class="flex items-center gap-2"><kbd class="rounded border border-neutral-300/70 px-1.5 py-0.5 font-mono text-[11px] dark:border-neutral-600/70">⌘K</kbd> search everything and jump to any section.</li>
+        <li class="flex items-center gap-2"><kbd class="rounded border border-neutral-300/70 px-1.5 py-0.5 font-mono text-[11px] dark:border-neutral-600/70">?</kbd> see all shortcuts and the formatting reference.</li>
+      </ul>
+      <p class="mt-3 text-xs text-neutral-500 dark:text-neutral-500">
+        The icons top-right are your sections: <strong>Alexandria</strong> (canvas), <strong>Summary</strong>, <strong>Visualization</strong>, <strong>Feedback</strong>, <strong>Activity</strong>, <strong>Flash Deck</strong> — hover any for its name &amp; shortcut.
+      </p>
+    </section>
+  {/if}
 
   <section class="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-5">
     {#each [

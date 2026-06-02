@@ -92,6 +92,18 @@
   function close() {
     app.closeFeedbackCard();
   }
+  // Esc closes the panel — unless focus is in a field (then the field's own
+  // handler cancels its edit first).
+  function onKey(e: KeyboardEvent) {
+    if (e.key !== "Escape") return;
+    const t = e.target;
+    if (
+      t instanceof HTMLElement &&
+      (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)
+    )
+      return;
+    close();
+  }
   function deleteCard() {
     if (!card) return;
     void app.deleteFeedbackCard(card.id);
@@ -109,6 +121,8 @@
     });
   }
 </script>
+
+<svelte:window onkeydown={onKey} />
 
 {#if card}
   <button

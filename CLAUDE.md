@@ -139,6 +139,14 @@ backed by `app.navStack`, a history stack each `select*`/`open*`/`goHome`
 pushes to — plus the theme toggle and the sidebar-tint picker. The
 sidebar is now search + pinned items + footer only.
 
+The toolbar row also shows the **current section label** and a **"Search ⌘K"**
+pill. **⌘K opens `CommandPalette.svelte`** — the global finder: searches every
+entity (client-side over loaded store state) + lists all destinations (with
+descriptions) + quick actions. It's the primary way to navigate/search; the
+sidebar box is todos-only. `FormattingHelp.svelte` (the in-app markdown
+reference) opens from the editors' "Aa" button, Help, and the palette. First-run
+shows a dismissible "Start here" card on Home (Sprint 21).
+
 ## Svelte 5 patterns we follow
 
 - **All state in the store class.** `app` is a singleton. Components
@@ -322,7 +330,17 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 20 (Flash Deck — a single global deck of flashcards
+Last updated: end of Sprint 21 (UX hardening — no new features. Added a global
+**command palette** (⌘K, `CommandPalette.svelte`) that searches every entity +
+lists all destinations & quick actions (client-side, no backend); a visible
+"Search ⌘K" pill + the current **section label** in the toolbar; sidebar search
+relabeled "Search todos". Refreshed `HelpModal` (⌘K/⌘7/⌘[/⌘\ + Tab + per-section
+descriptions) and added `FormattingHelp.svelte` (in-app markdown reference) via an
+"Aa" button in the editors. A dismissible first-run "Start here" card on Home; a
+Map/Alexandria empty-state hint. Esc now closes the feedback/flashcard panels.
+Frontend-only; `svelte-check`/`build` clean.)
+
+Sprint 20 (Flash Deck — a single global deck of flashcards
 as a first-class entity. Migration `0016` (`flashcards` + `flashcard_categories`),
 `commands/flashcards.rs` (cards + category CRUD, reorder, nullable-field setters),
 full ipc/store wiring. New view `flashdeck` (⌘7, `TopNav` icon). UI: a responsive

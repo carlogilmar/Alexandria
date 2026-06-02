@@ -136,9 +136,18 @@
       bind:this={searchInput}
       bind:value={query}
       type="search"
-      placeholder="Search…"
+      placeholder="Search todos…"
+      title="Searches todos. Press ⌘K to search everything."
       class="w-full rounded-md border border-neutral-300/60 bg-white/60 px-2 py-1 text-xs outline-none transition-shadow placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
     />
+    <button
+      type="button"
+      class="mt-1 flex w-full items-center justify-center gap-1 rounded-md px-2 py-1 text-[11px] text-neutral-400 transition-colors hover:bg-neutral-200/50 hover:text-neutral-600 dark:text-neutral-500 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-300"
+      onclick={() => (app.paletteOpen = true)}
+    >
+      Search everything
+      <kbd class="rounded border border-neutral-300/70 px-1 font-mono text-[10px] dark:border-neutral-600/70">⌘K</kbd>
+    </button>
   </div>
 
   <nav class="flex-1 overflow-y-auto">
