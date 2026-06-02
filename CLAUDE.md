@@ -225,7 +225,7 @@ do I have?" and is the entry default (Sprint 11).
 
 ### Migrations
 
-Files in `src-tauri/migrations/0001_…sql` … `0015_…sql`, monotonically
+Files in `src-tauri/migrations/0001_…sql` … `0016_…sql`, monotonically
 numbered, applied at startup. To add one:
 
 1. Create `00NN_<short_name>.sql`.
@@ -258,6 +258,13 @@ numbered, applied at startup. To add one:
   defaults in `create_board`. Cards reference `column_id` and carry a
   nullable `color`. Boards have `pinned` (sidebar) + `archived`.
   `#tag`s in board/card titles render as badges (`$lib/badges.ts`).
+- `flashcards` + `flashcard_categories`: the Flash Deck (Sprint 20). One global
+  deck; a card has a markdown `body`, optional `image_url` (else generative art),
+  `emoji` + `color` accents, optional `category_id` (ON DELETE SET NULL), and a
+  manual `position`. Categories ("suits") carry a color + icon. Generative card
+  art is a seeded flat-geometric SVG (`$lib/cardArt.ts`); `FlashCard.svelte` is
+  the front, `FlashCardPanel`/`FlashStudyView` add a front↔back flip.
+  `{{flashcard:id}}` embeds + `flashcard:id` links like other entities.
 - Mermaid: there is **no diagram entity/table** (the Sprint 14 `diagrams`
   table was removed in Sprint 16 — migration `0011` created it, `0012`
   drops it). Mermaid now lives **only** as inline ```` ```mermaid ````
@@ -315,7 +322,20 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 19 (Feedback boards leveled up + markdown polish +
+Last updated: end of Sprint 20 (Flash Deck — a single global deck of flashcards
+as a first-class entity. Migration `0016` (`flashcards` + `flashcard_categories`),
+`commands/flashcards.rs` (cards + category CRUD, reorder, nullable-field setters),
+full ipc/store wiring. New view `flashdeck` (⌘7, `TopNav` icon). UI: a responsive
+deck grid with pointer-DnD reorder, generative geometric card art
+(`$lib/cardArt.ts`, seeded SVG — chosen over a fluid "Refik Anadol" variant the
+user rejected), `FlashCard` front + `FlashCardPanel` (front↔back flip + edit:
+title/body via `MarkdownEditor`, category/color/emoji pickers, image upload) +
+`FlashStudyView` (shuffle/flip/next-prev study mode). Categories are color/icon
+"suits". Surfaced in AddEntityModal, a Summary "Cards" tab, sidebar pinned
+section, and `{{flashcard:id}}` embeds / `flashcard:id` links. Canvas node
+deferred. `#tag` badges work in card titles.)
+
+Sprint 19 (Feedback boards leveled up + markdown polish +
 sidebar collapse. Boards: per-board custom columns (`feedback_columns` table,
 migration 0013; `create_board` seeds 4 defaults; rename/add/delete in
 `FeedbackBoardView`), card color (`color` col + `$lib/cardColors.ts` picker in
