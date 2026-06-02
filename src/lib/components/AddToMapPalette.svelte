@@ -28,8 +28,15 @@
       note: ["hsl(217 80% 92%)", "hsl(217 35% 22%)"],
       article: ["hsl(268 80% 94%)", "hsl(268 35% 22%)"],
       workflow: ["hsl(32 80% 90%)", "hsl(32 35% 22%)"],
+      feedback_board: ["hsl(350 80% 93%)", "hsl(350 35% 24%)"],
     };
     return isDark ? tints[kind][1] : tints[kind][0];
+  }
+
+  function kindLabel(k: MapEntityKind | "all"): string {
+    if (k === "all") return "all";
+    if (k === "feedback_board") return "boards";
+    return `${k}s`;
   }
 
   // Set of (kind, entityId) already on the map, derived from store state.
@@ -54,6 +61,11 @@
     for (const w of app.workflows) {
       if (placed.has(`workflow:${w.id}`)) continue;
       out.push({ kind: "workflow", entityId: w.id, title: w.title });
+    }
+    for (const b of app.feedbackBoards) {
+      if (b.archived) continue;
+      if (placed.has(`feedback_board:${b.id}`)) continue;
+      out.push({ kind: "feedback_board", entityId: b.id, title: b.title });
     }
     const q = search.trim().toLowerCase();
     return out.filter(
@@ -125,7 +137,7 @@
         class="mb-2 w-full rounded-md border border-neutral-300/70 bg-white/70 px-2 py-1 text-xs outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/70 dark:bg-neutral-900/40 dark:text-neutral-100"
       />
       <div class="flex flex-wrap gap-1">
-        {#each (["all", "article", "note", "workflow"] as Array<MapEntityKind | "all">) as k}
+        {#each (["all", "article", "note", "workflow", "feedback_board"] as Array<MapEntityKind | "all">) as k}
           <button
             type="button"
             class="rounded-full border px-2 py-0.5 text-[11px] font-medium"
@@ -142,7 +154,7 @@
             class:dark:text-neutral-400={kindFilter !== k}
             onclick={() => (kindFilter = k)}
           >
-            {k === "all" ? "all" : `${k}s`}
+            {kindLabel(k)}
           </button>
         {/each}
       </div>

@@ -1,19 +1,15 @@
 use crate::commands::AppState;
 use crate::db::models::{
     FeedbackBoard, FeedbackBoardSummary, FeedbackCard, FeedbackCardComment, FeedbackCardSummary,
+    FeedbackColumn,
 };
 use crate::error::{AppError, AppResult};
 use sqlx::SqlitePool;
 use tauri::State;
 
-const VALID_COLUMNS: &[&str] = &["to_implement", "in_definition", "in_progress", "done"];
-
-fn validate_column(column: &str) -> AppResult<()> {
-    if !VALID_COLUMNS.contains(&column) {
-        return Err(AppError::BadInput(format!("invalid column: {column}")));
-    }
-    Ok(())
-}
+// Columns seeded for every new board. After creation they're fully editable
+// (rename / add / remove) per board — see the column commands below.
+const DEFAULT_COLUMNS: &[&str] = &["To Implement", "In Definition", "In Progress", "Done"];
 
 // ============================================================
 // Boards
@@ -24,7 +20,7 @@ pub(crate) async fn list_boards(
     include_archived: bool,
 ) -> AppResult<Vec<FeedbackBoardSummary>> {
     sqlx::query_as::<_, FeedbackBoardSummary>(
-        "SELECT b.id, b.title, b.archived,
+        "SELECT b.id, b.title, b.archived, b.pinned,
                 (SELECT COUNT(*) FROM feedback_cards c WHERE c.board_id = b.id) AS card_count,
                 b.updated_at
            FROM feedback_boards b
@@ -41,15 +37,29 @@ pub(crate) async fn create_board(pool: &SqlitePool, title: &str) -> AppResult<Fe
     if title.trim().is_empty() {
         return Err(AppError::BadInput("title cannot be empty".into()));
     }
-    sqlx::query_as::<_, FeedbackBoard>(
-        "INSERT INTO feedback_boards (title, archived, created_at, updated_at)
-         VALUES (?1, 0, datetime('now'), datetime('now'))
+    let mut tx = pool.begin().await?;
+    let board = sqlx::query_as::<_, FeedbackBoard>(
+        "INSERT INTO feedback_boards (title, archived, pinned, created_at, updated_at)
+         VALUES (?1, 0, 0, datetime('now'), datetime('now'))
          RETURNING *",
     )
     .bind(title.trim())
-    .fetch_one(pool)
-    .await
-    .map_err(Into::into)
+    .fetch_one(&mut *tx)
+    .await?;
+    // Seed the default columns.
+    for (i, name) in DEFAULT_COLUMNS.iter().enumerate() {
+        sqlx::query(
+            "INSERT INTO feedback_columns (board_id, name, position, created_at)
+             VALUES (?1, ?2, ?3, datetime('now'))",
+        )
+        .bind(board.id)
+        .bind(name)
+        .bind(i as i64)
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+    Ok(board)
 }
 
 pub(crate) async fn rename_board(
@@ -87,6 +97,22 @@ pub(crate) async fn set_board_archived(
     .ok_or_else(|| AppError::NotFound(format!("feedback board {id}")))
 }
 
+pub(crate) async fn set_board_pinned(
+    pool: &SqlitePool,
+    id: i64,
+    pinned: bool,
+) -> AppResult<FeedbackBoard> {
+    sqlx::query_as::<_, FeedbackBoard>(
+        "UPDATE feedback_boards SET pinned = ?1, updated_at = datetime('now')
+           WHERE id = ?2 RETURNING *",
+    )
+    .bind(pinned as i64)
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("feedback board {id}")))
+}
+
 pub(crate) async fn delete_board(pool: &SqlitePool, id: i64) -> AppResult<()> {
     let res = sqlx::query("DELETE FROM feedback_boards WHERE id = ?1")
         .bind(id)
@@ -94,6 +120,78 @@ pub(crate) async fn delete_board(pool: &SqlitePool, id: i64) -> AppResult<()> {
         .await?;
     if res.rows_affected() == 0 {
         return Err(AppError::NotFound(format!("feedback board {id}")));
+    }
+    Ok(())
+}
+
+// ============================================================
+// Columns
+// ============================================================
+
+pub(crate) async fn list_columns(
+    pool: &SqlitePool,
+    board_id: i64,
+) -> AppResult<Vec<FeedbackColumn>> {
+    sqlx::query_as::<_, FeedbackColumn>(
+        "SELECT * FROM feedback_columns WHERE board_id = ?1 ORDER BY position ASC, id ASC",
+    )
+    .bind(board_id)
+    .fetch_all(pool)
+    .await
+    .map_err(Into::into)
+}
+
+pub(crate) async fn create_column(
+    pool: &SqlitePool,
+    board_id: i64,
+    name: &str,
+) -> AppResult<FeedbackColumn> {
+    if name.trim().is_empty() {
+        return Err(AppError::BadInput("column name cannot be empty".into()));
+    }
+    let next_pos: i64 =
+        sqlx::query_scalar("SELECT COALESCE(MAX(position) + 1, 0) FROM feedback_columns WHERE board_id = ?1")
+            .bind(board_id)
+            .fetch_one(pool)
+            .await?;
+    sqlx::query_as::<_, FeedbackColumn>(
+        "INSERT INTO feedback_columns (board_id, name, position, created_at)
+         VALUES (?1, ?2, ?3, datetime('now')) RETURNING *",
+    )
+    .bind(board_id)
+    .bind(name.trim())
+    .bind(next_pos)
+    .fetch_one(pool)
+    .await
+    .map_err(Into::into)
+}
+
+pub(crate) async fn rename_column(
+    pool: &SqlitePool,
+    id: i64,
+    name: &str,
+) -> AppResult<FeedbackColumn> {
+    if name.trim().is_empty() {
+        return Err(AppError::BadInput("column name cannot be empty".into()));
+    }
+    sqlx::query_as::<_, FeedbackColumn>(
+        "UPDATE feedback_columns SET name = ?1 WHERE id = ?2 RETURNING *",
+    )
+    .bind(name.trim())
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("feedback column {id}")))
+}
+
+/// Delete a column. Cards in it cascade-delete (the UI confirms first).
+pub(crate) async fn delete_column(pool: &SqlitePool, id: i64) -> AppResult<()> {
+    let res = sqlx::query("DELETE FROM feedback_columns WHERE id = ?1")
+        .bind(id)
+        .execute(pool)
+        .await?;
+    if res.rows_affected() == 0 {
+        return Err(AppError::NotFound(format!("feedback column {id}")));
     }
     Ok(())
 }
@@ -107,12 +205,12 @@ pub(crate) async fn list_cards(
     board_id: i64,
 ) -> AppResult<Vec<FeedbackCardSummary>> {
     sqlx::query_as::<_, FeedbackCardSummary>(
-        "SELECT c.id, c.board_id, c.column_kind, c.title, c.description, c.position,
+        "SELECT c.id, c.board_id, c.column_id, c.title, c.description, c.color, c.position,
                 (SELECT COUNT(*) FROM feedback_card_comments cc WHERE cc.card_id = c.id) AS comment_count,
                 c.created_at, c.updated_at
            FROM feedback_cards c
           WHERE c.board_id = ?1
-          ORDER BY c.column_kind ASC, c.position ASC, c.id ASC",
+          ORDER BY c.column_id ASC, c.position ASC, c.id ASC",
     )
     .bind(board_id)
     .fetch_all(pool)
@@ -122,33 +220,36 @@ pub(crate) async fn list_cards(
 
 pub(crate) async fn create_card(
     pool: &SqlitePool,
-    board_id: i64,
-    column_kind: &str,
+    column_id: i64,
     title: &str,
     description: &str,
 ) -> AppResult<FeedbackCard> {
-    validate_column(column_kind)?;
     if title.trim().is_empty() {
         return Err(AppError::BadInput("title cannot be empty".into()));
     }
-    // Append: next position in the target column.
+    // Resolve the board from the column (and validate the column exists).
+    let board_id: i64 =
+        sqlx::query_scalar("SELECT board_id FROM feedback_columns WHERE id = ?1")
+            .bind(column_id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound(format!("feedback column {column_id}")))?;
+
     let next_pos: i64 = sqlx::query_scalar(
-        "SELECT COALESCE(MAX(position) + 1, 0) FROM feedback_cards
-          WHERE board_id = ?1 AND column_kind = ?2",
+        "SELECT COALESCE(MAX(position) + 1, 0) FROM feedback_cards WHERE column_id = ?1",
     )
-    .bind(board_id)
-    .bind(column_kind)
+    .bind(column_id)
     .fetch_one(pool)
     .await?;
 
     sqlx::query_as::<_, FeedbackCard>(
         "INSERT INTO feedback_cards
-            (board_id, column_kind, title, description, position, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'), datetime('now'))
+            (board_id, column_id, title, description, color, position, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, NULL, ?5, datetime('now'), datetime('now'))
          RETURNING *",
     )
     .bind(board_id)
-    .bind(column_kind)
+    .bind(column_id)
     .bind(title.trim())
     .bind(description)
     .bind(next_pos)
@@ -163,28 +264,21 @@ pub(crate) async fn update_card(
     title: Option<&str>,
     description: Option<&str>,
 ) -> AppResult<FeedbackCard> {
-    // Two optional fields — we do two conditional updates inside a transaction
-    // and then read the row back. Empty title in update is rejected.
     let mut tx = pool.begin().await?;
-
     if let Some(t) = title {
         let t = t.trim();
         if t.is_empty() {
             return Err(AppError::BadInput("title cannot be empty".into()));
         }
-        sqlx::query(
-            "UPDATE feedback_cards SET title = ?1, updated_at = datetime('now')
-               WHERE id = ?2",
-        )
-        .bind(t)
-        .bind(id)
-        .execute(&mut *tx)
-        .await?;
+        sqlx::query("UPDATE feedback_cards SET title = ?1, updated_at = datetime('now') WHERE id = ?2")
+            .bind(t)
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
     }
     if let Some(d) = description {
         sqlx::query(
-            "UPDATE feedback_cards SET description = ?1, updated_at = datetime('now')
-               WHERE id = ?2",
+            "UPDATE feedback_cards SET description = ?1, updated_at = datetime('now') WHERE id = ?2",
         )
         .bind(d)
         .bind(id)
@@ -200,16 +294,31 @@ pub(crate) async fn update_card(
     Ok(row)
 }
 
-/// Move a card to a target column at a target position. Rewrites positions
-/// in source and destination columns inside a single transaction so the
-/// invariant "positions are dense 0..n-1 per (board, column)" holds.
+/// Set (or clear, with None) a card's color.
+pub(crate) async fn set_card_color(
+    pool: &SqlitePool,
+    id: i64,
+    color: Option<&str>,
+) -> AppResult<FeedbackCard> {
+    sqlx::query_as::<_, FeedbackCard>(
+        "UPDATE feedback_cards SET color = ?1, updated_at = datetime('now')
+           WHERE id = ?2 RETURNING *",
+    )
+    .bind(color)
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("feedback card {id}")))
+}
+
+/// Move a card to a target column at a target position, keeping positions dense
+/// (0..n-1) within each column.
 pub(crate) async fn move_card(
     pool: &SqlitePool,
     id: i64,
-    target_column: &str,
+    target_column_id: i64,
     target_position: i64,
 ) -> AppResult<FeedbackCard> {
-    validate_column(target_column)?;
     let mut tx = pool.begin().await?;
 
     let current = sqlx::query_as::<_, FeedbackCard>("SELECT * FROM feedback_cards WHERE id = ?1")
@@ -218,37 +327,31 @@ pub(crate) async fn move_card(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("feedback card {id}")))?;
 
-    let source_column = current.column_kind.clone();
+    let source_column = current.column_id;
     let source_position = current.position;
-    let board_id = current.board_id;
-    let same_column = source_column == target_column;
+    let same_column = source_column == target_column_id;
 
-    // 1. Pull the card out of its current spot by closing the gap.
+    // 1. Close the gap in the source column.
     sqlx::query(
-        "UPDATE feedback_cards
-            SET position = position - 1, updated_at = datetime('now')
-          WHERE board_id = ?1 AND column_kind = ?2 AND position > ?3",
+        "UPDATE feedback_cards SET position = position - 1, updated_at = datetime('now')
+          WHERE column_id = ?1 AND position > ?2",
     )
-    .bind(board_id)
-    .bind(&source_column)
+    .bind(source_column)
     .bind(source_position)
     .execute(&mut *tx)
     .await?;
 
-    // 2. Make room in the target column at target_position.
-    //    If moving within the same column, account for the just-closed gap.
+    // 2. Open room in the target column.
     let effective_target = if same_column && target_position > source_position {
         target_position - 1
     } else {
         target_position
     };
     sqlx::query(
-        "UPDATE feedback_cards
-            SET position = position + 1, updated_at = datetime('now')
-          WHERE board_id = ?1 AND column_kind = ?2 AND position >= ?3",
+        "UPDATE feedback_cards SET position = position + 1, updated_at = datetime('now')
+          WHERE column_id = ?1 AND position >= ?2",
     )
-    .bind(board_id)
-    .bind(target_column)
+    .bind(target_column_id)
     .bind(effective_target)
     .execute(&mut *tx)
     .await?;
@@ -256,10 +359,10 @@ pub(crate) async fn move_card(
     // 3. Place the card.
     let moved = sqlx::query_as::<_, FeedbackCard>(
         "UPDATE feedback_cards
-            SET column_kind = ?1, position = ?2, updated_at = datetime('now')
+            SET column_id = ?1, position = ?2, updated_at = datetime('now')
           WHERE id = ?3 RETURNING *",
     )
-    .bind(target_column)
+    .bind(target_column_id)
     .bind(effective_target)
     .bind(id)
     .fetch_one(&mut *tx)
@@ -280,14 +383,11 @@ pub(crate) async fn delete_card(pool: &SqlitePool, id: i64) -> AppResult<()> {
         .bind(id)
         .execute(&mut *tx)
         .await?;
-    // Close the gap left behind.
     sqlx::query(
-        "UPDATE feedback_cards
-            SET position = position - 1, updated_at = datetime('now')
-          WHERE board_id = ?1 AND column_kind = ?2 AND position > ?3",
+        "UPDATE feedback_cards SET position = position - 1, updated_at = datetime('now')
+          WHERE column_id = ?1 AND position > ?2",
     )
-    .bind(current.board_id)
-    .bind(&current.column_kind)
+    .bind(current.column_id)
     .bind(current.position)
     .execute(&mut *tx)
     .await?;
@@ -382,8 +482,48 @@ pub async fn set_feedback_board_archived(
 }
 
 #[tauri::command]
+pub async fn set_feedback_board_pinned(
+    state: State<'_, AppState>,
+    id: i64,
+    pinned: bool,
+) -> AppResult<FeedbackBoard> {
+    set_board_pinned(&state.pool, id, pinned).await
+}
+
+#[tauri::command]
 pub async fn delete_feedback_board(state: State<'_, AppState>, id: i64) -> AppResult<()> {
     delete_board(&state.pool, id).await
+}
+
+#[tauri::command]
+pub async fn list_feedback_columns(
+    state: State<'_, AppState>,
+    board_id: i64,
+) -> AppResult<Vec<FeedbackColumn>> {
+    list_columns(&state.pool, board_id).await
+}
+
+#[tauri::command]
+pub async fn create_feedback_column(
+    state: State<'_, AppState>,
+    board_id: i64,
+    name: String,
+) -> AppResult<FeedbackColumn> {
+    create_column(&state.pool, board_id, &name).await
+}
+
+#[tauri::command]
+pub async fn rename_feedback_column(
+    state: State<'_, AppState>,
+    id: i64,
+    name: String,
+) -> AppResult<FeedbackColumn> {
+    rename_column(&state.pool, id, &name).await
+}
+
+#[tauri::command]
+pub async fn delete_feedback_column(state: State<'_, AppState>, id: i64) -> AppResult<()> {
+    delete_column(&state.pool, id).await
 }
 
 #[tauri::command]
@@ -397,15 +537,13 @@ pub async fn list_feedback_cards(
 #[tauri::command]
 pub async fn create_feedback_card(
     state: State<'_, AppState>,
-    board_id: i64,
-    column_kind: String,
+    column_id: i64,
     title: String,
     description: Option<String>,
 ) -> AppResult<FeedbackCard> {
     create_card(
         &state.pool,
-        board_id,
-        &column_kind,
+        column_id,
         &title,
         description.as_deref().unwrap_or(""),
     )
@@ -423,13 +561,22 @@ pub async fn update_feedback_card(
 }
 
 #[tauri::command]
+pub async fn set_feedback_card_color(
+    state: State<'_, AppState>,
+    id: i64,
+    color: Option<String>,
+) -> AppResult<FeedbackCard> {
+    set_card_color(&state.pool, id, color.as_deref()).await
+}
+
+#[tauri::command]
 pub async fn move_feedback_card(
     state: State<'_, AppState>,
     id: i64,
-    target_column: String,
+    target_column_id: i64,
     target_position: i64,
 ) -> AppResult<FeedbackCard> {
-    move_card(&state.pool, id, &target_column, target_position).await
+    move_card(&state.pool, id, target_column_id, target_position).await
 }
 
 #[tauri::command]
@@ -468,79 +615,89 @@ mod tests {
     use super::*;
     use crate::db::test_pool;
 
+    /// Create a board and return (board, its column ids in seeded order).
+    async fn board_with_cols(pool: &SqlitePool) -> (FeedbackBoard, Vec<i64>) {
+        let b = create_board(pool, "b").await.unwrap();
+        let cols = list_columns(pool, b.id).await.unwrap();
+        let ids = cols.iter().map(|c| c.id).collect();
+        (b, ids)
+    }
+
     #[tokio::test]
-    async fn create_board_and_card() {
+    async fn create_board_seeds_default_columns() {
         let pool = test_pool().await;
         let b = create_board(&pool, "Feedback Mayo").await.unwrap();
-        let c = create_card(&pool, b.id, "to_implement", "Coffee meetings", "ask manager")
-            .await
-            .unwrap();
-        assert_eq!(c.column_kind, "to_implement");
-        assert_eq!(c.position, 0);
+        let cols = list_columns(&pool, b.id).await.unwrap();
+        assert_eq!(cols.len(), 4);
+        assert_eq!(cols[0].name, "To Implement");
+        assert_eq!(cols[3].name, "Done");
+    }
 
-        let c2 = create_card(&pool, b.id, "to_implement", "Mentorship", "")
+    #[tokio::test]
+    async fn create_card_appends_position() {
+        let pool = test_pool().await;
+        let (_b, cols) = board_with_cols(&pool).await;
+        let c = create_card(&pool, cols[0], "Coffee meetings", "ask manager")
             .await
             .unwrap();
+        assert_eq!(c.column_id, cols[0]);
+        assert_eq!(c.position, 0);
+        let c2 = create_card(&pool, cols[0], "Mentorship", "").await.unwrap();
         assert_eq!(c2.position, 1);
     }
 
     #[tokio::test]
     async fn move_card_within_column_reorders() {
         let pool = test_pool().await;
-        let b = create_board(&pool, "b").await.unwrap();
-        let a = create_card(&pool, b.id, "to_implement", "A", "").await.unwrap();
-        let bb = create_card(&pool, b.id, "to_implement", "B", "").await.unwrap();
-        let c = create_card(&pool, b.id, "to_implement", "C", "").await.unwrap();
+        let (b, cols) = board_with_cols(&pool).await;
+        let a = create_card(&pool, cols[0], "A", "").await.unwrap();
+        let bb = create_card(&pool, cols[0], "B", "").await.unwrap();
+        let c = create_card(&pool, cols[0], "C", "").await.unwrap();
         assert_eq!((a.position, bb.position, c.position), (0, 1, 2));
 
-        // Move A to position 2 (end). Within-column: effective_target = 2 - 1 = 1
-        // because we're moving forward inside the same column.
-        let moved = move_card(&pool, a.id, "to_implement", 2).await.unwrap();
+        let moved = move_card(&pool, a.id, cols[0], 2).await.unwrap();
         assert_eq!(moved.position, 1);
 
         let cards = list_cards(&pool, b.id).await.unwrap();
         let mut sorted: Vec<_> = cards.iter().map(|c| (c.id, c.position)).collect();
         sorted.sort_by_key(|x| x.1);
-        // After move, expected order (id, position):
-        // B at 0, A at 1, C at 2
         assert_eq!(sorted, vec![(bb.id, 0), (a.id, 1), (c.id, 2)]);
     }
 
     #[tokio::test]
     async fn move_card_across_columns_reorders_both() {
         let pool = test_pool().await;
-        let b = create_board(&pool, "b").await.unwrap();
-        let a = create_card(&pool, b.id, "to_implement", "A", "").await.unwrap();
-        let bb = create_card(&pool, b.id, "to_implement", "B", "").await.unwrap();
-        let x = create_card(&pool, b.id, "in_progress", "X", "").await.unwrap();
-        let y = create_card(&pool, b.id, "in_progress", "Y", "").await.unwrap();
+        let (b, cols) = board_with_cols(&pool).await;
+        let a = create_card(&pool, cols[0], "A", "").await.unwrap();
+        let bb = create_card(&pool, cols[0], "B", "").await.unwrap();
+        let x = create_card(&pool, cols[2], "X", "").await.unwrap();
+        let y = create_card(&pool, cols[2], "Y", "").await.unwrap();
 
-        // Move A → in_progress at position 1 (between X and Y).
-        let moved = move_card(&pool, a.id, "in_progress", 1).await.unwrap();
-        assert_eq!(moved.column_kind, "in_progress");
+        let moved = move_card(&pool, a.id, cols[2], 1).await.unwrap();
+        assert_eq!(moved.column_id, cols[2]);
         assert_eq!(moved.position, 1);
 
         let cards = list_cards(&pool, b.id).await.unwrap();
-        let by_col = |col: &str| -> Vec<(i64, i64)> {
+        let by_col = |col: i64| -> Vec<(i64, i64)> {
             let mut v: Vec<_> = cards
                 .iter()
-                .filter(|c| c.column_kind == col)
+                .filter(|c| c.column_id == col)
                 .map(|c| (c.id, c.position))
                 .collect();
             v.sort_by_key(|x| x.1);
             v
         };
-        assert_eq!(by_col("to_implement"), vec![(bb.id, 0)]);
-        assert_eq!(by_col("in_progress"), vec![(x.id, 0), (a.id, 1), (y.id, 2)]);
+        assert_eq!(by_col(cols[0]), vec![(bb.id, 0)]);
+        assert_eq!(by_col(cols[2]), vec![(x.id, 0), (a.id, 1), (y.id, 2)]);
     }
 
     #[tokio::test]
     async fn delete_card_closes_gap() {
         let pool = test_pool().await;
-        let b = create_board(&pool, "b").await.unwrap();
-        let a = create_card(&pool, b.id, "done", "A", "").await.unwrap();
-        let bb = create_card(&pool, b.id, "done", "B", "").await.unwrap();
-        let c = create_card(&pool, b.id, "done", "C", "").await.unwrap();
+        let (b, cols) = board_with_cols(&pool).await;
+        let a = create_card(&pool, cols[3], "A", "").await.unwrap();
+        let bb = create_card(&pool, cols[3], "B", "").await.unwrap();
+        let c = create_card(&pool, cols[3], "C", "").await.unwrap();
         delete_card(&pool, bb.id).await.unwrap();
         let cards = list_cards(&pool, b.id).await.unwrap();
         let mut sorted: Vec<_> = cards.iter().map(|c| (c.id, c.position)).collect();
@@ -549,18 +706,42 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rejects_invalid_column() {
+    async fn custom_columns_crud() {
         let pool = test_pool().await;
         let b = create_board(&pool, "b").await.unwrap();
-        let err = create_card(&pool, b.id, "todo", "x", "").await.unwrap_err();
-        assert!(matches!(err, AppError::BadInput(_)));
+        let col = create_column(&pool, b.id, "Backlog").await.unwrap();
+        assert_eq!(col.position, 4); // after the 4 defaults
+        let renamed = rename_column(&pool, col.id, "Icebox").await.unwrap();
+        assert_eq!(renamed.name, "Icebox");
+        // Deleting a column cascades its cards.
+        create_card(&pool, col.id, "x", "").await.unwrap();
+        delete_column(&pool, col.id).await.unwrap();
+        let cols = list_columns(&pool, b.id).await.unwrap();
+        assert_eq!(cols.len(), 4);
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM feedback_cards")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(count, 0);
+    }
+
+    #[tokio::test]
+    async fn set_color_round_trip() {
+        let pool = test_pool().await;
+        let (_b, cols) = board_with_cols(&pool).await;
+        let c = create_card(&pool, cols[0], "x", "").await.unwrap();
+        assert!(c.color.is_none());
+        let colored = set_card_color(&pool, c.id, Some("blue")).await.unwrap();
+        assert_eq!(colored.color.as_deref(), Some("blue"));
+        let cleared = set_card_color(&pool, c.id, None).await.unwrap();
+        assert!(cleared.color.is_none());
     }
 
     #[tokio::test]
     async fn comments_round_trip() {
         let pool = test_pool().await;
-        let b = create_board(&pool, "b").await.unwrap();
-        let c = create_card(&pool, b.id, "to_implement", "x", "").await.unwrap();
+        let (_b, cols) = board_with_cols(&pool).await;
+        let c = create_card(&pool, cols[0], "x", "").await.unwrap();
         add_comment(&pool, c.id, "first").await.unwrap();
         add_comment(&pool, c.id, "second").await.unwrap();
         let all = list_comments(&pool, c.id).await.unwrap();
@@ -569,16 +750,21 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn deleting_board_cascades_cards_and_comments() {
+    async fn deleting_board_cascades() {
         let pool = test_pool().await;
-        let b = create_board(&pool, "b").await.unwrap();
-        let c = create_card(&pool, b.id, "to_implement", "x", "").await.unwrap();
+        let (b, cols) = board_with_cols(&pool).await;
+        let c = create_card(&pool, cols[0], "x", "").await.unwrap();
         add_comment(&pool, c.id, "hello").await.unwrap();
         delete_board(&pool, b.id).await.unwrap();
-        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM feedback_card_comments")
+        let cols_left: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM feedback_columns")
             .fetch_one(&pool)
             .await
             .unwrap();
-        assert_eq!(count, 0);
+        let comments: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM feedback_card_comments")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(cols_left, 0);
+        assert_eq!(comments, 0);
     }
 }

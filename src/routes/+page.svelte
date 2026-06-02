@@ -46,6 +46,11 @@
       app.back();
       return;
     }
+    if (mod && e.key === "\\") {
+      e.preventDefault();
+      app.toggleSidebar();
+      return;
+    }
     if (!mod) {
       if (e.key === "Escape") {
         if (app.helpOpen) {
@@ -96,14 +101,31 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="flex h-screen overflow-hidden">
-  <Sidebar bind:this={sidebar} />
+  {#if !app.sidebarCollapsed}
+    <Sidebar bind:this={sidebar} />
+  {/if}
   <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
     <!-- Reserved top toolbar row: holds the nav menu so it never overlaps the
          content's own top-right controls (Edit, pin, etc.). Drag region too. -->
     <div
-      class="flex h-11 shrink-0 items-center justify-end px-3"
+      class="flex h-11 shrink-0 items-center justify-between gap-2 px-3"
       data-tauri-drag-region
     >
+      {#if app.sidebarCollapsed}
+        <button
+          type="button"
+          class="flex h-8 items-center gap-1 rounded-md border border-neutral-200/60 bg-white/70 px-2 text-xs text-neutral-500 shadow-sm backdrop-blur transition-colors hover:bg-neutral-100 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:text-neutral-400 dark:hover:bg-neutral-800"
+          title="Show sidebar"
+          onclick={() => app.toggleSidebar()}
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+            <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm1 4a1 1 0 100 2h12a1 1 0 100-2H4z" clip-rule="evenodd" />
+          </svg>
+          Sidebar
+        </button>
+      {:else}
+        <span></span>
+      {/if}
       <TopNav />
     </div>
     <div class="flex-1 overflow-y-auto">

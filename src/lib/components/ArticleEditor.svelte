@@ -4,7 +4,7 @@
   import { theme } from "$lib/stores/theme.svelte";
   import { saveImageFile } from "$lib/ipc";
   import { autosize } from "$lib/autosize";
-  import { createMarkdownIt, hydrateMermaidBlocks } from "$lib/markdownit";
+  import { createMarkdownIt, hydrateMermaidBlocks, countWords } from "$lib/markdownit";
   import EmbedBlock from "$lib/components/EmbedBlock.svelte";
   import EntityLinkPicker from "$lib/components/EntityLinkPicker.svelte";
 
@@ -75,6 +75,7 @@
   });
 
   let hasContent = $derived(draft.trim().length > 0);
+  let wc = $derived(countWords(draft));
 
   // Hydrate ```mermaid placeholders to SVG across every md segment. The segment
   // {@html} blocks get rewritten on edit/commit/theme changes, so a one-shot
@@ -134,12 +135,7 @@
       const m = href.match(/^(note|list|workflow|article):(\d+)$/);
       if (m) {
         const id = Number(m[2]);
-        if (Number.isFinite(id)) {
-          if (m[1] === "note") app.selectNote(id);
-          else if (m[1] === "list") app.select(id);
-          else if (m[1] === "workflow") app.selectWorkflow(id);
-          else if (m[1] === "article") app.selectArticle(id);
-        }
+        if (Number.isFinite(id)) navigateEntity(m[1], id);
         return;
       }
       if (/^https?:\/\//.test(href)) {
@@ -153,10 +149,30 @@
     // Edit button. (Link/embed clicks handled above still work.)
   }
 
+  // Navigate to a linked entity, or flash if it no longer exists.
+  function navigateEntity(kind: string, id: number) {
+    if (kind === "note") {
+      if (app.notes.some((n) => n.id === id)) app.selectNote(id);
+      else app.setFlash("That note no longer exists");
+    } else if (kind === "article") {
+      if (app.articles.some((a) => a.id === id)) app.selectArticle(id);
+      else app.setFlash("That article no longer exists");
+    } else if (kind === "workflow") {
+      if (app.workflows.some((w) => w.id === id)) app.selectWorkflow(id);
+      else app.setFlash("That workflow no longer exists");
+    } else if (kind === "list") {
+      if (app.lists.some((l) => l.id === id)) app.select(id);
+      else app.setFlash("That list no longer exists");
+    }
+  }
+
   function onTextareaKey(e: KeyboardEvent) {
     if (e.key === "Escape") {
       e.preventDefault();
       (e.target as HTMLTextAreaElement).blur();
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      insertAtCursor("  ");
     }
   }
 
@@ -278,7 +294,8 @@
     <div
       class="flex items-center gap-2 text-[11px] text-neutral-400 dark:text-neutral-500"
     >
-      <span class="mr-auto italic">embed with <code class="rounded bg-neutral-200/60 px-1 dark:bg-neutral-700/40">{`{{note:5}}`}</code> · link with the link button</span>
+      <span class="italic">embed with <code class="rounded bg-neutral-200/60 px-1 dark:bg-neutral-700/40">{`{{note:5}}`}</code> · link with the link button</span>
+      <span class="mr-auto tabular-nums">· {wc.words} words</span>
       <button
         type="button"
         onmousedown={(e) => e.preventDefault()}

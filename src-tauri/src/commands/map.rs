@@ -4,7 +4,7 @@ use crate::error::{AppError, AppResult};
 use sqlx::SqlitePool;
 use tauri::State;
 
-const VALID_ENTITY_KINDS: &[&str] = &["note", "article", "workflow"];
+const VALID_ENTITY_KINDS: &[&str] = &["note", "article", "workflow", "feedback_board"];
 
 pub(crate) async fn get_state(pool: &SqlitePool) -> AppResult<MapState> {
     let nodes = sqlx::query_as::<_, MapNode>(

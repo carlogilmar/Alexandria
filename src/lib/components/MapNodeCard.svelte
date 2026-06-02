@@ -31,6 +31,7 @@
     note: { label: "NOTE", hue: 217 },
     article: { label: "ARTICLE", hue: 268 },
     workflow: { label: "WORKFLOW", hue: 32 },
+    feedback_board: { label: "BOARD", hue: 350 },
   };
 
   let title = $derived.by(() => {
@@ -40,6 +41,11 @@
     if (data.kind === "article") {
       return app.articles.find((a) => a.id === data.entityId)?.title ?? null;
     }
+    if (data.kind === "feedback_board") {
+      return (
+        app.feedbackBoards.find((b) => b.id === data.entityId)?.title ?? null
+      );
+    }
     return app.workflows.find((w) => w.id === data.entityId)?.title ?? null;
   });
   let pinned = $derived.by(() => {
@@ -48,6 +54,11 @@
     }
     if (data.kind === "article") {
       return app.articles.find((a) => a.id === data.entityId)?.pinned ?? false;
+    }
+    if (data.kind === "feedback_board") {
+      return (
+        app.feedbackBoards.find((b) => b.id === data.entityId)?.pinned ?? false
+      );
     }
     return app.workflows.find((w) => w.id === data.entityId)?.pinned ?? false;
   });
@@ -85,6 +96,8 @@
     if (missing) return;
     if (data.kind === "note") app.selectNote(data.entityId);
     else if (data.kind === "article") app.selectArticle(data.entityId);
+    else if (data.kind === "feedback_board")
+      app.openFeedbackBoard(data.entityId);
     else app.selectWorkflow(data.entityId);
   }
   function onOpenKey(e: KeyboardEvent) {

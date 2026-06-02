@@ -2,6 +2,7 @@
   import { app, todayIso } from "$lib/stores/app.svelte";
   import { theme } from "$lib/stores/theme.svelte";
   import AddEntityModal from "$lib/components/AddEntityModal.svelte";
+  import TagBadges from "$lib/components/TagBadges.svelte";
 
   let query = $state("");
   let searchInput: HTMLInputElement | undefined = $state();
@@ -52,6 +53,10 @@
     return app.view === "article" && app.selectedArticle?.id === id;
   }
 
+  function isBoardSelected(id: number): boolean {
+    return app.view === "feedback-board" && app.selectedFeedbackBoardId === id;
+  }
+
   let isSearching = $derived(query.trim().length > 0);
 
   // The sidebar now shows ONLY pinned items per section. The full list of
@@ -64,6 +69,9 @@
     app.articles.filter((a) => a.pinned && !a.archived),
   );
   let pinnedNotes = $derived(app.notes.filter((n) => n.pinned && !n.archived));
+  let pinnedBoards = $derived(
+    app.feedbackBoards.filter((b) => b.pinned && !b.archived),
+  );
 
   // Today's-list quick access: detect by date string match.
   let today = $derived(todayIso());
@@ -102,6 +110,17 @@
           Alexandria
         </span>
       {/if}
+    </button>
+    <button
+      type="button"
+      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-200/60 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-200"
+      title="Collapse sidebar"
+      aria-label="Collapse sidebar"
+      onclick={() => app.toggleSidebar()}
+    >
+      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+        <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
+      </svg>
     </button>
   </div>
 
@@ -297,7 +316,36 @@
         </div>
       {/if}
 
-      {#if pinnedWorkflows.length === 0 && pinnedArticles.length === 0 && pinnedNotes.length === 0}
+      <!-- Pinned boards -->
+      {#if pinnedBoards.length > 0}
+        <h2 class="mb-1 px-2 text-xs font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+          Boards
+        </h2>
+        <div class="mb-3">
+          {#each pinnedBoards as b (b.id)}
+            <button
+              type="button"
+              class="w-full rounded-md px-2 py-1 text-left transition-colors"
+              class:bg-neutral-300={isBoardSelected(b.id)}
+              class:dark:bg-neutral-700={isBoardSelected(b.id)}
+              class:hover:bg-neutral-200={!isBoardSelected(b.id)}
+              class:dark:hover:bg-neutral-800={!isBoardSelected(b.id)}
+              onclick={() => app.openFeedbackBoard(b.id)}
+            >
+              <div class="flex items-center gap-1">
+                <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 shrink-0 text-amber-500" aria-label="pinned">
+                  <path d="M10 1.5a.75.75 0 01.75.75v1.293l3.116 3.116a.75.75 0 01.184.74l-.842 2.526L15 11.5v.75a.75.75 0 01-.75.75H11v4l-1 1-1-1v-4H5.75A.75.75 0 015 12.25v-.75l1.792-1.575-.842-2.526a.75.75 0 01.184-.74L9.25 3.543V2.25A.75.75 0 0110 1.5z"/>
+                </svg>
+                <span class="truncate text-sm text-neutral-700 dark:text-neutral-300">
+                  <TagBadges text={b.title} />
+                </span>
+              </div>
+            </button>
+          {/each}
+        </div>
+      {/if}
+
+      {#if pinnedWorkflows.length === 0 && pinnedArticles.length === 0 && pinnedNotes.length === 0 && pinnedBoards.length === 0}
         <p class="px-2 text-[11px] italic text-neutral-400 dark:text-neutral-500">
           Pin items from Summary to keep them one click away here.
         </p>

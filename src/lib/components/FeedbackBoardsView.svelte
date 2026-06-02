@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app } from "$lib/stores/app.svelte";
+  import TagBadges from "$lib/components/TagBadges.svelte";
 
   let creating = $state(false);
   let titleDraft = $state("");
@@ -159,7 +160,7 @@
                   onclick={() => app.openFeedbackBoard(b.id)}
                   ondblclick={() => startRename(b.id, b.title)}
                 >
-                  <span class="truncate">{b.title}</span>
+                  <span class="truncate"><TagBadges text={b.title} /></span>
                   <span class="shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">
                     {b.cardCount} {b.cardCount === 1 ? "card" : "cards"} ·
                     {fmtDate(b.updatedAt)}
@@ -205,7 +206,7 @@
                 class="flex flex-1 items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-sm text-neutral-700 dark:text-neutral-300"
                 onclick={() => app.openFeedbackBoard(b.id)}
               >
-                <span class="truncate">{b.title}</span>
+                <span class="truncate"><TagBadges text={b.title} /></span>
                 <span class="shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">
                   {b.cardCount} {b.cardCount === 1 ? "card" : "cards"}
                 </span>

@@ -1,8 +1,10 @@
 <script lang="ts">
   import { app } from "$lib/stores/app.svelte";
   import IdChip from "$lib/components/IdChip.svelte";
+  import TagBadges from "$lib/components/TagBadges.svelte";
   import type {
     ArticleSummary,
+    FeedbackBoardSummary,
     ListSummary,
     NoteSummary,
     WorkflowSummary,
@@ -12,6 +14,7 @@
     | "articles"
     | "notes"
     | "workflows"
+    | "boards"
     | "lists"
     | "archived";
   let tab = $state<Tab>("articles");
@@ -37,6 +40,9 @@
   let activeWorkflows = $derived<WorkflowSummary[]>(
     app.workflows.filter((w) => !w.archived),
   );
+  let activeBoards = $derived<FeedbackBoardSummary[]>(
+    byUpdated(app.feedbackBoards.filter((b) => !b.archived)),
+  );
   let activeLists = $derived<ListSummary[]>(
     byDate(app.lists.filter((l) => !l.archived)),
   );
@@ -46,6 +52,7 @@
     | { kind: "article"; entity: ArticleSummary }
     | { kind: "note"; entity: NoteSummary }
     | { kind: "workflow"; entity: WorkflowSummary }
+    | { kind: "board"; entity: FeedbackBoardSummary }
     | { kind: "list"; entity: ListSummary };
   let archivedRows = $derived<ArchivedRow[]>([
     ...app.articles
@@ -57,6 +64,9 @@
     ...app.workflows
       .filter((w) => w.archived)
       .map((w) => ({ kind: "workflow", entity: w }) as ArchivedRow),
+    ...app.feedbackBoards
+      .filter((b) => b.archived)
+      .map((b) => ({ kind: "board", entity: b }) as ArchivedRow),
     ...app.lists
       .filter((l) => l.archived)
       .map((l) => ({ kind: "list", entity: l }) as ArchivedRow),
@@ -66,6 +76,7 @@
     articles: activeArticles.length,
     notes: activeNotes.length,
     workflows: activeWorkflows.length,
+    boards: activeBoards.length,
     lists: activeLists.length,
     archived: archivedRows.length,
   });
@@ -74,6 +85,7 @@
     { key: "articles", label: "Articles" },
     { key: "notes", label: "Notes" },
     { key: "workflows", label: "Workflows" },
+    { key: "boards", label: "Boards" },
     { key: "lists", label: "Lists" },
     { key: "archived", label: "Archived" },
   ];
@@ -83,24 +95,28 @@
     if (kind === "article") app.selectArticle(id);
     else if (kind === "note") app.selectNote(id);
     else if (kind === "workflow") app.selectWorkflow(id);
+    else if (kind === "board") app.openFeedbackBoard(id);
     else app.select(id);
   }
   function archiveItem(kind: ArchivedRow["kind"], id: number) {
     if (kind === "article") app.setArticleArchived(id, true);
     else if (kind === "note") app.setNoteArchived(id, true);
     else if (kind === "workflow") app.setWorkflowArchived(id, true);
+    else if (kind === "board") app.setFeedbackBoardArchived(id, true);
     else app.setListArchived(id, true);
   }
   function unarchiveItem(kind: ArchivedRow["kind"], id: number) {
     if (kind === "article") app.setArticleArchived(id, false);
     else if (kind === "note") app.setNoteArchived(id, false);
     else if (kind === "workflow") app.setWorkflowArchived(id, false);
+    else if (kind === "board") app.setFeedbackBoardArchived(id, false);
     else app.setListArchived(id, false);
   }
   function deleteItem(kind: ArchivedRow["kind"], id: number) {
     if (kind === "article") app.deleteArticleById(id);
     else if (kind === "note") app.deleteNoteById(id);
     else if (kind === "workflow") app.deleteWorkflowById(id);
+    else if (kind === "board") app.deleteFeedbackBoard(id);
     // Lists: skip permanent delete for now (use Archive instead).
   }
 
@@ -113,6 +129,7 @@
     if (kind === "article") app.setArticlePinnedById(id, next);
     else if (kind === "note") app.setNotePinnedById(id, next);
     else if (kind === "workflow") app.setWorkflowPinnedById(id, next);
+    else if (kind === "board") app.setFeedbackBoardPinned(id, next);
     else app.setListPinnedById(id, next);
   }
 
@@ -120,6 +137,7 @@
     note: 217,
     article: 268,
     workflow: 32,
+    board: 350,
     list: 158,
   };
 
@@ -340,6 +358,62 @@
         {/each}
       </ul>
     {/if}
+  {:else if tab === "boards"}
+    {#if activeBoards.length === 0}
+      <p class="text-sm text-neutral-400 dark:text-neutral-500">No boards yet.</p>
+    {:else}
+      <ul class="flex flex-col gap-1">
+        {#each activeBoards as b (b.id)}
+          <li class="flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-neutral-100/70 dark:hover:bg-neutral-800/40">
+            <span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: hsl({KIND_HUE.board} 78% 55%);"></span>
+            <button
+              type="button"
+              class="flex-1 truncate text-left text-sm text-neutral-800 dark:text-neutral-200"
+              onclick={() => openItem("board", b.id)}
+            >
+              <TagBadges text={b.title} />
+              {#if b.pinned}<span class="ml-1 text-amber-500">📌</span>{/if}
+            </button>
+            <span class="shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">
+              {b.cardCount} {b.cardCount === 1 ? "card" : "cards"}
+            </span>
+            <button
+              type="button"
+              class="rounded p-1 transition-colors"
+              class:text-amber-500={b.pinned}
+              class:hover:bg-amber-50={b.pinned}
+              class:dark:hover:bg-amber-950={b.pinned}
+              class:text-neutral-400={!b.pinned}
+              class:hover:bg-neutral-200={!b.pinned}
+              class:dark:hover:bg-neutral-700={!b.pinned}
+              class:hover:text-amber-500={!b.pinned}
+              title={b.pinned ? "Unpin" : "Pin to sidebar"}
+              onclick={() => togglePin("board", b.id, b.pinned)}
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+                <path d="M10 1.5a.75.75 0 01.75.75v1.293l3.116 3.116a.75.75 0 01.184.74l-.842 2.526L15 11.5v.75a.75.75 0 01-.75.75H11v4l-1 1-1-1v-4H5.75A.75.75 0 015 12.25v-.75l1.792-1.575-.842-2.526a.75.75 0 01.184-.74L9.25 3.543V2.25A.75.75 0 0110 1.5z"/>
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="rounded p-1 text-neutral-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950/40 dark:hover:text-amber-400"
+              title="Archive"
+              onclick={() => archiveItem("board", b.id)}
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm1 5h12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V9zm4 2a1 1 0 100 2h4a1 1 0 100-2H8z"/></svg>
+            </button>
+            <button
+              type="button"
+              class="rounded p-1 text-neutral-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+              title="Delete permanently"
+              onclick={() => deleteItem("board", b.id)}
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zm-1 6a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 112 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"/></svg>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
   {:else if tab === "lists"}
     {#if activeLists.length === 0}
       <p class="text-sm text-neutral-400 dark:text-neutral-500">No lists yet.</p>
@@ -412,7 +486,9 @@
             >
               {e.title}
             </button>
-            <IdChip kind={row.kind} id={e.id} />
+            {#if row.kind !== "board"}
+              <IdChip kind={row.kind} id={e.id} />
+            {/if}
             <button
               type="button"
               class="rounded p-1 text-neutral-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"

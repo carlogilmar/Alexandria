@@ -224,7 +224,7 @@ do I have?" and is the entry default (Sprint 11).
 
 ### Migrations
 
-Files in `src-tauri/migrations/0001_…sql` … `0012_…sql`, monotonically
+Files in `src-tauri/migrations/0001_…sql` … `0015_…sql`, monotonically
 numbered, applied at startup. To add one:
 
 1. Create `00NN_<short_name>.sql`.
@@ -246,13 +246,17 @@ numbered, applied at startup. To add one:
 - `index_doc`: legacy single-row markdown summary, preserved for data
   safety but unused in UI.
 - `map_nodes` + `map_edges`: the Alexandria canvas. `kind` is one of
-  `note · article · workflow · text · comment · custom · title`. The
-  first three reference an existing entity via `entity_id`; the last
-  four are decorative (entity_id = 0, content holds text). A partial
-  unique index `(kind, entity_id) WHERE kind NOT IN (text, comment,
-  custom, title)` enforces one-position-per-entity.
-- `feedback_boards` + `feedback_cards` + `feedback_card_comments`:
-  per-cycle kanban. Columns are hardcoded in a CHECK constraint.
+  `note · article · workflow · feedback_board · text · comment · custom ·
+  title`. The first four reference an existing entity via `entity_id`;
+  the last four are decorative (entity_id = 0, content holds text). A
+  partial unique index `(kind, entity_id) WHERE kind NOT IN (text,
+  comment, custom, title)` enforces one-position-per-entity.
+- `feedback_boards` + `feedback_columns` + `feedback_cards` +
+  `feedback_card_comments`: kanban. Columns are **per-board, user-editable
+  rows** (Sprint 19 — no longer a hardcoded CHECK); a new board seeds four
+  defaults in `create_board`. Cards reference `column_id` and carry a
+  nullable `color`. Boards have `pinned` (sidebar) + `archived`.
+  `#tag`s in board/card titles render as badges (`$lib/badges.ts`).
 - Mermaid: there is **no diagram entity/table** (the Sprint 14 `diagrams`
   table was removed in Sprint 16 — migration `0011` created it, `0012`
   drops it). Mermaid now lives **only** as inline ```` ```mermaid ````
@@ -310,7 +314,23 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 18 (UI follow-ups — the top nav menu moved from a
+Last updated: end of Sprint 19 (Feedback boards leveled up + markdown polish +
+sidebar collapse. Boards: per-board custom columns (`feedback_columns` table,
+migration 0013; `create_board` seeds 4 defaults; rename/add/delete in
+`FeedbackBoardView`), card color (`color` col + `$lib/cardColors.ts` picker in
+`FeedbackCardPanel`), `#tag` badges in board/card titles (`$lib/badges.ts` +
+`TagBadges.svelte`), quick-add (Enter adds & keeps the input open),
+`user-select:none` while dragging, board `pinned` → sidebar + Summary "Boards"
+tab + Alexandria canvas node (`feedback_board` map kind, migration 0014).
+Markdown (`$lib/markdownit.ts` + global CSS in `app.css`): `{color|text}`,
+`==highlight==`, `> [!NOTE|TIP|WARNING|COMMENT]` callouts, distinct table
+headers, nested-list bullets, Tab inserts spaces (no blur), `lheading` disabled
+(no stray heading from `----`), word counter, broken entity links flash instead
+of erroring. Sidebar: collapse toggle (⌘\) for full-width reading. Lists: one
+active list per day — `create` is idempotent per date + partial unique index
+(migration 0015), fixing the stale/duplicate today's-list bug.
+
+Sprint 18 (UI follow-ups — the top nav menu moved from a
 floating overlay into a reserved 44px toolbar **row** at the top of the main
 column (`+page.svelte`: main column = toolbar row + scroll area), so it no
 longer overlaps a view's own top-right controls; full-bleed views switched

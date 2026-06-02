@@ -74,10 +74,16 @@ import {
   createFeedbackBoard as createFeedbackBoardIpc,
   renameFeedbackBoard as renameFeedbackBoardIpc,
   setFeedbackBoardArchived as setFeedbackBoardArchivedIpc,
+  setFeedbackBoardPinned as setFeedbackBoardPinnedIpc,
   deleteFeedbackBoard as deleteFeedbackBoardIpc,
+  listFeedbackColumns,
+  createFeedbackColumn as createFeedbackColumnIpc,
+  renameFeedbackColumn as renameFeedbackColumnIpc,
+  deleteFeedbackColumn as deleteFeedbackColumnIpc,
   listFeedbackCards,
   createFeedbackCard as createFeedbackCardIpc,
   updateFeedbackCard as updateFeedbackCardIpc,
+  setFeedbackCardColor as setFeedbackCardColorIpc,
   moveFeedbackCard as moveFeedbackCardIpc,
   deleteFeedbackCard as deleteFeedbackCardIpc,
   listFeedbackCardComments,
@@ -179,6 +185,12 @@ class AppStore {
   error = $state<string | null>(null);
   flash = $state<string | null>(null);
   helpOpen = $state(false);
+  // Collapse the sidebar for distraction-free, full-width reading.
+  sidebarCollapsed = $state(false);
+
+  toggleSidebar() {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+  }
 
   workflows = $state<WorkflowSummary[]>([]);
   selectedWorkflow = $state<Workflow | null>(null);
@@ -251,6 +263,7 @@ class AppStore {
       this.articles = await listArticles();
       this.allTodos = await listAllTodos();
       this.indexDoc = await getIndexDoc();
+      await this.refreshFeedbackBoards();
     } catch (e) {
       this.error = String(e);
     } finally {
@@ -480,6 +493,7 @@ class AppStore {
       this.articles = await listArticles();
       this.allTodos = await listAllTodos();
       this.workflows = await listWorkflows();
+      await this.refreshFeedbackBoards();
     } catch (e) {
       this.error = String(e);
     }
@@ -1222,6 +1236,7 @@ class AppStore {
   feedbackBoards = $state<FeedbackBoardSummary[]>([]);
   feedbackBoardsLoaded = $state(false);
   selectedFeedbackBoardId = $state<number | null>(null);
+  feedbackColumns = $state<FeedbackColumn[]>([]);
   feedbackCards = $state<FeedbackCardSummary[]>([]);
   selectedFeedbackCardId = $state<number | null>(null);
   feedbackComments = $state<FeedbackCardComment[]>([]);
@@ -1253,7 +1268,45 @@ class AppStore {
     this.selectedFeedbackBoardId = boardId;
     this.selectedFeedbackCardId = null;
     this.feedbackComments = [];
+    this.feedbackColumns = await listFeedbackColumns(boardId);
     this.feedbackCards = await listFeedbackCards(boardId);
+  }
+
+  async refreshFeedbackColumns() {
+    if (this.selectedFeedbackBoardId === null) return;
+    this.feedbackColumns = await listFeedbackColumns(this.selectedFeedbackBoardId);
+  }
+
+  async newFeedbackColumn(name: string) {
+    if (this.selectedFeedbackBoardId === null) return;
+    const n = name.trim();
+    if (!n) return;
+    await createFeedbackColumnIpc(this.selectedFeedbackBoardId, n);
+    await this.refreshFeedbackColumns();
+  }
+
+  async renameFeedbackColumn(id: number, name: string) {
+    const n = name.trim();
+    if (!n) return;
+    await renameFeedbackColumnIpc(id, n);
+    await this.refreshFeedbackColumns();
+  }
+
+  async deleteFeedbackColumn(id: number) {
+    const col = this.feedbackColumns.find((c) => c.id === id);
+    const cardsInCol = this.feedbackCards.filter((c) => c.columnId === id).length;
+    const label = col?.name ?? `column ${id}`;
+    const ok = await confirm(
+      cardsInCol > 0
+        ? `"${label}" and its ${cardsInCol} card${cardsInCol === 1 ? "" : "s"} will be permanently removed.`
+        : `"${label}" will be removed.`,
+      { title: "Delete column?", kind: "warning" },
+    );
+    if (!ok) return;
+    await deleteFeedbackColumnIpc(id);
+    await this.refreshFeedbackColumns();
+    await this.refreshFeedbackCards();
+    this.setFlash("Column deleted");
   }
 
   async newFeedbackBoard(title: string) {
@@ -1274,6 +1327,12 @@ class AppStore {
     await setFeedbackBoardArchivedIpc(id, archived);
     await this.refreshFeedbackBoards();
     this.setFlash(archived ? "Board archived" : "Board unarchived");
+  }
+
+  async setFeedbackBoardPinned(id: number, pinned: boolean) {
+    await setFeedbackBoardPinnedIpc(id, pinned);
+    await this.refreshFeedbackBoards();
+    this.setFlash(pinned ? "Pinned" : "Unpinned");
   }
 
   async deleteFeedbackBoard(id: number) {
@@ -1299,20 +1358,10 @@ class AppStore {
     this.feedbackCards = await listFeedbackCards(this.selectedFeedbackBoardId);
   }
 
-  async newFeedbackCard(
-    column: FeedbackColumn,
-    title: string,
-    description = "",
-  ) {
-    if (this.selectedFeedbackBoardId === null) return;
+  async newFeedbackCard(columnId: number, title: string, description = "") {
     const t = title.trim();
     if (!t) return;
-    await createFeedbackCardIpc(
-      this.selectedFeedbackBoardId,
-      column,
-      t,
-      description,
-    );
+    await createFeedbackCardIpc(columnId, t, description);
     await this.refreshFeedbackCards();
   }
 
@@ -1325,12 +1374,17 @@ class AppStore {
     await this.refreshFeedbackCards();
   }
 
+  async setFeedbackCardColor(id: number, color: string | null) {
+    await setFeedbackCardColorIpc(id, color);
+    await this.refreshFeedbackCards();
+  }
+
   async moveFeedbackCard(
     id: number,
-    targetColumn: FeedbackColumn,
+    targetColumnId: number,
     targetPosition: number,
   ) {
-    await moveFeedbackCardIpc(id, targetColumn, targetPosition);
+    await moveFeedbackCardIpc(id, targetColumnId, targetPosition);
     await this.refreshFeedbackCards();
   }
 

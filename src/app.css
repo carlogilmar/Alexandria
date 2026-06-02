@@ -52,3 +52,107 @@ html.dark body {
   will-change: auto;
   -webkit-font-smoothing: subpixel-antialiased;
 }
+
+/* ============================================================
+   Markdown extensions (Sprint 19) — shared across all .markdown-body
+   surfaces (note/article editors + embeds). Component-scoped styles
+   handle base typography; these add color, highlight, callouts, table
+   headers, and nested-list bullets globally.
+   ============================================================ */
+
+/* ==highlight== */
+.markdown-body mark.md-hl {
+  background: rgba(250, 204, 21, 0.45);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 0.12em;
+}
+html.dark .markdown-body mark.md-hl {
+  background: rgba(250, 204, 21, 0.3);
+}
+
+/* {color|text} — named inline colors (mid-tone so they read on light + dark) */
+.markdown-body .md-c-red { color: hsl(0 72% 50%); }
+.markdown-body .md-c-orange { color: hsl(25 85% 48%); }
+.markdown-body .md-c-amber { color: hsl(38 90% 42%); }
+.markdown-body .md-c-green { color: hsl(145 60% 36%); }
+.markdown-body .md-c-teal { color: hsl(178 65% 36%); }
+.markdown-body .md-c-blue { color: hsl(215 80% 52%); }
+.markdown-body .md-c-violet { color: hsl(265 70% 58%); }
+.markdown-body .md-c-pink { color: hsl(330 75% 55%); }
+.markdown-body .md-c-gray { color: hsl(220 9% 46%); }
+html.dark .markdown-body .md-c-red { color: hsl(0 85% 70%); }
+html.dark .markdown-body .md-c-orange { color: hsl(28 90% 62%); }
+html.dark .markdown-body .md-c-amber { color: hsl(43 95% 60%); }
+html.dark .markdown-body .md-c-green { color: hsl(145 60% 60%); }
+html.dark .markdown-body .md-c-teal { color: hsl(176 65% 58%); }
+html.dark .markdown-body .md-c-blue { color: hsl(212 90% 70%); }
+html.dark .markdown-body .md-c-violet { color: hsl(265 80% 76%); }
+html.dark .markdown-body .md-c-pink { color: hsl(330 85% 72%); }
+html.dark .markdown-body .md-c-gray { color: hsl(220 10% 65%); }
+
+/* > [!NOTE] callouts */
+.markdown-body blockquote.callout {
+  border-left: 4px solid;
+  border-radius: 6px;
+  padding: 0.5rem 0.85rem;
+  margin: 0.6rem 0;
+}
+.markdown-body blockquote.callout .callout-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.15rem;
+  opacity: 0.95;
+}
+.markdown-body blockquote.callout > :nth-child(2) { margin-top: 0; }
+.markdown-body blockquote.callout-note,
+.markdown-body blockquote.callout-comment {
+  border-color: hsl(217 80% 55%);
+  background: hsl(217 80% 55% / 0.08);
+}
+.markdown-body blockquote.callout-note .callout-label,
+.markdown-body blockquote.callout-comment .callout-label { color: hsl(217 75% 52%); }
+.markdown-body blockquote.callout-comment {
+  border-color: hsl(265 60% 58%);
+  background: hsl(265 60% 58% / 0.08);
+}
+.markdown-body blockquote.callout-comment .callout-label { color: hsl(265 60% 58%); }
+.markdown-body blockquote.callout-tip {
+  border-color: hsl(145 55% 45%);
+  background: hsl(145 55% 45% / 0.09);
+}
+.markdown-body blockquote.callout-tip .callout-label { color: hsl(145 55% 38%); }
+.markdown-body blockquote.callout-warning,
+.markdown-body blockquote.callout-caution {
+  border-color: hsl(35 90% 50%);
+  background: hsl(35 90% 50% / 0.1);
+}
+.markdown-body blockquote.callout-warning .callout-label,
+.markdown-body blockquote.callout-caution .callout-label { color: hsl(32 85% 44%); }
+.markdown-body blockquote.callout-important {
+  border-color: hsl(0 72% 55%);
+  background: hsl(0 72% 55% / 0.09);
+}
+.markdown-body blockquote.callout-important .callout-label { color: hsl(0 70% 52%); }
+html.dark .markdown-body blockquote.callout-tip .callout-label { color: hsl(145 55% 62%); }
+html.dark .markdown-body blockquote.callout-warning .callout-label,
+html.dark .markdown-body blockquote.callout-caution .callout-label { color: hsl(40 90% 62%); }
+html.dark .markdown-body blockquote.callout-important .callout-label { color: hsl(0 85% 70%); }
+html.dark .markdown-body blockquote.callout-comment .callout-label { color: hsl(265 75% 76%); }
+
+/* Distinct table header */
+.markdown-body table thead th {
+  background: rgba(0, 0, 0, 0.05);
+  font-weight: 600;
+}
+html.dark .markdown-body table thead th {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* Nested list bullets / numbering */
+.markdown-body ul ul { list-style: circle; }
+.markdown-body ul ul ul { list-style: square; }
+.markdown-body ol ol { list-style: lower-alpha; }
+.markdown-body ol ol ol { list-style: lower-roman; }

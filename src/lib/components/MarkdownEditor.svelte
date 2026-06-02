@@ -4,7 +4,7 @@
   import { theme } from "$lib/stores/theme.svelte";
   import { saveImageFile } from "$lib/ipc";
   import { autosize } from "$lib/autosize";
-  import { createMarkdownIt, hydrateMermaidBlocks } from "$lib/markdownit";
+  import { createMarkdownIt, hydrateMermaidBlocks, countWords } from "$lib/markdownit";
   import EntityLinkPicker from "$lib/components/EntityLinkPicker.svelte";
 
   type Props = {
@@ -44,6 +44,7 @@
   });
 
   let rendered = $derived(draft.trim() ? md.render(draft) : "");
+  let wc = $derived(countWords(draft));
 
   // Hydrate ```mermaid placeholders to SVG. `{@html rendered}` rewrites the
   // preview's innerHTML out from under us — on edit, on commit (the saved value
@@ -103,16 +104,13 @@
         const handled = onLinkClick(href);
         if (handled === true) return;
       }
-      // Internal entity links: [label](note:5) etc. — navigate in-app.
+      // Internal entity links: [label](note:5) etc. — navigate in-app, but
+      // guard against links to entities that have since been deleted so we
+      // surface a friendly flash instead of an error screen.
       const ent = href.match(/^(note|list|workflow|article):(\d+)$/);
       if (ent) {
         const id = Number(ent[2]);
-        if (Number.isFinite(id)) {
-          if (ent[1] === "note") app.selectNote(id);
-          else if (ent[1] === "list") app.select(id);
-          else if (ent[1] === "workflow") app.selectWorkflow(id);
-          else if (ent[1] === "article") app.selectArticle(id);
-        }
+        if (Number.isFinite(id)) navigateEntity(ent[1], id);
         return;
       }
       if (/^https?:\/\//.test(href)) {
@@ -126,10 +124,31 @@
     // Edit button. (Link clicks handled above still navigate.)
   }
 
+  // Navigate to a linked entity, or flash if it no longer exists (broken link).
+  function navigateEntity(kind: string, id: number) {
+    if (kind === "note") {
+      if (app.notes.some((n) => n.id === id)) app.selectNote(id);
+      else app.setFlash("That note no longer exists");
+    } else if (kind === "article") {
+      if (app.articles.some((a) => a.id === id)) app.selectArticle(id);
+      else app.setFlash("That article no longer exists");
+    } else if (kind === "workflow") {
+      if (app.workflows.some((w) => w.id === id)) app.selectWorkflow(id);
+      else app.setFlash("That workflow no longer exists");
+    } else if (kind === "list") {
+      if (app.lists.some((l) => l.id === id)) app.select(id);
+      else app.setFlash("That list no longer exists");
+    }
+  }
+
   function onTextareaKey(e: KeyboardEvent) {
     if (e.key === "Escape") {
       e.preventDefault();
       (e.target as HTMLTextAreaElement).blur();
+    } else if (e.key === "Tab") {
+      // Insert two spaces instead of moving focus out of the editor.
+      e.preventDefault();
+      insertAtCursor("  ");
     }
   }
 
@@ -253,7 +272,8 @@
 {#if editing}
   <div class="flex flex-col gap-1.5">
     <div class="flex items-center gap-2 text-[11px] text-neutral-400 dark:text-neutral-500">
-      <span class="mr-auto italic">click outside to preview</span>
+      <span class="italic">click outside to preview</span>
+      <span class="mr-auto tabular-nums">· {wc.words} words</span>
       <button
         type="button"
         onmousedown={(e) => e.preventDefault()}

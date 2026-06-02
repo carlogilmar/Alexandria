@@ -60,6 +60,17 @@ pub(crate) async fn create(pool: &SqlitePool, title: &str, date: &str) -> AppRes
     if title.trim().is_empty() {
         return Err(AppError::BadInput("title cannot be empty".into()));
     }
+    // One active list per day: if one already exists for this date, return it
+    // instead of creating a duplicate (also enforced by a partial unique index).
+    if let Some(existing) = sqlx::query_as::<_, List>(
+        "SELECT * FROM lists WHERE date = ?1 AND archived = 0 ORDER BY id ASC LIMIT 1",
+    )
+    .bind(date)
+    .fetch_optional(pool)
+    .await?
+    {
+        return Ok(existing);
+    }
     sqlx::query_as::<_, List>(
         "INSERT INTO lists (title, date, archived, created_at, updated_at)
          VALUES (?1, ?2, 0, datetime('now'), datetime('now'))
@@ -205,6 +216,20 @@ mod tests {
         let a = today(&pool).await.unwrap();
         let b = today(&pool).await.unwrap();
         assert_eq!(a.id, b.id, "list_today should reuse existing list");
+    }
+
+    #[tokio::test]
+    async fn create_is_idempotent_per_day() {
+        let pool = test_pool().await;
+        let a = create(&pool, "First", "2026-06-01").await.unwrap();
+        // A second create for the same date returns the existing list.
+        let b = create(&pool, "Second", "2026-06-01").await.unwrap();
+        assert_eq!(a.id, b.id);
+        assert_eq!(b.title, "First");
+        // After archiving, a new list for the date can be created again.
+        set_archived(&pool, a.id, true).await.unwrap();
+        let c = create(&pool, "Third", "2026-06-01").await.unwrap();
+        assert_ne!(c.id, a.id);
     }
 
     #[tokio::test]

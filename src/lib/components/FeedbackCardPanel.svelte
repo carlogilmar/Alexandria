@@ -1,10 +1,20 @@
 <script lang="ts">
   import { app } from "$lib/stores/app.svelte";
+  import { CARD_COLORS, cardAccent } from "$lib/cardColors";
+  import TagBadges from "$lib/components/TagBadges.svelte";
 
   type Props = { cardId: number };
   let { cardId }: Props = $props();
 
   let card = $derived(app.feedbackCards.find((c) => c.id === cardId) ?? null);
+  let columnName = $derived(
+    app.feedbackColumns.find((col) => col.id === card?.columnId)?.name ?? "",
+  );
+
+  async function setColor(name: string | null) {
+    if (!card) return;
+    await app.setFeedbackCardColor(card.id, card.color === name ? null : name);
+  }
 
   let titleDraft = $state("");
   let editingTitle = $state(false);
@@ -125,12 +135,13 @@
             type="button"
             class="block w-full rounded-md text-left text-lg font-semibold tracking-tight text-neutral-900 transition-colors hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800/60"
             onclick={startTitleEdit}
+            title="Click to rename · use #tags to categorize"
           >
-            {card.title}
+            <TagBadges text={card.title} />
           </button>
         {/if}
         <p class="mt-0.5 text-xs uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
-          {card.columnKind.replace(/_/g, " ")}
+          {columnName}
         </p>
       </div>
       <div class="flex shrink-0 items-center gap-1">
@@ -158,6 +169,37 @@
     </header>
 
     <div class="flex-1 overflow-y-auto px-5 py-4">
+      <h3 class="mb-1.5 text-xs font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+        Color
+      </h3>
+      <div class="mb-5 flex items-center gap-1.5">
+        <button
+          type="button"
+          class="flex h-6 w-6 items-center justify-center rounded-full border border-neutral-300 text-neutral-400 transition-transform hover:scale-110 dark:border-neutral-600"
+          class:ring-2={!card.color}
+          class:ring-blue-500={!card.color}
+          title="No color"
+          aria-label="No color"
+          onclick={() => setColor(null)}
+        >
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" class="h-3.5 w-3.5"><path d="M4 16L16 4" stroke-width="1.5" /></svg>
+        </button>
+        {#each CARD_COLORS as c (c.name)}
+          <button
+            type="button"
+            class="h-6 w-6 rounded-full border border-black/10 transition-transform hover:scale-110 dark:border-white/10"
+            class:ring-2={card.color === c.name}
+            class:ring-offset-1={card.color === c.name}
+            class:ring-blue-500={card.color === c.name}
+            class:dark:ring-offset-neutral-900={card.color === c.name}
+            style="background: {cardAccent(c.name)};"
+            title={c.name}
+            aria-label={c.name}
+            onclick={() => setColor(c.name)}
+          ></button>
+        {/each}
+      </div>
+
       <h3 class="mb-1.5 text-xs font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
         Description
       </h3>

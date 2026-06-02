@@ -133,7 +133,7 @@ export type ArticleSummary = {
   updatedAt: string;
 };
 
-export type MapEntityKind = "note" | "article" | "workflow";
+export type MapEntityKind = "note" | "article" | "workflow" | "feedback_board";
 export type MapNodeKind = MapEntityKind | "text" | "comment" | "custom" | "title";
 
 export type MapNode = {
@@ -163,16 +163,11 @@ export type MapState = {
   edges: MapEdge[];
 };
 
-export type FeedbackColumn =
-  | "to_implement"
-  | "in_definition"
-  | "in_progress"
-  | "done";
-
 export type FeedbackBoard = {
   id: number;
   title: string;
   archived: boolean;
+  pinned: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -181,16 +176,26 @@ export type FeedbackBoardSummary = {
   id: number;
   title: string;
   archived: boolean;
+  pinned: boolean;
   cardCount: number;
   updatedAt: string;
+};
+
+export type FeedbackColumn = {
+  id: number;
+  boardId: number;
+  name: string;
+  position: number;
+  createdAt: string;
 };
 
 export type FeedbackCard = {
   id: number;
   boardId: number;
-  columnKind: FeedbackColumn;
+  columnId: number;
   title: string;
   description: string;
+  color: string | null;
   position: number;
   createdAt: string;
   updatedAt: string;
@@ -391,20 +396,29 @@ export const renameFeedbackBoard = (id: number, title: string) =>
   invoke<FeedbackBoard>("rename_feedback_board", { id, title });
 export const setFeedbackBoardArchived = (id: number, archived: boolean) =>
   invoke<FeedbackBoard>("set_feedback_board_archived", { id, archived });
+export const setFeedbackBoardPinned = (id: number, pinned: boolean) =>
+  invoke<FeedbackBoard>("set_feedback_board_pinned", { id, pinned });
 export const deleteFeedbackBoard = (id: number) =>
   invoke<void>("delete_feedback_board", { id });
+
+export const listFeedbackColumns = (boardId: number) =>
+  invoke<FeedbackColumn[]>("list_feedback_columns", { boardId });
+export const createFeedbackColumn = (boardId: number, name: string) =>
+  invoke<FeedbackColumn>("create_feedback_column", { boardId, name });
+export const renameFeedbackColumn = (id: number, name: string) =>
+  invoke<FeedbackColumn>("rename_feedback_column", { id, name });
+export const deleteFeedbackColumn = (id: number) =>
+  invoke<void>("delete_feedback_column", { id });
 
 export const listFeedbackCards = (boardId: number) =>
   invoke<FeedbackCardSummary[]>("list_feedback_cards", { boardId });
 export const createFeedbackCard = (
-  boardId: number,
-  columnKind: FeedbackColumn,
+  columnId: number,
   title: string,
   description: string | null = null,
 ) =>
   invoke<FeedbackCard>("create_feedback_card", {
-    boardId,
-    columnKind,
+    columnId,
     title,
     description,
   });
@@ -413,14 +427,16 @@ export const updateFeedbackCard = (
   title: string | null,
   description: string | null,
 ) => invoke<FeedbackCard>("update_feedback_card", { id, title, description });
+export const setFeedbackCardColor = (id: number, color: string | null) =>
+  invoke<FeedbackCard>("set_feedback_card_color", { id, color });
 export const moveFeedbackCard = (
   id: number,
-  targetColumn: FeedbackColumn,
+  targetColumnId: number,
   targetPosition: number,
 ) =>
   invoke<FeedbackCard>("move_feedback_card", {
     id,
-    targetColumn,
+    targetColumnId,
     targetPosition,
   });
 export const deleteFeedbackCard = (id: number) =>

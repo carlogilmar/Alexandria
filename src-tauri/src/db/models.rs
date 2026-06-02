@@ -205,6 +205,7 @@ pub struct FeedbackBoard {
     pub id: i64,
     pub title: String,
     pub archived: bool,
+    pub pinned: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -215,8 +216,19 @@ pub struct FeedbackBoardSummary {
     pub id: i64,
     pub title: String,
     pub archived: bool,
+    pub pinned: bool,
     pub card_count: i64,
     pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedbackColumn {
+    pub id: i64,
+    pub board_id: i64,
+    pub name: String,
+    pub position: i64,
+    pub created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -224,9 +236,10 @@ pub struct FeedbackBoardSummary {
 pub struct FeedbackCard {
     pub id: i64,
     pub board_id: i64,
-    pub column_kind: String,
+    pub column_id: i64,
     pub title: String,
     pub description: String,
+    pub color: Option<String>,
     pub position: i64,
     pub created_at: String,
     pub updated_at: String,
@@ -237,9 +250,10 @@ pub struct FeedbackCard {
 pub struct FeedbackCardSummary {
     pub id: i64,
     pub board_id: i64,
-    pub column_kind: String,
+    pub column_id: i64,
     pub title: String,
     pub description: String,
+    pub color: Option<String>,
     pub position: i64,
     pub comment_count: i64,
     pub created_at: String,
