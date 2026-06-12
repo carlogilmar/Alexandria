@@ -1,0 +1,13 @@
+# Alexandria: A knowledge base system for your day-to-go learning.
+
+In the raise of AI it's important to focus on work together instead of rely just in the AI, that means we need to improve our capabilities to process and understanding information because AI it's generating information and data many fast, too fast to scare people about replace humans, but I think the best approach is work on top of the AI, use AI as a tool to expand your abilities and increment your learning.
+
+This tool borns for my personal need to navigate uncertainty, at my first month as engineer in a big company I need to read a lot of stuff, watch many tutorials, read about the company, about the business and about the organization, so as I did't have any big picture, I decided to create my own.
+
+The first thing I need was a notes app, previously I used text file to write all my notes, then they became markdown files to store in github repos, after explore too many options like notion, obsidian, loqseq, they didn't have something awesome for me, I needed something simple just to organize my notes, notion for example uses embedded notes that makes too complex for me to follow and remember where you put some important stuff, obsidian looks great but I didn't understand how to use the graph of references, that's why markdown text files in github repos worked for me, they are more simple and easy to use. 
+
+What I made here was to bring into an application all my organization starting by todo list, then workflows, then notes, then articles, then include diagrams, make this an app for local only was something I love it. Then I wanted to include boards, flash cards, and a summary of everything, compare with other apps, the big picture of all your knowledge is important for me to have a clear understanding about my day to day, this app is used for keep my notes, but also for understand my accountability, my agency and my career development in one place, so I started to include some features about data visualization, the github grid calendar view is awesome for todo list, also the kandinsky activity graph or the visualization view are ways to give visual feedback to the user about his knowledge develop.
+
+This development has been evolving with the time, so although looks like a notes app, it's a knowledge base system. 
+
+For now I think this help me a lot to keep my learning notes here, I've been searching for similar tools . I'd love to search for similar researches about how to organize knowledge systems, I'd love to find better ways of visualize the state of the knowledge base so the user could have a great visual feedback, based on researching articles, similar apps, and other formal references.
