@@ -115,11 +115,25 @@
 </script>
 
 <aside
-  class="flex h-screen w-60 shrink-0 flex-col border-r px-3 pb-2 pt-12"
+  class="relative isolate flex h-screen w-60 shrink-0 flex-col overflow-hidden border-r px-3 pb-2 pt-12"
   class:dark={theme.isSidebarDark}
   style="background-color: var(--sidebar-bg); border-color: var(--sidebar-border);"
   data-tauri-drag-region
 >
+  {#if theme.sidebarAurora}
+    <!-- Animated aurora backdrop: drifting blurred color blobs + a noise
+         grain, painted behind the content (negative z inside the isolated
+         stacking context). Colors come from the selected tint. -->
+    <div class="aurora" aria-hidden="true">
+      {#each theme.sidebarAurora as c, i (i)}
+        <div
+          class="aurora-blob aurora-blob-{i}"
+          style="background: radial-gradient(circle at 50% 50%, {c} 0%, transparent 65%);"
+        ></div>
+      {/each}
+      <div class="aurora-noise"></div>
+    </div>
+  {/if}
   <div class="mb-3 flex h-14 items-center">
     <button
       type="button"
@@ -500,3 +514,63 @@
     </div>
   </div>
 </aside>
+
+<style>
+  .aurora {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .aurora-blob {
+    position: absolute;
+    width: 200%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    filter: blur(36px);
+    opacity: 0.45;
+    mix-blend-mode: screen;
+    animation: aurora-drift 18s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+  .aurora-blob-0 {
+    top: -30%;
+    left: -55%;
+    animation-duration: 8s;
+  }
+  .aurora-blob-1 {
+    top: 15%;
+    left: -20%;
+    animation-duration: 11s;
+    animation-delay: -3.5s;
+  }
+  .aurora-blob-2 {
+    top: 55%;
+    left: -60%;
+    animation-duration: 9.5s;
+    animation-delay: -6.5s;
+  }
+  @keyframes aurora-drift {
+    from {
+      transform: translate3d(-12%, -8%, 0) scale(1) rotate(0deg);
+    }
+    to {
+      transform: translate3d(14%, 10%, 0) scale(1.3) rotate(30deg);
+    }
+  }
+  /* Film-grain noise (inline SVG feTurbulence) keeps the gradients from
+     banding and gives the surface texture. */
+  .aurora-noise {
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.08;
+    mix-blend-mode: overlay;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .aurora-blob {
+      animation: none;
+    }
+  }
+</style>

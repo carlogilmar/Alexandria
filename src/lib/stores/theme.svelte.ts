@@ -12,6 +12,11 @@ export type Tint = {
   label: string;
   hue: number | null;
   dark?: boolean;
+  // Animated gradient surfaces (Sprint 23): `aurora` lists the blob colors
+  // the Sidebar drifts over `base` (a deep dark backdrop), plus a noise
+  // grain overlay. Aurora tints are always dark surfaces (light text).
+  aurora?: string[];
+  base?: string;
 };
 
 export const SIDEBAR_TINTS: Tint[] = [
@@ -28,6 +33,31 @@ export const SIDEBAR_TINTS: Tint[] = [
   { name: "navy", label: "Navy", hue: 222, dark: true },
   { name: "forest", label: "Forest", hue: 155, dark: true },
   { name: "wine", label: "Wine", hue: 345, dark: true },
+  // Animated aurora gradients (dark, light text).
+  {
+    name: "aurora",
+    label: "Aurora (animated)",
+    hue: null,
+    dark: true,
+    base: "hsl(228 42% 9%)",
+    aurora: ["#2dd4bf", "#4ade80", "#818cf8"],
+  },
+  {
+    name: "nebula",
+    label: "Nebula (animated)",
+    hue: null,
+    dark: true,
+    base: "hsl(262 45% 10%)",
+    aurora: ["#e879f9", "#818cf8", "#38bdf8"],
+  },
+  {
+    name: "ember",
+    label: "Ember (animated)",
+    hue: null,
+    dark: true,
+    base: "hsl(340 45% 9%)",
+    aurora: ["#fb923c", "#f472b6", "#a78bfa"],
+  },
 ];
 
 function findTint(name: string): Tint | undefined {
@@ -112,6 +142,12 @@ class ThemeStore {
     return findTint(this.sidebarTint)?.dark ?? false;
   }
 
+  // Blob colors of the active aurora tint, or null for flat tints. The
+  // Sidebar renders the animated layer from this.
+  get sidebarAurora(): string[] | null {
+    return findTint(this.sidebarTint)?.aurora ?? null;
+  }
+
   // Write the sidebar tint as CSS vars on <html>; the Sidebar reads them.
   // Translucent (so macOS vibrancy still shows through). Neutral = original
   // (transparent bg, faint neutral border). Dark tints = a deep, mostly-opaque
@@ -123,7 +159,12 @@ class ThemeStore {
     const tint = findTint(this.sidebarTint);
     const hue = tint?.hue ?? null;
 
-    if (tint?.dark) {
+    if (tint?.aurora) {
+      // Deep opaque base — the animated blobs + noise render on top of it
+      // inside the Sidebar itself.
+      root.setProperty("--sidebar-bg", tint.base ?? "hsl(228 42% 9%)");
+      root.setProperty("--sidebar-border", "rgba(255, 255, 255, 0.14)");
+    } else if (tint?.dark) {
       root.setProperty(
         "--sidebar-bg",
         hue == null

@@ -99,7 +99,14 @@
 
   let isDark = $derived(theme.resolved === "dark");
 
-  function swatchColor(tint: { hue: number | null; dark?: boolean }): string {
+  function swatchColor(tint: {
+    hue: number | null;
+    dark?: boolean;
+    aurora?: string[];
+  }): string {
+    if (tint.aurora) {
+      return `linear-gradient(135deg, ${tint.aurora.join(", ")})`;
+    }
     if (tint.dark) {
       return tint.hue == null ? "#1c1c1e" : `hsl(${tint.hue} 32% 22%)`;
     }
@@ -234,7 +241,7 @@
           class:ring-offset-1={theme.sidebarTint === tint.name}
           class:ring-blue-500={theme.sidebarTint === tint.name}
           class:dark:ring-offset-neutral-900={theme.sidebarTint === tint.name}
-          style:background-color={swatchColor(tint)}
+          style:background={swatchColor(tint)}
           style:border-color={tint.hue == null && !tint.dark
             ? "rgba(120,120,120,0.5)"
             : "rgba(255,255,255,0.25)"}

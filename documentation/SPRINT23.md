@@ -43,6 +43,27 @@ Two things were wrong with fenced code:
    GitHub-flavored palette in `app.css` (`.hljs-*`), light + dark. Unknown
    or missing language tags fall back to plain escaped text.
 
+## Link chips
+
+Rendered markdown links (entity + web, all surfaces) show as small rounded
+button chips (tinted background, border, hover) instead of underlined text —
+easier to spot and click. Styled in the scoped CSS of MarkdownEditor /
+ArticleEditor / EmbedBlock.
+
+## Aurora sidebar tints
+
+Three animated sidebar surfaces join `SIDEBAR_TINTS` (`aurora` / `nebula` /
+`ember`): a `Tint` may now carry `aurora: string[]` (blob colors) + `base`
+(deep opaque backdrop). `applyTint` sets the base as `--sidebar-bg`; the
+Sidebar renders the animated layer itself — three blurred radial-gradient
+blobs (`mix-blend-mode: screen`) drifting on slow alternate keyframes with
+staggered delays, plus an SVG `feTurbulence` noise grain
+(`mix-blend-mode: overlay`, opacity 0.08) to kill banding. The layer sits at
+`z-index: -1` inside the aside's `isolate` stacking context so content stays
+above it. Aurora tints are dark surfaces (light text via `isSidebarDark`);
+the picker swatch shows a `linear-gradient` of the blob colors;
+`prefers-reduced-motion` disables the drift.
+
 ## Note outline ("on this page")
 
 `MarkdownEditor` takes an `outline` prop (only `NoteView` passes it). In

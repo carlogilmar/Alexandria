@@ -352,7 +352,12 @@ highlight.js core with hand-registered languages (Elixir first), GitHub-ish
 fenced code — the inline-code pill CSS now scopes to `:not(pre) > code` in
 MarkdownEditor/ArticleEditor/EmbedBlock. **Note outline**: MarkdownEditor's
 `outline` prop (passed by NoteView) shows a floating right-side h1–h3
-navigator on xl screens. See documentation/SPRINT23.md.)
+navigator on xl screens. **Link chips**: rendered markdown links display as
+button-like chips in all markdown surfaces. **Aurora sidebar tints**: three
+animated gradient surfaces (aurora/nebula/ember) — `Tint.aurora` colors +
+`Tint.base`, blurred drifting blobs + feTurbulence noise rendered by
+Sidebar.svelte behind an `isolate`/`z-index:-1` layer; reduced-motion safe.
+See documentation/SPRINT23.md.)
 
 Sprint 22 (Blueprints — a new ⌘8 section of standalone
 design canvases for planning software. Migration `0017` (`blueprints` +
