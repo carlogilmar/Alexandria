@@ -58,6 +58,69 @@ export const SIDEBAR_TINTS: Tint[] = [
     base: "hsl(340 45% 9%)",
     aurora: ["#fb923c", "#f472b6", "#a78bfa"],
   },
+  {
+    name: "borealis",
+    label: "Borealis (animated)",
+    hue: null,
+    dark: true,
+    base: "hsl(170 50% 8%)",
+    aurora: ["#4ade80", "#a3e635", "#22d3ee"],
+  },
+  {
+    name: "ocean",
+    label: "Ocean (animated)",
+    hue: null,
+    dark: true,
+    base: "hsl(215 55% 10%)",
+    aurora: ["#38bdf8", "#22d3ee", "#6366f1"],
+  },
+  {
+    name: "sunset",
+    label: "Sunset (animated)",
+    hue: null,
+    dark: true,
+    base: "hsl(268 40% 10%)",
+    aurora: ["#f97316", "#ef4444", "#fbbf24"],
+  },
+  {
+    name: "orchid",
+    label: "Orchid (animated)",
+    hue: null,
+    dark: true,
+    base: "hsl(300 40% 9%)",
+    aurora: ["#f472b6", "#c084fc", "#fb7185"],
+  },
+  {
+    name: "ice",
+    label: "Ice (animated)",
+    hue: null,
+    dark: true,
+    base: "hsl(210 30% 12%)",
+    aurora: ["#e2e8f0", "#94a3b8", "#38bdf8"],
+  },
+  // Light aurora surfaces (dark text): pastel blobs multiply-blended over a
+  // near-white base — see Sidebar.svelte's .aurora-light rules.
+  {
+    name: "daybreak",
+    label: "Daybreak (animated, light)",
+    hue: null,
+    base: "hsl(210 60% 97%)",
+    aurora: ["#7dd3fc", "#a5b4fc", "#6ee7b7"],
+  },
+  {
+    name: "meadow",
+    label: "Meadow (animated, light)",
+    hue: null,
+    base: "hsl(140 45% 97%)",
+    aurora: ["#86efac", "#fde047", "#5eead4"],
+  },
+  {
+    name: "blossom",
+    label: "Blossom (animated, light)",
+    hue: null,
+    base: "hsl(330 60% 97%)",
+    aurora: ["#f9a8d4", "#c4b5fd", "#fda4af"],
+  },
 ];
 
 function findTint(name: string): Tint | undefined {
@@ -160,10 +223,17 @@ class ThemeStore {
     const hue = tint?.hue ?? null;
 
     if (tint?.aurora) {
-      // Deep opaque base — the animated blobs + noise render on top of it
-      // inside the Sidebar itself.
-      root.setProperty("--sidebar-bg", tint.base ?? "hsl(228 42% 9%)");
-      root.setProperty("--sidebar-border", "rgba(255, 255, 255, 0.14)");
+      // Opaque base — the animated blobs + noise render on top of it inside
+      // the Sidebar itself. Dark auroras get a light border, light auroras a
+      // dark one.
+      root.setProperty(
+        "--sidebar-bg",
+        tint.base ?? (tint.dark ? "hsl(228 42% 9%)" : "hsl(0 0% 98%)"),
+      );
+      root.setProperty(
+        "--sidebar-border",
+        tint.dark ? "rgba(255, 255, 255, 0.14)" : "rgba(0, 0, 0, 0.1)",
+      );
     } else if (tint?.dark) {
       root.setProperty(
         "--sidebar-bg",

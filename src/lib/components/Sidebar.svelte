@@ -124,7 +124,7 @@
     <!-- Animated aurora backdrop: drifting blurred color blobs + a noise
          grain, painted behind the content (negative z inside the isolated
          stacking context). Colors come from the selected tint. -->
-    <div class="aurora" aria-hidden="true">
+    <div class="aurora" class:aurora-light={!theme.isSidebarDark} aria-hidden="true">
       {#each theme.sidebarAurora as c, i (i)}
         <div
           class="aurora-blob aurora-blob-{i}"
@@ -537,19 +537,28 @@
   .aurora-blob-0 {
     top: -30%;
     left: -55%;
-    animation-duration: 5.5s;
+    animation-duration: 4s;
   }
   .aurora-blob-1 {
     top: 15%;
     left: -20%;
-    animation-duration: 7.5s;
-    animation-delay: -2.5s;
+    animation-duration: 5.5s;
+    animation-delay: -2s;
   }
   .aurora-blob-2 {
     top: 55%;
     left: -60%;
-    animation-duration: 6.5s;
-    animation-delay: -4.5s;
+    animation-duration: 4.75s;
+    animation-delay: -3.25s;
+  }
+  /* Light auroras: `screen` washes out on a light base, so pastel blobs
+     multiply-blend instead (they tint the surface rather than glow). */
+  .aurora-light .aurora-blob {
+    mix-blend-mode: multiply;
+    opacity: 0.5;
+  }
+  .aurora-light .aurora-noise {
+    opacity: 0.05;
   }
   @keyframes aurora-drift {
     from {
