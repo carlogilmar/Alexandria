@@ -537,19 +537,19 @@
   .aurora-blob-0 {
     top: -30%;
     left: -55%;
-    animation-duration: 8s;
+    animation-duration: 5.5s;
   }
   .aurora-blob-1 {
     top: 15%;
     left: -20%;
-    animation-duration: 11s;
-    animation-delay: -3.5s;
+    animation-duration: 7.5s;
+    animation-delay: -2.5s;
   }
   .aurora-blob-2 {
     top: 55%;
     left: -60%;
-    animation-duration: 9.5s;
-    animation-delay: -6.5s;
+    animation-duration: 6.5s;
+    animation-delay: -4.5s;
   }
   @keyframes aurora-drift {
     from {
