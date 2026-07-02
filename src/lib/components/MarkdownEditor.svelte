@@ -4,7 +4,12 @@
   import { theme } from "$lib/stores/theme.svelte";
   import { saveImageFile } from "$lib/ipc";
   import { autosize } from "$lib/autosize";
-  import { createMarkdownIt, hydrateMermaidBlocks, countWords } from "$lib/markdownit";
+  import {
+    createMarkdownIt,
+    hydrateMermaidBlocks,
+    countWords,
+    toggleTaskInSource,
+  } from "$lib/markdownit";
   import EntityLinkPicker from "$lib/components/EntityLinkPicker.svelte";
 
   type Props = {
@@ -15,6 +20,9 @@
     // Optional custom handler for clicks on rendered anchors. If returned
     // false, fall back to opening the URL via the OS opener.
     onLinkClick?: (href: string) => boolean | void;
+    // Show a floating right-side outline of the document's headings (used by
+    // notes to navigate long texts).
+    outline?: boolean;
   };
 
   let {
@@ -23,6 +31,7 @@
     minHeight = "16rem",
     onCommit,
     onLinkClick,
+    outline = false,
   }: Props = $props();
 
   const md = createMarkdownIt();
@@ -45,6 +54,36 @@
 
   let rendered = $derived(draft.trim() ? md.render(draft) : "");
   let wc = $derived(countWords(draft));
+
+  // Outline: headings pulled from the source (fences skipped), in the same
+  // document order as the rendered h1–h3 elements — index i here matches the
+  // i-th heading in the preview DOM.
+  type Heading = { level: number; text: string };
+  function extractHeadings(src: string): Heading[] {
+    const out: Heading[] = [];
+    let inFence = false;
+    for (const line of src.split("\n")) {
+      if (/^\s*(```|~~~)/.test(line)) {
+        inFence = !inFence;
+        continue;
+      }
+      if (inFence) continue;
+      const m = /^(#{1,3})\s+(.+)/.exec(line);
+      if (!m) continue;
+      const text = m[2]
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+        .replace(/[*_`~]/g, "")
+        .trim();
+      if (text) out.push({ level: m[1].length, text });
+    }
+    return out;
+  }
+  let headings = $derived(outline ? extractHeadings(draft) : []);
+
+  function scrollToHeading(i: number) {
+    const els = previewEl?.querySelectorAll("h1, h2, h3");
+    els?.[i]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   // Hydrate ```mermaid placeholders to SVG. `{@html rendered}` rewrites the
   // preview's innerHTML out from under us — on edit, on commit (the saved value
@@ -95,7 +134,16 @@
   }
 
   function onPreviewClick(e: MouseEvent) {
-    const anchor = (e.target as HTMLElement).closest("a");
+    const target = e.target as HTMLElement;
+    // Task checkboxes: flip the matching `[ ]`/`[x]` marker in the source and
+    // persist — the re-render restores the checkbox from the new source.
+    if (target instanceof HTMLInputElement && target.classList.contains("md-task")) {
+      e.preventDefault();
+      const idx = Number(target.dataset.task);
+      if (Number.isFinite(idx)) void toggleTask(idx);
+      return;
+    }
+    const anchor = target.closest("a");
     if (anchor) {
       e.preventDefault();
       const href = anchor.getAttribute("href");
@@ -107,7 +155,9 @@
       // Internal entity links: [label](note:5) etc. — navigate in-app, but
       // guard against links to entities that have since been deleted so we
       // surface a friendly flash instead of an error screen.
-      const ent = href.match(/^(note|list|workflow|article|flashcard):(\d+)$/);
+      const ent = href.match(
+        /^(note|list|workflow|article|flashcard|blueprint):(\d+)$/,
+      );
       if (ent) {
         const id = Number(ent[2]);
         if (Number.isFinite(id)) navigateEntity(ent[1], id);
@@ -122,6 +172,14 @@
     }
     // A plain click in the preview does nothing — editing is only via the
     // Edit button. (Link clicks handled above still navigate.)
+  }
+
+  async function toggleTask(idx: number) {
+    // Preview implies !editing, so draft mirrors the committed value.
+    const next = toggleTaskInSource(draft, idx);
+    if (next === null) return;
+    draft = next;
+    await onCommit(next);
   }
 
   // Navigate to a linked entity, or flash if it no longer exists (broken link).
@@ -141,6 +199,9 @@
     } else if (kind === "flashcard") {
       if (app.flashcards.some((c) => c.id === id)) app.openFlashcardInDeck(id);
       else app.setFlash("That flashcard no longer exists");
+    } else if (kind === "blueprint") {
+      if (app.blueprints.some((b) => b.id === id)) app.openBlueprint(id);
+      else app.setFlash("That blueprint no longer exists");
     }
   }
 
@@ -370,6 +431,32 @@
     >
       {@html rendered}
     </div>
+    {#if outline && headings.length >= 2}
+      <!-- Floating heading outline for long documents (wide windows only). -->
+      <nav
+        class="fixed right-5 top-24 z-10 hidden w-52 xl:block"
+        aria-label="Document outline"
+      >
+        <p class="mb-1 px-2 text-[10px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+          On this page
+        </p>
+        <ul class="max-h-[70vh] overflow-y-auto border-l border-neutral-200/80 dark:border-neutral-700/80">
+          {#each headings as h, i (i)}
+            <li>
+              <button
+                type="button"
+                class="block w-full truncate py-1 pr-2 text-left text-xs text-neutral-500 transition-colors hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-400"
+                style="padding-left: {8 + (h.level - 1) * 12}px"
+                title={h.text}
+                onclick={() => scrollToHeading(i)}
+              >
+                {h.text}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </nav>
+    {/if}
     {#if isLarge}
       <div class="mt-2 flex justify-center">
         <button
@@ -446,24 +533,49 @@
     border-left-color: rgba(255, 255, 255, 0.18);
     color: rgba(255, 255, 255, 0.6);
   }
+  /* Links render as small button-like chips — easier to spot and click than
+     underlined text (Sprint 23 follow-up). */
   .markdown-body :global(a) {
+    display: inline-block;
+    padding: 0 0.5rem;
+    border-radius: 0.375rem;
+    border: 1px solid rgba(37, 99, 235, 0.3);
+    background: rgba(37, 99, 235, 0.08);
     color: #2563eb;
-    text-decoration: underline;
-    text-decoration-thickness: 1px;
-    text-underline-offset: 2px;
+    text-decoration: none;
+    font-size: 0.9em;
+    font-weight: 500;
+    line-height: 1.5;
     cursor: pointer;
+    transition: background 120ms;
+  }
+  .markdown-body :global(a:hover) {
+    background: rgba(37, 99, 235, 0.18);
   }
   :global(html.dark) .markdown-body :global(a) {
     color: #60a5fa;
+    border-color: rgba(96, 165, 250, 0.35);
+    background: rgba(96, 165, 250, 0.12);
   }
-  .markdown-body :global(code) {
+  :global(html.dark) .markdown-body :global(a:hover) {
+    background: rgba(96, 165, 250, 0.22);
+  }
+  /* Inline code only — code inside <pre> must NOT get the pill background
+     (it's an inline element, so a multi-line block would show a highlight
+     strip per wrapped line). */
+  .markdown-body :global(:not(pre) > code) {
     background: rgba(0, 0, 0, 0.06);
     padding: 0 0.25rem;
     border-radius: 3px;
     font-size: 0.85em;
   }
-  :global(html.dark) .markdown-body :global(code) {
+  :global(html.dark) .markdown-body :global(:not(pre) > code) {
     background: rgba(255, 255, 255, 0.08);
+  }
+  .markdown-body :global(pre > code) {
+    display: block;
+    background: transparent;
+    padding: 0;
   }
   .markdown-body :global(pre) {
     white-space: pre-wrap;

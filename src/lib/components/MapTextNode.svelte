@@ -5,6 +5,10 @@
   type TextData = {
     mapNodeId: number;
     content: string;
+    // Optional persistence overrides so other canvases (Blueprints) can
+    // reuse this node. Defaults target the Alexandria map store actions.
+    onCommitContent?: (nodeId: number, content: string) => Promise<void> | void;
+    onResizeEnd?: (nodeId: number, width: number, height: number) => Promise<void> | void;
   };
   type Props = {
     id: string;
@@ -35,7 +39,10 @@
     editing = false;
     const next = draft;
     if (next === data.content) return;
-    await app.updateMapNodeContent(data.mapNodeId, next);
+    await (data.onCommitContent ?? app.updateMapNodeContent.bind(app))(
+      data.mapNodeId,
+      next,
+    );
   }
 
   function onTextareaKey(e: KeyboardEvent) {
@@ -67,7 +74,11 @@
     handleClass="text-note-resize-handle"
     onResizeEnd={(_e, params) => {
       // Persist the new dimensions so they survive reloads / view switches.
-      void app.resizeMapNode(data.mapNodeId, params.width, params.height);
+      void (data.onResizeEnd ?? app.resizeMapNode.bind(app))(
+        data.mapNodeId,
+        params.width,
+        params.height,
+      );
     }}
   />
   <button

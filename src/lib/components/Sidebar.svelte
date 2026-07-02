@@ -81,10 +81,37 @@
   }
 
   // Today's-list quick access: detect by date string match.
-  let today = $derived(todayIso());
-  let todaysList = $derived(
-    app.lists.find((l) => l.date === today && !l.archived) ?? null,
-  );
+  //
+  // The wall clock is NOT reactive — with `$derived(todayIso())` an app left
+  // open across midnight kept matching *yesterday's* list even after the new
+  // day's list was created. Tick the date on an interval and when the window
+  // regains focus so this section always reflects the actual current day.
+  let today = $state(todayIso());
+  $effect(() => {
+    const sync = () => {
+      const now = todayIso();
+      if (now !== today) today = now;
+    };
+    const interval = setInterval(sync, 30_000);
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  });
+  // Strictly today's active lists only — never a previous day's. If several
+  // exist, take the first-created (lowest id), matching the backend's
+  // `list_today` (ORDER BY id ASC LIMIT 1). With no match the template shows
+  // the "Create today's list" affordance instead.
+  let todaysList = $derived.by(() => {
+    const candidates = app.lists.filter(
+      (l) => l.date === today && !l.archived,
+    );
+    if (candidates.length === 0) return null;
+    return candidates.reduce((a, b) => (b.id < a.id ? b : a));
+  });
 </script>
 
 <aside

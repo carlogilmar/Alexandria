@@ -31,6 +31,8 @@
         { syntax: "- item / 1. item (indent to nest)", does: "Lists — nested get distinct bullets / a,b,c" },
         { syntax: "| A | B |\\n| --- | --- |", does: "Tables (header row is styled)" },
         { syntax: "> [!NOTE]  (or TIP / WARNING / COMMENT)", does: "Callout panels — a blockquote whose first line is [!TYPE]" },
+        { syntax: "- [ ] task  /  - [x] done", does: "Task checkbox — click it in the preview to toggle; done tasks strike through" },
+        { syntax: "```elixir … ```", does: "Code block with syntax highlighting (elixir, js, ts, python, rust, sql, bash, json, html, css, yaml)" },
         { syntax: "```mermaid … ```", does: "Renders a diagram inline" },
         { syntax: "--- ", does: "A divider line" },
       ],
@@ -38,7 +40,7 @@
     {
       title: "Links & embeds",
       rows: [
-        { syntax: "[label](note:5)", does: "Link to a note / article / workflow / list / flashcard (use the link button)" },
+        { syntax: "[label](note:5)", does: "Link to a note / article / workflow / list / flashcard / blueprint (use the link button)" },
         { syntax: "{{note:5}}  (articles only, own line)", does: "Embed a note / article / workflow / list / todo / flashcard inline" },
         { syntax: "![alt](url)  or paste an image", does: "Image (also via Insert image)" },
       ],

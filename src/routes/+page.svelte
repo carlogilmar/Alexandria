@@ -18,6 +18,8 @@
   import FeedbackBoardView from "$lib/components/FeedbackBoardView.svelte";
   import ActivityView from "$lib/components/ActivityView.svelte";
   import FlashDeckView from "$lib/components/FlashDeckView.svelte";
+  import BlueprintsView from "$lib/components/BlueprintsView.svelte";
+  import BlueprintView from "$lib/components/BlueprintView.svelte";
   import TopNav from "$lib/components/TopNav.svelte";
   import CommandPalette from "$lib/components/CommandPalette.svelte";
   import FormattingHelp from "$lib/components/FormattingHelp.svelte";
@@ -40,6 +42,8 @@
     "feedback-board": "Feedback",
     activity: "Activity",
     flashdeck: "Flash Deck",
+    blueprints: "Blueprints",
+    blueprint: "Blueprints",
   };
   let viewLabel = $derived(VIEW_LABELS[app.view] ?? "");
 
@@ -123,6 +127,9 @@
     } else if (e.key === "7") {
       e.preventDefault();
       app.openFlashDeck();
+    } else if (e.key === "8") {
+      e.preventDefault();
+      app.openBlueprints();
     }
   }
 </script>
@@ -202,6 +209,10 @@
       <ActivityView />
     {:else if app.view === "flashdeck"}
       <FlashDeckView />
+    {:else if app.view === "blueprints"}
+      <BlueprintsView />
+    {:else if app.view === "blueprint"}
+      <BlueprintView />
     {:else}
       <ListView />
     {/if}

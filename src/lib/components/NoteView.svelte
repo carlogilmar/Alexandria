@@ -114,6 +114,7 @@
         placeholder="Write your note in markdown…"
         minHeight="18rem"
         onCommit={commitBody}
+        outline
       />
     {/key}
 

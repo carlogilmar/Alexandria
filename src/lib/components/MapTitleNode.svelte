@@ -5,6 +5,9 @@
   type TitleData = {
     mapNodeId: number;
     content: string;
+    // Optional persistence override so other canvases (Blueprints) can
+    // reuse this node. Defaults to the Alexandria map store action.
+    onCommitContent?: (nodeId: number, content: string) => Promise<void> | void;
   };
   type Props = {
     id: string;
@@ -34,7 +37,10 @@
   async function commit() {
     editing = false;
     if (draft === data.content) return;
-    await app.updateMapNodeContent(data.mapNodeId, draft);
+    await (data.onCommitContent ?? app.updateMapNodeContent.bind(app))(
+      data.mapNodeId,
+      draft,
+    );
   }
   function onKey(e: KeyboardEvent) {
     if (e.key === "Enter") {

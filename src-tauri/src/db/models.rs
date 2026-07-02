@@ -201,6 +201,68 @@ pub struct MapState {
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
+pub struct Blueprint {
+    pub id: i64,
+    pub title: String,
+    pub pinned: bool,
+    pub archived: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct BlueprintSummary {
+    pub id: i64,
+    pub title: String,
+    pub pinned: bool,
+    pub archived: bool,
+    pub node_count: i64,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct BlueprintNode {
+    pub id: i64,
+    pub blueprint_id: i64,
+    pub kind: String,
+    pub title: String,
+    pub description: String,
+    pub color: Option<String>,
+    pub content: Option<String>,
+    pub x: f64,
+    pub y: f64,
+    pub width: Option<f64>,
+    pub height: Option<f64>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct BlueprintEdge {
+    pub id: i64,
+    pub blueprint_id: i64,
+    pub source_id: i64,
+    pub target_id: i64,
+    pub source_handle: Option<String>,
+    pub target_handle: Option<String>,
+    pub label: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlueprintState {
+    pub blueprint: Blueprint,
+    pub nodes: Vec<BlueprintNode>,
+    pub edges: Vec<BlueprintEdge>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct FeedbackBoard {
     pub id: i64,
     pub title: String,

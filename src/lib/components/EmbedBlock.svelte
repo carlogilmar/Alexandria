@@ -241,20 +241,43 @@
   .markdown-body :global(ul) { list-style: disc; padding-left: 1.2rem; margin: 0.25rem 0; }
   .markdown-body :global(ol) { list-style: decimal; padding-left: 1.2rem; margin: 0.25rem 0; }
   .markdown-body :global(img) { max-width: 100%; height: auto; }
-  .markdown-body :global(code) {
+  .markdown-body :global(:not(pre) > code) {
     background: rgba(0, 0, 0, 0.06);
     padding: 0 0.2rem;
     border-radius: 3px;
     font-size: 0.85em;
   }
-  :global(html.dark) .markdown-body :global(code) {
+  :global(html.dark) .markdown-body :global(:not(pre) > code) {
     background: rgba(255, 255, 255, 0.08);
   }
+  .markdown-body :global(pre > code) {
+    display: block;
+    background: transparent;
+    padding: 0;
+  }
+  /* Links render as small button-like chips (same treatment as the editors). */
   .markdown-body :global(a) {
+    display: inline-block;
+    padding: 0 0.4rem;
+    border-radius: 0.375rem;
+    border: 1px solid rgba(37, 99, 235, 0.3);
+    background: rgba(37, 99, 235, 0.08);
     color: #2563eb;
-    text-decoration: underline;
+    text-decoration: none;
+    font-size: 0.9em;
+    font-weight: 500;
+    line-height: 1.5;
+    cursor: pointer;
+  }
+  .markdown-body :global(a:hover) {
+    background: rgba(37, 99, 235, 0.18);
   }
   :global(html.dark) .markdown-body :global(a) {
     color: #60a5fa;
+    border-color: rgba(96, 165, 250, 0.35);
+    background: rgba(96, 165, 250, 0.12);
+  }
+  :global(html.dark) .markdown-body :global(a:hover) {
+    background: rgba(96, 165, 250, 0.22);
   }
 </style>

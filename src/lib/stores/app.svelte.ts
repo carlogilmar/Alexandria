@@ -68,6 +68,24 @@ import {
   addMapEdge as addMapEdgeIpc,
   updateMapEdgeLabel as updateMapEdgeLabelIpc,
   removeMapEdge as removeMapEdgeIpc,
+  listBlueprints,
+  createBlueprint as createBlueprintIpc,
+  renameBlueprint as renameBlueprintIpc,
+  setBlueprintPinned as setBlueprintPinnedIpc,
+  setBlueprintArchived as setBlueprintArchivedIpc,
+  deleteBlueprint as deleteBlueprintIpc,
+  getBlueprint,
+  addBlueprintCard as addBlueprintCardIpc,
+  addBlueprintDecorative as addBlueprintDecorativeIpc,
+  updateBlueprintCard as updateBlueprintCardIpc,
+  setBlueprintCardColor as setBlueprintCardColorIpc,
+  updateBlueprintNodeContent as updateBlueprintNodeContentIpc,
+  moveBlueprintNode as moveBlueprintNodeIpc,
+  resizeBlueprintNode as resizeBlueprintNodeIpc,
+  removeBlueprintNode as removeBlueprintNodeIpc,
+  addBlueprintEdge as addBlueprintEdgeIpc,
+  updateBlueprintEdgeLabel as updateBlueprintEdgeLabelIpc,
+  removeBlueprintEdge as removeBlueprintEdgeIpc,
   getIndexDoc,
   updateIndexDoc,
   listFeedbackBoards,
@@ -121,6 +139,10 @@ import {
   type MapEdge,
   type MapEntityKind,
   type MapNode,
+  type Blueprint,
+  type BlueprintSummary,
+  type BlueprintNode,
+  type BlueprintEdge,
   type Note,
   type NoteSummary,
   type Stats,
@@ -176,7 +198,17 @@ type NavLoc =
   | { view: "article"; id: number }
   | { view: "workflow"; id: number }
   | { view: "feedback-board"; id: number }
-  | { view: "index" | "garden" | "map" | "feedback" | "activity" | "flashdeck" };
+  | { view: "blueprint"; id: number }
+  | {
+      view:
+        | "index"
+        | "garden"
+        | "map"
+        | "feedback"
+        | "activity"
+        | "flashdeck"
+        | "blueprints";
+    };
 
 class AppStore {
   view = $state<
@@ -192,6 +224,8 @@ class AppStore {
     | "feedback-board"
     | "activity"
     | "flashdeck"
+    | "blueprints"
+    | "blueprint"
   >("home");
   // Back-navigation history — locations we can pop back to. $state so the
   // back button's enabled state stays reactive.
@@ -288,6 +322,7 @@ class AppStore {
       await this.refreshFeedbackBoards();
       await this.refreshFlashcards();
       await this.refreshFlashcardCategories();
+      await this.refreshBlueprints();
     } catch (e) {
       this.error = String(e);
     } finally {
@@ -418,12 +453,17 @@ class AppStore {
         return this.selectedFeedbackBoardId !== null
           ? { view: "feedback-board", id: this.selectedFeedbackBoardId }
           : { view: "feedback" };
+      case "blueprint":
+        return this.selectedBlueprint !== null
+          ? { view: "blueprint", id: this.selectedBlueprint.id }
+          : { view: "blueprints" };
       case "index":
       case "garden":
       case "map":
       case "feedback":
       case "activity":
       case "flashdeck":
+      case "blueprints":
         return { view: this.view };
       default:
         return null;
@@ -494,6 +534,12 @@ class AppStore {
           break;
         case "flashdeck":
           await this.openFlashDeck();
+          break;
+        case "blueprints":
+          await this.openBlueprints();
+          break;
+        case "blueprint":
+          await this.openBlueprint(loc.id);
           break;
       }
     } finally {
@@ -818,6 +864,284 @@ class AppStore {
     }
   }
 
+  // ---- Blueprints (Sprint 22) ----
+
+  blueprints = $state<BlueprintSummary[]>([]);
+  blueprintsLoaded = $state(false);
+  selectedBlueprint = $state<Blueprint | null>(null);
+  blueprintNodes = $state<BlueprintNode[]>([]);
+  blueprintEdges = $state<BlueprintEdge[]>([]);
+  blueprintLoading = $state(false);
+
+  async openBlueprints() {
+    this.recordNav();
+    this.view = "blueprints";
+    this.selected = null;
+    this.todos = [];
+    this.selectedTodoId = null;
+    this.selectedTodoTags = [];
+    this.selectedWorkflow = null;
+    this.workflowSteps = [];
+    this.selectedNote = null;
+    this.selectedArticle = null;
+    this.selectedBlueprint = null;
+    await this.refreshBlueprints();
+  }
+
+  async refreshBlueprints() {
+    try {
+      this.blueprints = await listBlueprints();
+      this.blueprintsLoaded = true;
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async openBlueprint(id: number) {
+    this.recordNav();
+    this.view = "blueprint";
+    this.blueprintLoading = true;
+    try {
+      const s = await getBlueprint(id);
+      this.selectedBlueprint = s.blueprint;
+      this.blueprintNodes = s.nodes;
+      this.blueprintEdges = s.edges;
+    } catch (e) {
+      this.setFlash(String(e));
+      this.view = "blueprints";
+    } finally {
+      this.blueprintLoading = false;
+    }
+  }
+
+  async newBlueprint(title: string) {
+    try {
+      const created = await createBlueprintIpc(title);
+      await this.refreshBlueprints();
+      await this.openBlueprint(created.id);
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async renameBlueprint(id: number, title: string) {
+    const t = title.trim();
+    if (!t) return;
+    try {
+      const updated = await renameBlueprintIpc(id, t);
+      this.blueprints = this.blueprints.map((b) =>
+        b.id === id ? { ...b, title: updated.title, updatedAt: updated.updatedAt } : b,
+      );
+      if (this.selectedBlueprint?.id === id) this.selectedBlueprint = updated;
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async setBlueprintPinned(id: number, pinned: boolean) {
+    try {
+      await setBlueprintPinnedIpc(id, pinned);
+      this.blueprints = this.blueprints.map((b) =>
+        b.id === id ? { ...b, pinned } : b,
+      );
+      if (this.selectedBlueprint?.id === id) {
+        this.selectedBlueprint = { ...this.selectedBlueprint, pinned };
+      }
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async setBlueprintArchived(id: number, archived: boolean) {
+    try {
+      await setBlueprintArchivedIpc(id, archived);
+      this.blueprints = this.blueprints.map((b) =>
+        b.id === id ? { ...b, archived } : b,
+      );
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async deleteBlueprint(id: number) {
+    const bp = this.blueprints.find((b) => b.id === id);
+    const ok = await confirm(
+      `"${bp?.title ?? `blueprint ${id}`}" and all its nodes will be permanently removed.`,
+      { title: "Delete blueprint?", kind: "warning" },
+    );
+    if (!ok) return;
+    try {
+      await deleteBlueprintIpc(id);
+      this.blueprints = this.blueprints.filter((b) => b.id !== id);
+      if (this.selectedBlueprint?.id === id) {
+        this.selectedBlueprint = null;
+        this.view = "blueprints";
+      }
+      this.setFlash("Blueprint deleted");
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async addBlueprintCard(
+    title: string,
+    x: number,
+    y: number,
+  ): Promise<BlueprintNode | null> {
+    if (!this.selectedBlueprint) return null;
+    try {
+      const created = await addBlueprintCardIpc(
+        this.selectedBlueprint.id,
+        title,
+        x,
+        y,
+      );
+      this.blueprintNodes = [...this.blueprintNodes, created];
+      return created;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+
+  async addBlueprintDecorative(
+    kind: "text" | "comment" | "title",
+    content: string,
+    x: number,
+    y: number,
+  ): Promise<BlueprintNode | null> {
+    if (!this.selectedBlueprint) return null;
+    try {
+      const created = await addBlueprintDecorativeIpc(
+        this.selectedBlueprint.id,
+        kind,
+        content,
+        x,
+        y,
+      );
+      this.blueprintNodes = [...this.blueprintNodes, created];
+      return created;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+
+  async updateBlueprintCard(
+    id: number,
+    title: string | null,
+    description: string | null,
+  ) {
+    try {
+      const updated = await updateBlueprintCardIpc(id, title, description);
+      this.blueprintNodes = this.blueprintNodes.map((n) =>
+        n.id === id ? updated : n,
+      );
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async setBlueprintCardColor(id: number, color: string | null) {
+    try {
+      const updated = await setBlueprintCardColorIpc(id, color);
+      this.blueprintNodes = this.blueprintNodes.map((n) =>
+        n.id === id ? updated : n,
+      );
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async updateBlueprintNodeContent(id: number, content: string) {
+    try {
+      const updated = await updateBlueprintNodeContentIpc(id, content);
+      this.blueprintNodes = this.blueprintNodes.map((n) =>
+        n.id === id ? updated : n,
+      );
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async moveBlueprintNode(id: number, x: number, y: number) {
+    try {
+      const updated = await moveBlueprintNodeIpc(id, x, y);
+      this.blueprintNodes = this.blueprintNodes.map((n) =>
+        n.id === id ? updated : n,
+      );
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async resizeBlueprintNode(id: number, width: number, height: number) {
+    try {
+      const updated = await resizeBlueprintNodeIpc(id, width, height);
+      this.blueprintNodes = this.blueprintNodes.map((n) =>
+        n.id === id ? updated : n,
+      );
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async removeBlueprintNode(id: number) {
+    try {
+      await removeBlueprintNodeIpc(id);
+      this.blueprintNodes = this.blueprintNodes.filter((n) => n.id !== id);
+      // Edges cascade-delete on the backend; mirror locally.
+      this.blueprintEdges = this.blueprintEdges.filter(
+        (e) => e.sourceId !== id && e.targetId !== id,
+      );
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async addBlueprintEdge(
+    sourceId: number,
+    targetId: number,
+    sourceHandle: string | null,
+    targetHandle: string | null,
+  ): Promise<BlueprintEdge | null> {
+    if (!this.selectedBlueprint) return null;
+    try {
+      const created = await addBlueprintEdgeIpc(
+        this.selectedBlueprint.id,
+        sourceId,
+        targetId,
+        sourceHandle,
+        targetHandle,
+      );
+      this.blueprintEdges = [...this.blueprintEdges, created];
+      return created;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+
+  async updateBlueprintEdgeLabel(id: number, label: string | null) {
+    try {
+      const updated = await updateBlueprintEdgeLabelIpc(id, label);
+      this.blueprintEdges = this.blueprintEdges.map((e) =>
+        e.id === id ? updated : e,
+      );
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async removeBlueprintEdge(id: number) {
+    try {
+      await removeBlueprintEdgeIpc(id);
+      this.blueprintEdges = this.blueprintEdges.filter((e) => e.id !== id);
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
   // ---- Articles ----
 
   async refreshArticles() {
@@ -972,7 +1296,7 @@ class AppStore {
   // ---- Generic "new entity" used by the sidebar's Add modal ----
 
   async newEntity(
-    kind: "note" | "article" | "workflow" | "flashcard",
+    kind: "note" | "article" | "workflow" | "flashcard" | "blueprint",
     title: string,
   ) {
     const t = title.trim();
@@ -984,6 +1308,8 @@ class AppStore {
     } else if (kind === "flashcard") {
       await this.openFlashDeck();
       await this.newFlashcard(t || "New card");
+    } else if (kind === "blueprint") {
+      await this.newBlueprint(t || "New blueprint");
     } else {
       await this.newWorkflow(t || "New workflow");
     }

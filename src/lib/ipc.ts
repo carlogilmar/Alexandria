@@ -475,6 +475,130 @@ export const saveTextFile = (path: string, content: string) =>
 export const saveBinaryFile = (path: string, bytes: number[]) =>
   invoke<void>("save_binary_file", { path, bytes });
 
+// Blueprints (Sprint 22)
+export type BlueprintNodeKind = "card" | "text" | "comment" | "title";
+
+export type Blueprint = {
+  id: number;
+  title: string;
+  pinned: boolean;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BlueprintSummary = {
+  id: number;
+  title: string;
+  pinned: boolean;
+  archived: boolean;
+  nodeCount: number;
+  updatedAt: string;
+};
+
+export type BlueprintNode = {
+  id: number;
+  blueprintId: number;
+  kind: BlueprintNodeKind;
+  title: string;
+  description: string;
+  color: string | null;
+  content: string | null;
+  x: number;
+  y: number;
+  width: number | null;
+  height: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BlueprintEdge = {
+  id: number;
+  blueprintId: number;
+  sourceId: number;
+  targetId: number;
+  sourceHandle: string | null;
+  targetHandle: string | null;
+  label: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BlueprintState = {
+  blueprint: Blueprint;
+  nodes: BlueprintNode[];
+  edges: BlueprintEdge[];
+};
+
+export const listBlueprints = () =>
+  invoke<BlueprintSummary[]>("list_blueprints");
+export const createBlueprint = (title: string) =>
+  invoke<Blueprint>("create_blueprint", { title });
+export const renameBlueprint = (id: number, title: string) =>
+  invoke<Blueprint>("rename_blueprint", { id, title });
+export const setBlueprintPinned = (id: number, pinned: boolean) =>
+  invoke<Blueprint>("set_blueprint_pinned", { id, pinned });
+export const setBlueprintArchived = (id: number, archived: boolean) =>
+  invoke<Blueprint>("set_blueprint_archived", { id, archived });
+export const deleteBlueprint = (id: number) =>
+  invoke<void>("delete_blueprint", { id });
+export const getBlueprint = (id: number) =>
+  invoke<BlueprintState>("get_blueprint", { id });
+
+export const addBlueprintCard = (
+  blueprintId: number,
+  title: string,
+  x: number,
+  y: number,
+) => invoke<BlueprintNode>("add_blueprint_card", { blueprintId, title, x, y });
+export const addBlueprintDecorative = (
+  blueprintId: number,
+  kind: "text" | "comment" | "title",
+  content: string,
+  x: number,
+  y: number,
+) =>
+  invoke<BlueprintNode>("add_blueprint_decorative", {
+    blueprintId,
+    kind,
+    content,
+    x,
+    y,
+  });
+export const updateBlueprintCard = (
+  id: number,
+  title: string | null,
+  description: string | null,
+) => invoke<BlueprintNode>("update_blueprint_card", { id, title, description });
+export const setBlueprintCardColor = (id: number, color: string | null) =>
+  invoke<BlueprintNode>("set_blueprint_card_color", { id, color });
+export const updateBlueprintNodeContent = (id: number, content: string) =>
+  invoke<BlueprintNode>("update_blueprint_node_content", { id, content });
+export const moveBlueprintNode = (id: number, x: number, y: number) =>
+  invoke<BlueprintNode>("move_blueprint_node", { id, x, y });
+export const resizeBlueprintNode = (id: number, width: number, height: number) =>
+  invoke<BlueprintNode>("resize_blueprint_node", { id, width, height });
+export const removeBlueprintNode = (id: number) =>
+  invoke<void>("remove_blueprint_node", { id });
+export const addBlueprintEdge = (
+  blueprintId: number,
+  sourceId: number,
+  targetId: number,
+  sourceHandle: string | null,
+  targetHandle: string | null,
+) =>
+  invoke<BlueprintEdge>("add_blueprint_edge", {
+    blueprintId,
+    sourceId,
+    targetId,
+    sourceHandle,
+    targetHandle,
+  });
+export const updateBlueprintEdgeLabel = (id: number, label: string | null) =>
+  invoke<BlueprintEdge>("update_blueprint_edge_label", { id, label });
+export const removeBlueprintEdge = (id: number) =>
+  invoke<void>("remove_blueprint_edge", { id });
+
 // Flashcards (Sprint 20)
 export type FlashcardCategory = {
   id: number;

@@ -1,4 +1,5 @@
 pub mod articles;
+pub mod blueprints;
 pub mod export;
 pub mod feedback;
 pub mod flashcards;

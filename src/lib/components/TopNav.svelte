@@ -17,7 +17,10 @@
     active: (v: string) => boolean;
   };
 
-  const NAV: NavItem[] = [
+  // Home + Summary are the two "hub" destinations — they render as labeled,
+  // tinted pills ahead of the icon cluster so they read as the primary entry
+  // points (Sprint 22 follow-up).
+  const PRIMARY: NavItem[] = [
     {
       key: "home",
       title: "Home",
@@ -28,15 +31,6 @@
       active: (v) => v === "home",
     },
     {
-      key: "map",
-      title: "Alexandria",
-      sc: "⌘2",
-      hue: 265,
-      d: "M3 5a2 2 0 012-2h2.5a2 2 0 011.6.8L10 5h5a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm4 4a1 1 0 100 2h6a1 1 0 100-2H7zm0 4a1 1 0 100 2h4a1 1 0 100-2H7z",
-      go: () => app.openMap(),
-      active: (v) => v === "map",
-    },
-    {
       key: "index",
       title: "Summary",
       sc: "⌘3",
@@ -44,6 +38,18 @@
       d: "M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm3 2a1 1 0 100 2h8a1 1 0 100-2H6zm0 4a1 1 0 100 2h8a1 1 0 100-2H6zm0 4a1 1 0 100 2h5a1 1 0 100-2H6z",
       go: () => app.openIndex(),
       active: (v) => v === "index",
+    },
+  ];
+
+  const NAV: NavItem[] = [
+    {
+      key: "map",
+      title: "Alexandria",
+      sc: "⌘2",
+      hue: 265,
+      d: "M3 5a2 2 0 012-2h2.5a2 2 0 011.6.8L10 5h5a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm4 4a1 1 0 100 2h6a1 1 0 100-2H7zm0 4a1 1 0 100 2h4a1 1 0 100-2H7z",
+      go: () => app.openMap(),
+      active: (v) => v === "map",
     },
     {
       key: "garden",
@@ -81,12 +87,17 @@
       go: () => app.openFlashDeck(),
       active: (v) => v === "flashdeck",
     },
+    // Blueprints deliberately has NO toolbar icon: the list lives in
+    // Summary's "Blueprints" tab, creation in the sidebar "+ Add" modal.
+    // ⌘8 and the command palette still jump to the index view.
   ];
 
   const btn =
     "relative flex h-8 w-8 items-center justify-center rounded-full transition-colors";
   const inactive =
     "text-neutral-500 hover:bg-neutral-200/70 dark:text-neutral-400 dark:hover:bg-neutral-700/60";
+
+  let isDark = $derived(theme.resolved === "dark");
 
   function swatchColor(tint: { hue: number | null; dark?: boolean }): string {
     if (tint.dark) {
@@ -120,6 +131,28 @@
     </button>
     <span class="mx-0.5 h-5 w-px bg-neutral-200/80 dark:bg-neutral-700/80"></span>
   {/if}
+
+  <!-- Hub destinations: always tinted so they stand out (icon-only). -->
+  {#each PRIMARY as item (item.key)}
+    {@const on = item.active(app.view)}
+    <button
+      type="button"
+      class="{btn} transition-colors"
+      style:background={on
+        ? `hsl(${item.hue} 70% ${isDark ? 50 : 45}%)`
+        : `hsl(${item.hue} 70% ${isDark ? 55 : 45}% / ${isDark ? 0.2 : 0.12})`}
+      style:color={on ? "white" : `hsl(${item.hue} 70% ${isDark ? 70 : 38}%)`}
+      title={`${item.title} — ${item.sc}`}
+      aria-label={item.title}
+      onclick={item.go}
+    >
+      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+        <path fill-rule="evenodd" d={item.d} clip-rule="evenodd" />
+      </svg>
+    </button>
+  {/each}
+
+  <span class="mx-0.5 h-5 w-px bg-neutral-200/80 dark:bg-neutral-700/80"></span>
 
   {#each NAV as item (item.key)}
     {@const on = item.active(app.view)}

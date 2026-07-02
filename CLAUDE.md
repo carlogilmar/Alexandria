@@ -65,6 +65,8 @@ src/
       MapEditor.svelte               # the Alexandria canvas
       MapNodeCard / MapTextNode / MapCommentNode / MapCustomNode / MapTitleNode
       AddToMapPalette.svelte         # entity drop palette on the canvas
+      BlueprintsView.svelte          # blueprints index (Sprint 22)
+      BlueprintView / BlueprintEditor / BlueprintCardNode
       FeedbackBoardsView.svelte      # kanban index
       FeedbackBoardView.svelte       # kanban columns + DnD
       FeedbackCardPanel.svelte       # card detail slide-in
@@ -85,7 +87,7 @@ src-tauri/
   src/
     commands/
       lists.rs todos.rs tags.rs notes.rs articles.rs workflows.rs
-      map.rs feedback.rs search.rs export.rs images.rs mod.rs
+      map.rs feedback.rs search.rs export.rs images.rs blueprints.rs mod.rs
     db/
       mod.rs                         # pool setup + sqlx::migrate!()
       models.rs                      # ALL serde structs (serde camelCase)
@@ -116,7 +118,8 @@ destination, add a string to the union, add a `route` case, add a
 sidebar button.
 
 Current view values: `home · list · workflow · note · index · article ·
-garden · map · feedback · feedback-board · activity · flashdeck`.
+garden · map · feedback · feedback-board · activity · flashdeck ·
+blueprints · blueprint`.
 
 UI labels diverge from internal names where renames happened — the
 internal name stays to avoid touching every callsite. The six primary
@@ -133,6 +136,7 @@ unchanged:
 | feedback | Feedback             | ⌘5       |
 | activity | Activity             | ⌘6       |
 | flashdeck| Flash Deck           | ⌘7       |
+| blueprints| Blueprints          | ⌘8 — no toolbar icon; reached via ⌘8, the palette, or Summary's tab |
 
 `TopNav.svelte` also hosts the **back** button (`app.back()`, ⌘[) —
 backed by `app.navStack`, a history stack each `select*`/`open*`/`goHome`
@@ -233,7 +237,7 @@ do I have?" and is the entry default (Sprint 11).
 
 ### Migrations
 
-Files in `src-tauri/migrations/0001_…sql` … `0016_…sql`, monotonically
+Files in `src-tauri/migrations/0001_…sql` … `0017_…sql`, monotonically
 numbered, applied at startup. To add one:
 
 1. Create `00NN_<short_name>.sql`.
@@ -266,6 +270,13 @@ numbered, applied at startup. To add one:
   defaults in `create_board`. Cards reference `column_id` and carry a
   nullable `color`. Boards have `pinned` (sidebar) + `archived`.
   `#tag`s in board/card titles render as badges (`$lib/badges.ts`).
+- `blueprints` + `blueprint_nodes` + `blueprint_edges`: the Blueprints
+  section (Sprint 22) — multiple standalone design canvases. Node `kind` is
+  `card · text · comment · title`; cards carry `title`/`description`
+  (markdown)/`color`, decoratives use `content`. No entity references, no
+  partial unique index. Edges persist `source_handle`/`target_handle`
+  (`t|r|b|l` — cards have four connection points, loose connection mode)
+  plus a `label`. Canvas mutations touch the parent's `updated_at`.
 - `flashcards` + `flashcard_categories`: the Flash Deck (Sprint 20). One global
   deck; a card has a markdown `body`, optional `image_url` (else generative art),
   `emoji` + `color` accents, optional `category_id` (ON DELETE SET NULL), and a
@@ -330,7 +341,59 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 21 (UX hardening — no new features. Added a global
+Last updated: end of Sprint 23 (Markdown upgrades. **Task checkboxes**:
+`- [ ] / - [x]` render as clickable checkboxes that persist by flipping the
+marker in the source (`addTaskLists` + `toggleTaskInSource` in
+`$lib/markdownit.ts` — renderer index and source-scan index must stay in
+sync; ArticleEditor offsets per-segment indices via `countTasksInSource` +
+`data-seg` wrappers); done tasks strike through. **Syntax highlighting**:
+highlight.js core with hand-registered languages (Elixir first), GitHub-ish
+`.hljs-*` palette in `app.css`; also fixed the per-line background strips on
+fenced code — the inline-code pill CSS now scopes to `:not(pre) > code` in
+MarkdownEditor/ArticleEditor/EmbedBlock. **Note outline**: MarkdownEditor's
+`outline` prop (passed by NoteView) shows a floating right-side h1–h3
+navigator on xl screens. See documentation/SPRINT23.md.)
+
+Sprint 22 (Blueprints — a new ⌘8 section of standalone
+design canvases for planning software. Migration `0017` (`blueprints` +
+`blueprint_nodes` + `blueprint_edges`), `commands/blueprints.rs`, full
+ipc/store wiring, views `blueprints` (index modeled on the feedback boards
+list) + `blueprint` (editor). `BlueprintEditor.svelte` copies MapEditor's
+architecture (single $effect syncing nodes+edges together, identity caches,
+$state.raw) — same subtleties apply. `BlueprintCardNode.svelte` is an HTML
+card (title-dominant, markdown description via the shared markdownit factory
+— mermaid fences deliberately not hydrated inside cards, color from
+`$lib/cardColors.ts`, NodeResizer, four handles `t|r|b|l` with
+ConnectionMode.Loose; edges persist their handle ids). The Map* decorative
+nodes (text/comment/title) are shared: they now accept optional
+`onCommitContent`/`onResizeEnd` callbacks in node `data`, defaulting to the
+map store actions. Edge labels are editable here (click an edge → floating
+input). PNG export: "Export PNG" enters a crop-rectangle mode (pre-fit to
+`getNodesBounds`, pointer-drag move/resize), rasterizes the region with
+`html-to-image` (new dep) via `getViewportForBounds` at 2× on a flat
+theme-aware background, saves through the native dialog +
+`save_binary_file`. Follow-ups in the same sprint: no TopNav icon (list
+lives in a Summary "Blueprints" tab, creation in AddEntityModal; ⌘8 + the
+palette still open the index view); edges are animated dashed lines; cards
+auto-size to their text (no default node height — a persisted NodeResizer
+height still wins) with centered titles; inline code in descriptions
+(`` `like this` ``) renders as an accent-tinted badge pill (CSS-only,
+`:not(pre) > code`); the exported PNG is composed on a canvas — flat
+theme-aware background + phase-aligned dot grid + 48px margin + rounded
+hairline border ("card style") + the blueprint title in the bottom-left
+corner. IMPORTANT export subtlety: xyflow edges are zero-sized
+`overflow: visible` SVGs that WKWebView clips inside html-to-image's
+foreignObject — so `BlueprintEditor` excludes `.svelte-flow__edges` from
+the DOM capture and rebuilds the edge layer itself (`buildEdgeLayerSvg`
+serializes the edge paths' `d` into one viewBox'd SVG with an arrow
+marker, composited under the nodes). `blueprint:id` is a first-class entity
+link (MarkdownEditor/ArticleEditor regex + navigate, EntityLinkPicker,
+IdChip — shown in Summary, the blueprints index, and the editor's top-left
+chip). TopNav renders Home + Summary as always-tinted icon "hub" buttons
+ahead of a divider (PRIMARY array in `TopNav.svelte`). Deferred: sidebar
+pinned section, an Alexandria `blueprint` map kind.)
+
+Sprint 21 (UX hardening — no new features. Added a global
 **command palette** (⌘K, `CommandPalette.svelte`) that searches every entity +
 lists all destinations & quick actions (client-side, no backend); a visible
 "Search ⌘K" pill + the current **section label** in the toolbar; sidebar search

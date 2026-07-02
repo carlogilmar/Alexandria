@@ -4,7 +4,13 @@
   import { theme } from "$lib/stores/theme.svelte";
   import { saveImageFile } from "$lib/ipc";
   import { autosize } from "$lib/autosize";
-  import { createMarkdownIt, hydrateMermaidBlocks, countWords } from "$lib/markdownit";
+  import {
+    createMarkdownIt,
+    hydrateMermaidBlocks,
+    countWords,
+    toggleTaskInSource,
+    countTasksInSource,
+  } from "$lib/markdownit";
   import EmbedBlock from "$lib/components/EmbedBlock.svelte";
   import EntityLinkPicker from "$lib/components/EntityLinkPicker.svelte";
 
@@ -133,12 +139,31 @@
     const target = e.target as HTMLElement;
     // Don't enter edit when clicking inside an embed.
     if (target.closest("aside")) return;
+    // Task checkboxes: each md segment renders with data-task restarting at
+    // 0, so map the segment-local index to a whole-document one before
+    // flipping the marker in the source.
+    if (target instanceof HTMLInputElement && target.classList.contains("md-task")) {
+      e.preventDefault();
+      const local = Number(target.dataset.task);
+      const segEl = target.closest<HTMLElement>("[data-seg]");
+      const segIdx = segEl ? Number(segEl.dataset.seg) : NaN;
+      if (!Number.isFinite(local) || !Number.isFinite(segIdx)) return;
+      let offset = 0;
+      for (let j = 0; j < segIdx; j++) {
+        const s = segments[j];
+        if (s.type === "md") offset += countTasksInSource(s.text);
+      }
+      void toggleTask(offset + local);
+      return;
+    }
     const anchor = target.closest("a");
     if (anchor) {
       e.preventDefault();
       const href = anchor.getAttribute("href");
       if (!href) return;
-      const m = href.match(/^(note|list|workflow|article|flashcard):(\d+)$/);
+      const m = href.match(
+        /^(note|list|workflow|article|flashcard|blueprint):(\d+)$/,
+      );
       if (m) {
         const id = Number(m[2]);
         if (Number.isFinite(id)) navigateEntity(m[1], id);
@@ -153,6 +178,14 @@
     }
     // A plain click in the preview does nothing — editing is only via the
     // Edit button. (Link/embed clicks handled above still work.)
+  }
+
+  async function toggleTask(idx: number) {
+    // Preview implies !editing, so draft mirrors the committed value.
+    const next = toggleTaskInSource(draft, idx);
+    if (next === null) return;
+    draft = next;
+    await onCommit(next);
   }
 
   // Navigate to a linked entity, or flash if it no longer exists.
@@ -172,6 +205,9 @@
     } else if (kind === "flashcard") {
       if (app.flashcards.some((c) => c.id === id)) app.openFlashcardInDeck(id);
       else app.setFlash("That flashcard no longer exists");
+    } else if (kind === "blueprint") {
+      if (app.blueprints.some((b) => b.id === id)) app.openBlueprint(id);
+      else app.setFlash("That blueprint no longer exists");
     }
   }
 
@@ -398,7 +434,9 @@
     >
       {#each segments as seg, i (i)}
         {#if seg.type === "md"}
-          {@html md.render(seg.text)}
+          <div data-seg={i}>
+            {@html md.render(seg.text)}
+          </div>
         {:else}
           <EmbedBlock kind={seg.kind} id={seg.id} />
         {/if}
@@ -468,24 +506,48 @@
     border-left-color: rgba(255, 255, 255, 0.18);
     color: rgba(255, 255, 255, 0.6);
   }
+  /* Links render as small button-like chips — easier to spot and click than
+     underlined text (Sprint 23 follow-up). */
   .markdown-body :global(a) {
+    display: inline-block;
+    padding: 0 0.5rem;
+    border-radius: 0.375rem;
+    border: 1px solid rgba(37, 99, 235, 0.3);
+    background: rgba(37, 99, 235, 0.08);
     color: #2563eb;
-    text-decoration: underline;
-    text-decoration-thickness: 1px;
-    text-underline-offset: 2px;
+    text-decoration: none;
+    font-size: 0.9em;
+    font-weight: 500;
+    line-height: 1.5;
     cursor: pointer;
+    transition: background 120ms;
+  }
+  .markdown-body :global(a:hover) {
+    background: rgba(37, 99, 235, 0.18);
   }
   :global(html.dark) .markdown-body :global(a) {
     color: #60a5fa;
+    border-color: rgba(96, 165, 250, 0.35);
+    background: rgba(96, 165, 250, 0.12);
   }
-  .markdown-body :global(code) {
+  :global(html.dark) .markdown-body :global(a:hover) {
+    background: rgba(96, 165, 250, 0.22);
+  }
+  /* Inline code only — code inside <pre> must NOT get the pill background
+     (a multi-line block would show a highlight strip per wrapped line). */
+  .markdown-body :global(:not(pre) > code) {
     background: rgba(0, 0, 0, 0.06);
     padding: 0 0.25rem;
     border-radius: 3px;
     font-size: 0.85em;
   }
-  :global(html.dark) .markdown-body :global(code) {
+  :global(html.dark) .markdown-body :global(:not(pre) > code) {
     background: rgba(255, 255, 255, 0.08);
+  }
+  .markdown-body :global(pre > code) {
+    display: block;
+    background: transparent;
+    padding: 0;
   }
   .markdown-body :global(.mermaid-block) {
     display: flex;

@@ -156,3 +156,123 @@ html.dark .markdown-body table thead th {
 .markdown-body ul ul ul { list-style: square; }
 .markdown-body ol ol { list-style: lower-alpha; }
 .markdown-body ol ol ol { list-style: lower-roman; }
+
+/* ------------------------------------------------------------------ */
+/* Task lists (Sprint 23): - [ ] / - [x] render as interactive        */
+/* checkboxes; checked items strike through. Toggling is handled in   */
+/* the editors (MarkdownEditor / ArticleEditor) and persists to the   */
+/* markdown source.                                                   */
+/* ------------------------------------------------------------------ */
+.markdown-body li.task-list-item {
+  list-style: none;
+}
+.markdown-body li.task-list-item input.md-task {
+  margin-right: 0.45rem;
+  margin-left: -1.15rem;
+  accent-color: #2563eb;
+  cursor: pointer;
+  vertical-align: -1.5px;
+}
+.markdown-body li.task-done {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+/* ------------------------------------------------------------------ */
+/* Syntax highlighting (Sprint 23) — highlight.js token classes,      */
+/* GitHub-flavored palette, light + dark. Applied to fenced code with */
+/* a language tag (```elixir etc.), see createMarkdownIt's highlight. */
+/* ------------------------------------------------------------------ */
+.markdown-body .hljs-comment,
+.markdown-body .hljs-quote {
+  color: #6a737d;
+  font-style: italic;
+}
+.markdown-body .hljs-keyword,
+.markdown-body .hljs-selector-tag,
+.markdown-body .hljs-subst,
+.markdown-body .hljs-deletion {
+  color: #d73a49;
+}
+.markdown-body .hljs-literal,
+.markdown-body .hljs-number,
+.markdown-body .hljs-variable,
+.markdown-body .hljs-template-variable,
+.markdown-body .hljs-meta {
+  color: #005cc5;
+}
+.markdown-body .hljs-string,
+.markdown-body .hljs-doctag,
+.markdown-body .hljs-regexp,
+.markdown-body .hljs-addition {
+  color: #032f62;
+}
+.markdown-body .hljs-title,
+.markdown-body .hljs-built_in,
+.markdown-body .hljs-type,
+.markdown-body .hljs-class .hljs-title,
+.markdown-body .hljs-function .hljs-title {
+  color: #6f42c1;
+}
+.markdown-body .hljs-symbol,
+.markdown-body .hljs-bullet,
+.markdown-body .hljs-attr,
+.markdown-body .hljs-attribute,
+.markdown-body .hljs-template-tag {
+  color: #e36209;
+}
+.markdown-body .hljs-section,
+.markdown-body .hljs-name,
+.markdown-body .hljs-selector-id,
+.markdown-body .hljs-selector-class {
+  color: #22863a;
+}
+.markdown-body .hljs-emphasis {
+  font-style: italic;
+}
+.markdown-body .hljs-strong {
+  font-weight: 600;
+}
+html.dark .markdown-body .hljs-comment,
+html.dark .markdown-body .hljs-quote {
+  color: #8b949e;
+}
+html.dark .markdown-body .hljs-keyword,
+html.dark .markdown-body .hljs-selector-tag,
+html.dark .markdown-body .hljs-subst,
+html.dark .markdown-body .hljs-deletion {
+  color: #ff7b72;
+}
+html.dark .markdown-body .hljs-literal,
+html.dark .markdown-body .hljs-number,
+html.dark .markdown-body .hljs-variable,
+html.dark .markdown-body .hljs-template-variable,
+html.dark .markdown-body .hljs-meta {
+  color: #79c0ff;
+}
+html.dark .markdown-body .hljs-string,
+html.dark .markdown-body .hljs-doctag,
+html.dark .markdown-body .hljs-regexp,
+html.dark .markdown-body .hljs-addition {
+  color: #a5d6ff;
+}
+html.dark .markdown-body .hljs-title,
+html.dark .markdown-body .hljs-built_in,
+html.dark .markdown-body .hljs-type,
+html.dark .markdown-body .hljs-class .hljs-title,
+html.dark .markdown-body .hljs-function .hljs-title {
+  color: #d2a8ff;
+}
+html.dark .markdown-body .hljs-symbol,
+html.dark .markdown-body .hljs-bullet,
+html.dark .markdown-body .hljs-attr,
+html.dark .markdown-body .hljs-attribute,
+html.dark .markdown-body .hljs-template-tag {
+  color: #ffa657;
+}
+html.dark .markdown-body .hljs-section,
+html.dark .markdown-body .hljs-name,
+html.dark .markdown-body .hljs-selector-id,
+html.dark .markdown-body .hljs-selector-class {
+  color: #7ee787;
+}

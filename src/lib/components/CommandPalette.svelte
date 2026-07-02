@@ -37,6 +37,7 @@
     { key: "go-feedback", group: "Go to", label: "Feedback", sub: "Kanban boards", hint: "⌘5", run: () => app.openFeedback() },
     { key: "go-activity", group: "Go to", label: "Activity", sub: "When you've been working", hint: "⌘6", run: () => app.openActivity() },
     { key: "go-deck", group: "Go to", label: "Flash Deck", sub: "Your flashcards", hint: "⌘7", run: () => app.openFlashDeck() },
+    { key: "go-blueprints", group: "Go to", label: "Blueprints", sub: "Design canvases for planning software", hint: "⌘8", run: () => app.openBlueprints() },
   ];
 
   const actions: Item[] = [

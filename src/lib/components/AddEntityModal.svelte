@@ -1,7 +1,7 @@
 <script lang="ts">
   import { app } from "$lib/stores/app.svelte";
 
-  type Kind = "note" | "article" | "workflow" | "flashcard";
+  type Kind = "note" | "article" | "workflow" | "flashcard" | "blueprint";
   type Props = { onClose: () => void };
   let { onClose }: Props = $props();
 
@@ -19,6 +19,7 @@
     { value: "note", label: "Note", hue: 217, hint: "Daily markdown note" },
     { value: "workflow", label: "Workflow", hue: 32, hint: "Step-by-step process" },
     { value: "flashcard", label: "Flashcard", hue: 175, hint: "A card in your Flash Deck" },
+    { value: "blueprint", label: "Blueprint", hue: 200, hint: "A design canvas for planning software" },
   ];
 
   async function submit() {
