@@ -18,7 +18,7 @@
     {
       title: "Text",
       rows: [
-        { syntax: "**bold**  *italic*  ~~strike~~  `code`", does: "Basic emphasis" },
+        { syntax: "**bold**  *italic*  ~~strike~~  ++underline++  `code`", does: "Basic emphasis" },
         { syntax: "{blue|colored text}", does: "Colored text (red, orange, amber, green, teal, blue, violet, pink, gray)" },
         { syntax: "==highlight==", does: "Yellow highlighter" },
         { syntax: "## {blue|Heading}", does: "Color works inside headings too" },

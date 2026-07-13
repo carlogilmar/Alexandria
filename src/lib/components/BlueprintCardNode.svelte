@@ -317,10 +317,60 @@
   .bp-card-desc :global(p) {
     margin: 0 0 0.4em;
   }
+  /* Tailwind's preflight resets list-style to none — restore bullets and
+     numbering so markdown lists are actually visible inside cards. Markers
+     render `inside` the text flow: the description is an overflow:auto
+     scroll container, and `outside` markers hang into its left clip edge
+     (only a slice of each bullet survived). */
+  .bp-card-desc :global(ul) {
+    list-style: disc inside;
+  }
+  .bp-card-desc :global(ol) {
+    list-style: decimal inside;
+  }
+  .bp-card-desc :global(ul ul) {
+    list-style: circle inside;
+  }
   .bp-card-desc :global(ul),
   .bp-card-desc :global(ol) {
     margin: 0 0 0.4em;
-    padding-left: 1.2em;
+    padding-left: 0.2em;
+  }
+  .bp-card-desc :global(li ul),
+  .bp-card-desc :global(li ol) {
+    padding-left: 1em;
+    margin-bottom: 0;
+  }
+  .bp-card-desc :global(li) {
+    margin: 0.1em 0;
+  }
+  /* Tables: fill the card's width, everything centered, always on a WHITE
+     surface — readable whatever the card's tint, in light or dark mode.
+     Cell text is forced dark to stay legible on white even when the card's
+     own text is light (dark mode). */
+  .bp-card-desc :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.4em 0;
+    font-size: 11px;
+    background: #ffffff;
+  }
+  .bp-card-desc :global(th),
+  .bp-card-desc :global(td) {
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    padding: 2px 6px;
+    text-align: center;
+    vertical-align: middle;
+    color: rgb(23, 23, 23);
+  }
+  .bp-card-desc :global(th) {
+    font-weight: 650;
+  }
+  .bp-card-desc :global(strong) {
+    font-weight: 700;
+  }
+  .bp-card-desc :global(u) {
+    text-underline-offset: 2px;
   }
   .bp-card-desc :global(pre) {
     margin: 0 0 0.4em;

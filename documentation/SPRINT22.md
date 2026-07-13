@@ -109,6 +109,14 @@ list's "updated" stamp is honest.
   are HTML (portaled `.svelte-flow__edge-label` divs) and survive the
   capture untouched.
 
+- **Edge deletion + group move** (follow-up): the edge popover (click an
+  edge) gained a delete button — the label input had been swallowing the
+  click/keyboard path, leaving no way to remove a connection. Group select
+  works via shift+drag (xyflow default) with `SelectionMode.Partial`;
+  `onNodeDragStop` in BOTH BlueprintEditor and MapEditor now persists every
+  dragged node (`args.nodes`), not just `targetNode` — multi-drag positions
+  used to snap back on reload.
+
 ## Deferred
 
 - Sidebar pinned section for blueprints.

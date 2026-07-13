@@ -3,7 +3,7 @@
     Background,
     ConnectionMode,
     Controls,
-    MarkerType,
+    SelectionMode,
     MiniMap,
     SvelteFlow,
     getNodesBounds,
@@ -104,10 +104,10 @@
       sourceHandle: e.sourceHandle ?? undefined,
       targetHandle: e.targetHandle ?? undefined,
       label: e.label ?? undefined,
-      // Marching dotted line — reads as "flow" on a design canvas.
+      // Marching dotted line — reads as "flow" on a design canvas. No arrow
+      // heads: the motion already conveys direction.
       animated: true,
       style: "stroke-dasharray: 6 4;",
-      markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
     };
   }
 
@@ -185,12 +185,18 @@
   });
 
   // ----- persistence -----
-  function onNodeDragStop(args: { targetNode: Node | null }) {
-    const target = args.targetNode;
-    if (!target) return;
-    const id = Number(target.id);
-    if (!Number.isFinite(id)) return;
-    void app.moveBlueprintNode(id, target.position.x, target.position.y);
+  function onNodeDragStop(args: { targetNode: Node | null; nodes: Node[] }) {
+    // A drag can move a whole selection (shift+drag box, then drag any
+    // member) — persist every dragged node, not just the one under the
+    // cursor, or the rest snap back on reload.
+    const moved = args.nodes.length > 0 ? args.nodes : args.targetNode ? [args.targetNode] : [];
+    for (const n of moved) {
+      const id = Number(n.id);
+      if (!Number.isFinite(id)) continue;
+      const stored = app.blueprintNodes.find((s) => s.id === id);
+      if (stored && stored.x === n.position.x && stored.y === n.position.y) continue;
+      void app.moveBlueprintNode(id, n.position.x, n.position.y);
+    }
   }
 
   async function onConnect(connection: Connection) {
@@ -268,6 +274,12 @@
       e.preventDefault();
       edgeLabelEdit = null;
     }
+  }
+  async function deleteEditedEdge() {
+    if (!edgeLabelEdit) return;
+    const { id } = edgeLabelEdit;
+    edgeLabelEdit = null;
+    await app.removeBlueprintEdge(id);
   }
 
   // ----- adding nodes -----
@@ -456,16 +468,12 @@
         cs.strokeDasharray && cs.strokeDasharray !== "none"
           ? cs.strokeDasharray
           : "6 4";
-      inner += `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${width}" stroke-dasharray="${dash}" marker-end="url(#bp-export-arrow)"/>`;
+      inner += `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${width}" stroke-dasharray="${dash}"/>`;
     }
     if (!inner) return null;
     return (
       `<svg xmlns="http://www.w3.org/2000/svg" width="${outW * 2}" height="${outH * 2}" ` +
-      `viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}">` +
-      `<defs><marker id="bp-export-arrow" viewBox="-10 -10 20 20" refX="0" refY="0" ` +
-      `markerWidth="9" markerHeight="9" orient="auto-start-reverse">` +
-      `<path d="M-5,-4 L0,0 L-5,4 Z" fill="${stroke}" stroke="${stroke}" stroke-linejoin="round"/>` +
-      `</marker></defs>${inner}</svg>`
+      `viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}">${inner}</svg>`
     );
   }
 
@@ -599,6 +607,28 @@
     }
   }
 
+  // ----- presenter view -----
+  // A read-only-feeling "stage" mode for screen-sharing: authoring chrome
+  // hides, the backdrop swaps to a stage gradient, and hovering any node
+  // spotlights it (all others dim). Pure CSS off the `bp-presenting` class —
+  // no node-data changes, so the identity caches stay intact.
+  let presenting = $state(false);
+
+  let stageBg = $derived(
+    theme.resolved === "dark"
+      ? "radial-gradient(circle at 50% -10%, #1b2540 0%, #0a0e1a 65%)"
+      : "radial-gradient(circle at 50% -10%, #eef2fb 0%, #dde5f3 72%)",
+  );
+
+  function togglePresenting() {
+    presenting = !presenting;
+    if (presenting) exportMode = false;
+  }
+
+  function onWindowKey(e: KeyboardEvent) {
+    if (e.key === "Escape" && presenting) presenting = false;
+  }
+
   let colorMode = $derived<"light" | "dark">(
     theme.resolved === "dark" ? "dark" : "light",
   );
@@ -607,9 +637,13 @@
     "inline-flex items-center gap-1.5 rounded-md border border-neutral-300/70 bg-white/90 px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm backdrop-blur hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/85 dark:text-neutral-200 dark:hover:bg-neutral-800";
 </script>
 
+<svelte:window onkeydown={onWindowKey} />
+
 <div
   bind:this={svelteFlowEl}
   class="relative h-full w-full bg-neutral-50 dark:bg-neutral-950"
+  class:bp-presenting={presenting}
+  style={presenting ? `background: ${stageBg};` : ""}
   role="application"
   aria-label="Blueprint canvas"
 >
@@ -642,6 +676,7 @@
     maxZoom={1.5}
     colorMode={colorMode}
     connectionMode={ConnectionMode.Loose}
+    selectionMode={SelectionMode.Partial}
     onnodedragstop={onNodeDragStop}
     onconnect={onConnect}
     ondelete={onDelete}
@@ -666,7 +701,7 @@
   </div>
 
   <!-- Add-affordance cluster (top-right) -->
-  {#if !exportMode}
+  {#if !exportMode && !presenting}
     <div class="absolute right-4 top-4 z-20 flex items-start gap-2">
       <button
         type="button"
@@ -724,6 +759,38 @@
         </svg>
         Export PNG
       </button>
+      <span class="h-7 w-px self-center bg-neutral-200/80 dark:bg-neutral-700/80"></span>
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-md border border-violet-300/70 bg-violet-50/90 px-3 py-1.5 text-xs font-semibold text-violet-800 shadow-sm backdrop-blur hover:bg-violet-100 dark:border-violet-800/70 dark:bg-violet-950/70 dark:text-violet-200 dark:hover:bg-violet-900"
+        onclick={togglePresenting}
+        title="Enter presenter view — hover a box to spotlight it while screen-sharing"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+          <path fill-rule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2h-4v1h2a1 1 0 110 2H8a1 1 0 110-2h2v-1H6a2 2 0 01-2-2V5zm2 0v7h12V5H4z" clip-rule="evenodd"/>
+        </svg>
+        Presenter view
+      </button>
+    </div>
+  {/if}
+
+  <!-- Presenter view: minimal exit control + hover hint -->
+  {#if presenting}
+    <div class="absolute left-1/2 top-4 z-40 flex -translate-x-1/2 items-center gap-2">
+      <span class="rounded-md bg-neutral-900/75 px-3 py-1.5 text-xs text-white backdrop-blur dark:bg-neutral-100/85 dark:text-neutral-900">
+        Presenter view — hover a box to spotlight it
+      </span>
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-md border border-violet-300/70 bg-white/90 px-3 py-1.5 text-xs font-semibold text-violet-800 shadow-sm backdrop-blur hover:bg-violet-50 dark:border-violet-700/70 dark:bg-neutral-900/85 dark:text-violet-200 dark:hover:bg-neutral-800"
+        onclick={togglePresenting}
+        title="Exit presenter view (Esc)"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+        </svg>
+        Exit
+      </button>
     </div>
   {/if}
 
@@ -776,8 +843,8 @@
   <!-- Floating edge-label editor -->
   {#if edgeLabelEdit}
     <div
-      class="fixed z-50"
-      style="left: {edgeLabelEdit.x - 80}px; top: {edgeLabelEdit.y - 16}px;"
+      class="fixed z-50 flex items-center gap-1"
+      style="left: {edgeLabelEdit.x - 92}px; top: {edgeLabelEdit.y - 16}px;"
     >
       <input
         bind:this={edgeLabelInput}
@@ -787,11 +854,64 @@
         class="w-40 rounded-md border border-sky-300 bg-white px-2 py-1 text-xs shadow-lg outline-none focus:ring-2 focus:ring-sky-500/30 dark:border-sky-700 dark:bg-neutral-900 dark:text-neutral-100"
         placeholder="Edge label…"
       />
+      <button
+        type="button"
+        class="flex h-6 w-6 items-center justify-center rounded-md border border-red-300/70 bg-white text-red-500 shadow-lg transition-colors hover:bg-red-50 dark:border-red-800/70 dark:bg-neutral-900 dark:hover:bg-red-950/40"
+        title="Delete this connection"
+        aria-label="Delete this connection"
+        onmousedown={(e) => e.preventDefault()}
+        onclick={deleteEditedEdge}
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
+          <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zm-1 6a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 112 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"/>
+        </svg>
+      </button>
     </div>
   {/if}
 </div>
 
 <style>
+  /* Edge labels are absolutely-positioned divs with shrink-to-fit width —
+     near the container's coordinate edge they get squeezed and wrap/clip.
+     Force content-sized, single-line labels, styled as a small chip. */
+  :global(.svelte-flow__edge-label) {
+    width: max-content;
+    max-width: 240px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 10px;
+    font-weight: 600;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  }
+  :global(.svelte-flow.dark .svelte-flow__edge-label) {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+  }
+
+  /* ----- presenter view spotlight -----
+     Every node eases opacity/filter so dimming is smooth. The moment the
+     cursor is over ANY node (`:has(...:hover)`), all nodes dim; the hovered
+     one is exempted by the more-specific `:hover` rule and lifts with a
+     drop-shadow (which follows the card's rounded shape — unlike a box-shadow
+     on the rectangular node wrapper). No transform: xyflow owns the node's
+     inline translate and a CSS scale would fight it. */
+  :global(.bp-presenting .svelte-flow__node) {
+    transition:
+      opacity 180ms ease,
+      filter 180ms ease;
+  }
+  :global(.bp-presenting:has(.svelte-flow__node:hover) .svelte-flow__node) {
+    opacity: 0.22;
+    filter: saturate(0.8);
+  }
+  :global(.bp-presenting .svelte-flow__node:hover) {
+    opacity: 1 !important;
+    filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.3)) !important;
+    z-index: 60 !important;
+  }
+
   .bp-crop {
     position: absolute;
     border: 2px dashed rgb(14, 165, 233);

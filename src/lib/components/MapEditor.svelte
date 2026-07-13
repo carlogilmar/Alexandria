@@ -176,12 +176,18 @@
   });
 
   // ----- persistence -----
-  function onNodeDragStop(args: { targetNode: Node | null }) {
-    const target = args.targetNode;
-    if (!target) return;
-    const id = Number(target.id);
-    if (!Number.isFinite(id)) return;
-    void app.moveMapNode(id, target.position.x, target.position.y);
+  function onNodeDragStop(args: { targetNode: Node | null; nodes: Node[] }) {
+    // A drag can move a whole selection (shift+drag box, then drag any
+    // member) — persist every dragged node, not just the one under the
+    // cursor, or the rest snap back on reload.
+    const moved = args.nodes.length > 0 ? args.nodes : args.targetNode ? [args.targetNode] : [];
+    for (const n of moved) {
+      const id = Number(n.id);
+      if (!Number.isFinite(id)) continue;
+      const stored = app.mapNodes.find((s) => s.id === id);
+      if (stored && stored.x === n.position.x && stored.y === n.position.y) continue;
+      void app.moveMapNode(id, n.position.x, n.position.y);
+    }
   }
 
   async function onConnect(connection: Connection) {

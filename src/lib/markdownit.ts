@@ -95,6 +95,11 @@ export function createMarkdownIt(): MarkdownIt {
     `<mark class="md-hl">${md.utils.escapeHtml(m[1])}</mark>`,
   );
 
+  // ++underline++ → <u> (markdown has no native underline syntax).
+  addInlineWrap(md, "underline", 0x2b /* + */, /^\+\+(.+?)\+\+/, (m) =>
+    `<u>${md.utils.escapeHtml(m[1])}</u>`,
+  );
+
   // {color|text} → colored inline span. Named palette only (see app.css).
   addInlineWrap(
     md,
