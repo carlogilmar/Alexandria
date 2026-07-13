@@ -231,6 +231,7 @@ pub struct BlueprintNode {
     pub description: String,
     pub color: Option<String>,
     pub content: Option<String>,
+    pub image_url: Option<String>,
     pub x: f64,
     pub y: f64,
     pub width: Option<f64>,

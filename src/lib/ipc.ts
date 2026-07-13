@@ -504,6 +504,7 @@ export type BlueprintNode = {
   description: string;
   color: string | null;
   content: string | null;
+  imageUrl: string | null;
   x: number;
   y: number;
   width: number | null;
@@ -551,6 +552,20 @@ export const addBlueprintCard = (
   x: number,
   y: number,
 ) => invoke<BlueprintNode>("add_blueprint_card", { blueprintId, title, x, y });
+export const addBlueprintImageCard = (
+  blueprintId: number,
+  imageUrl: string,
+  x: number,
+  y: number,
+  width: number | null,
+) =>
+  invoke<BlueprintNode>("add_blueprint_image_card", {
+    blueprintId,
+    imageUrl,
+    x,
+    y,
+    width,
+  });
 export const addBlueprintDecorative = (
   blueprintId: number,
   kind: "text" | "comment" | "title",

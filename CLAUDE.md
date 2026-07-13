@@ -273,7 +273,8 @@ numbered, applied at startup. To add one:
 - `blueprints` + `blueprint_nodes` + `blueprint_edges`: the Blueprints
   section (Sprint 22) — multiple standalone design canvases. Node `kind` is
   `card · text · comment · title`; cards carry `title`/`description`
-  (markdown)/`color`, decoratives use `content`. No entity references, no
+  (markdown)/`color` and a nullable `image_url` (Sprint 24 — a pasted image
+  card, `add_image_card`), decoratives use `content`. No entity references, no
   partial unique index. Edges persist `source_handle`/`target_handle`
   (`t|r|b|l` — cards have four connection points, loose connection mode)
   plus a `label`. Canvas mutations touch the parent's `updated_at`.
@@ -341,7 +342,32 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 23 (Markdown upgrades. **Task checkboxes**:
+Last updated: end of Sprint 24 (Blueprints as a presentation & documentation
+surface — all four items scoped to the Blueprints section. **Presenter view**:
+a toolbar toggle (Esc to exit) that hides authoring chrome, swaps the backdrop
+to a theme-aware stage gradient, and spotlights whatever node the cursor is
+over (all others dim) — pure CSS via `.bp-presenting` + `:has(...:hover)`, no
+node rebuilds, `drop-shadow` not `transform:scale()` because xyflow owns the
+node's inline translate. **Icon-only toolbar**: every cluster button is now an
+icon with its name in a `title` tooltip. **Copy PNG to clipboard**:
+`composeCropPng` returns the Blob; the crop bar offers Save PNG + Copy
+(`navigator.clipboard.write`). **Paste images** (Approach A — image on a card,
+not a new node kind): migration `0018` adds nullable `blueprint_nodes.image_url`
+(additive ALTER, no CHECK rebuild); `add_image_card`/`add_blueprint_image_card`;
+`BlueprintCardNode` renders the image with an optional caption; a window-level
+`onpaste` in `BlueprintEditor` saves clipboard images via `save_image` and drops
+a card at the cursor. IMPORTANT export subtlety: asset-protocol images can taint
+html-to-image's capture — `inlineImagesForCapture` swaps each `<img>` src for a
+`data:` URI during capture and restores after. Two things need a live test:
+image clipboard copy, and PNG export/copy of a blueprint containing a pasted
+image. Plus a UX pass: Home counters are now Articles/Notes/Blueprints (Lists &
+Tasks dropped — they live in the calendar) with quick-nav cards to Summary &
+Visualization; the **sidebar shows pinned Blueprints**; **Summary** swapped its 8
+overflowing tabs for a left section rail + an "All" union view, collapsing the
+seven duplicated row blocks into one normalized `Row` + `{#snippet entityRow}`;
+and more sidebar background tints. See documentation/SPRINT24.md.)
+
+Sprint 23 (Markdown upgrades. **Task checkboxes**:
 `- [ ] / - [x]` render as clickable checkboxes that persist by flipping the
 marker in the source (`addTaskLists` + `toggleTaskInSource` in
 `$lib/markdownit.ts` — renderer index and source-scan index must stay in

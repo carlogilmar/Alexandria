@@ -10,6 +10,7 @@
     title: string;
     description: string;
     color: string | null;
+    imageUrl: string | null;
   };
   type Props = {
     id: string;
@@ -139,6 +140,17 @@
     ×
   </button>
 
+  {#if data.imageUrl}
+    <!-- Pasted image. draggable=false so the browser's native image drag
+         doesn't fight xyflow's node drag. -->
+    <img
+      class="bp-card-image"
+      src={data.imageUrl}
+      alt={data.title.trim() || "pasted image"}
+      draggable="false"
+    />
+  {/if}
+
   {#if editingTitle}
     <input
       bind:this={titleInput}
@@ -151,6 +163,7 @@
   {:else}
     <div
       class="bp-card-title"
+      class:bp-card-title-caption={data.imageUrl && !data.title.trim()}
       role="textbox"
       tabindex="0"
       onclick={startTitleEdit}
@@ -158,7 +171,7 @@
         if (e.key === "Enter") startTitleEdit(e);
       }}
     >
-      {data.title.trim() || "Untitled"}
+      {data.title.trim() || (data.imageUrl ? "Add a caption…" : "Untitled")}
     </div>
   {/if}
 
@@ -183,7 +196,7 @@
     >
       {@html descHtml}
     </div>
-  {:else}
+  {:else if !data.imageUrl}
     <div
       class="bp-card-desc bp-card-desc-empty"
       role="textbox"
@@ -265,6 +278,36 @@
     box-shadow:
       0 1px 2px rgba(0, 0, 0, 0.08),
       0 0 0 2px var(--bp-accent);
+  }
+
+  /* Pasted image fills the card width; height follows the image's aspect
+     (the card auto-sizes to it when no explicit height is persisted). After a
+     manual resize the card gains a fixed height, so cap the image to the
+     available space and letterbox it rather than overflow. */
+  .bp-card-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.04);
+  }
+  :global(html.dark) .bp-card-image {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  /* When the card holds an image, the title sits under it as a small caption
+     rather than a dominant heading. */
+  .bp-card-image + .bp-card-title,
+  .bp-card-image + .bp-card-title-edit {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .bp-card-title-caption {
+    opacity: 0.4;
+    font-style: italic;
+    font-weight: 500;
   }
 
   /* Title dominates; description is the complement. */

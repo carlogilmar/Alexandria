@@ -17,7 +17,12 @@
   import { toPng } from "html-to-image";
   import { save } from "@tauri-apps/plugin-dialog";
   import { app } from "$lib/stores/app.svelte";
-  import { saveBinaryFile, type BlueprintEdge, type BlueprintNode } from "$lib/ipc";
+  import {
+    saveBinaryFile,
+    saveImageFile,
+    type BlueprintEdge,
+    type BlueprintNode,
+  } from "$lib/ipc";
   import BlueprintCardNode from "$lib/components/BlueprintCardNode.svelte";
   import IdChip from "$lib/components/IdChip.svelte";
   import MapTextNode from "$lib/components/MapTextNode.svelte";
@@ -54,6 +59,7 @@
           title: n.title,
           description: n.description,
           color: n.color,
+          imageUrl: n.imageUrl,
         },
       };
     }
@@ -136,6 +142,7 @@
     if (ad.title !== bd.title) return false;
     if (ad.description !== bd.description) return false;
     if (ad.color !== bd.color) return false;
+    if (ad.imageUrl !== bd.imageUrl) return false;
     return true;
   }
   function sameEdge(a: Edge, b: Edge): boolean {
@@ -321,6 +328,61 @@
     await app.addBlueprintDecorative(kind, "", pos.x, pos.y);
   }
 
+  // ----- paste images onto the canvas -----
+  // Last cursor position over the canvas, so a pasted image lands where you're
+  // pointing rather than always at center.
+  let lastPointer: { x: number; y: number } | null = null;
+
+  async function onCanvasPaste(e: ClipboardEvent) {
+    if (!app.selectedBlueprint) return;
+    // Don't hijack paste while editing a node's title/description or any input.
+    const t = e.target as HTMLElement | null;
+    if (
+      t &&
+      (t.tagName === "INPUT" ||
+        t.tagName === "TEXTAREA" ||
+        t.isContentEditable)
+    ) {
+      return;
+    }
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files: File[] = [];
+    for (const item of items) {
+      if (item.kind === "file" && item.type.startsWith("image/")) {
+        const f = item.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length === 0) return;
+    e.preventDefault();
+    try {
+      const drop = lastPointer
+        ? screenToFlow(lastPointer.x, lastPointer.y)
+        : nextCascadePosition();
+      for (let i = 0; i < files.length; i++) {
+        const url = await saveImageFile(files[i]);
+        // Display width from the image's natural size, clamped to a sane
+        // range; height stays auto so the card matches the image's aspect.
+        let width = 260;
+        try {
+          const img = await loadImage(url);
+          width = Math.round(Math.min(360, Math.max(140, img.naturalWidth)));
+        } catch {
+          /* keep the default width */
+        }
+        await app.addBlueprintImageCard(
+          url,
+          drop.x + i * 24,
+          drop.y + i * 24,
+          width,
+        );
+      }
+    } catch (err) {
+      app.setFlash(`Couldn't paste image: ${err}`);
+    }
+  }
+
   // ----- PNG export (crop rectangle) -----
   let exportMode = $state(false);
   let exporting = $state(false);
@@ -440,6 +502,40 @@
     });
   }
 
+  // Pasted images render via the Tauri asset protocol (convertFileSrc). When
+  // html-to-image re-fetches them inside its clone, a cross-origin/tainted
+  // response would make the export canvas throw on toBlob. We pre-empt that:
+  // fetch each image ourselves and swap its src for an inline data: URI for
+  // the duration of the capture, then restore. Best-effort — a failed fetch
+  // just leaves the original src (html-to-image then does its own attempt).
+  async function inlineImagesForCapture(
+    root: HTMLElement,
+  ): Promise<() => void> {
+    const imgs = Array.from(root.querySelectorAll("img"));
+    const restores: Array<() => void> = [];
+    await Promise.all(
+      imgs.map(async (img) => {
+        const src = img.getAttribute("src");
+        if (!src || src.startsWith("data:")) return;
+        try {
+          const res = await fetch(src);
+          const blob = await res.blob();
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(fr.result as string);
+            fr.onerror = () => reject(new Error("read failed"));
+            fr.readAsDataURL(blob);
+          });
+          img.setAttribute("src", dataUrl);
+          restores.push(() => img.setAttribute("src", src));
+        } catch {
+          /* leave the original src in place */
+        }
+      }),
+    );
+    return () => restores.forEach((r) => r());
+  }
+
   // Edges are rendered by xyflow as zero-sized `overflow: visible` SVGs —
   // a pattern WKWebView clips when html-to-image re-renders it inside a
   // foreignObject, which silently dropped every connection from the export.
@@ -477,13 +573,15 @@
     );
   }
 
-  async function doExport() {
-    if (!svelteFlowEl || exporting) return;
+  // Renders the crop region into the composed "card style" PNG and returns
+  // the encoded blob. Shared by both Save (file dialog) and Copy (clipboard).
+  async function composeCropPng(): Promise<Blob> {
+    if (!svelteFlowEl) throw new Error("canvas not ready");
     const viewportEl = svelteFlowEl.querySelector(
       ".svelte-flow__viewport",
     ) as HTMLElement | null;
-    if (!viewportEl) return;
-    exporting = true;
+    if (!viewportEl) throw new Error("canvas not ready");
+    const restoreImgs = await inlineImagesForCapture(viewportEl);
     try {
       const rect = svelteFlowEl.getBoundingClientRect();
       const tl = screenToFlow(rect.left + crop.x, rect.top + crop.y);
@@ -591,6 +689,17 @@
         canvas.toBlob((b) => resolve(b), "image/png"),
       );
       if (!blob) throw new Error("PNG encoding failed");
+      return blob;
+    } finally {
+      restoreImgs();
+    }
+  }
+
+  async function doExport() {
+    if (exporting) return;
+    exporting = true;
+    try {
+      const blob = await composeCropPng();
       const path = await save({
         defaultPath: `${safeName(app.selectedBlueprint?.title ?? "blueprint")}.png`,
         filters: [{ name: "PNG", extensions: ["png"] }],
@@ -602,6 +711,25 @@
       exportMode = false;
     } catch (e) {
       app.setFlash(`Couldn't export PNG: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      exporting = false;
+    }
+  }
+
+  async function doCopy() {
+    if (exporting) return;
+    exporting = true;
+    try {
+      const blob = await composeCropPng();
+      // WKWebView (modern macOS) supports async clipboard image writes. The
+      // click on the Copy button is the required user gesture.
+      await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type]: blob }),
+      ]);
+      app.setFlash("PNG copied to clipboard");
+      exportMode = false;
+    } catch (e) {
+      app.setFlash(`Couldn't copy PNG: ${e instanceof Error ? e.message : e}`);
     } finally {
       exporting = false;
     }
@@ -633,11 +761,14 @@
     theme.resolved === "dark" ? "dark" : "light",
   );
 
+  // Icon-only toolbar buttons — the name lives in each button's `title`
+  // tooltip. Square padding, no label text, so the cluster stays compact as
+  // it grows.
   const addBtn =
-    "inline-flex items-center gap-1.5 rounded-md border border-neutral-300/70 bg-white/90 px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm backdrop-blur hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/85 dark:text-neutral-200 dark:hover:bg-neutral-800";
+    "inline-flex items-center justify-center rounded-md border border-neutral-300/70 bg-white/90 p-2 text-neutral-700 shadow-sm backdrop-blur hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/85 dark:text-neutral-200 dark:hover:bg-neutral-800";
 </script>
 
-<svelte:window onkeydown={onWindowKey} />
+<svelte:window onkeydown={onWindowKey} onpaste={onCanvasPaste} />
 
 <div
   bind:this={svelteFlowEl}
@@ -646,6 +777,7 @@
   style={presenting ? `background: ${stageBg};` : ""}
   role="application"
   aria-label="Blueprint canvas"
+  onpointermove={(e) => (lastPointer = { x: e.clientX, y: e.clientY })}
 >
   {#if app.blueprintLoading}
     <div class="absolute inset-0 z-10 flex items-center justify-center">
@@ -705,14 +837,13 @@
     <div class="absolute right-4 top-4 z-20 flex items-start gap-2">
       <button
         type="button"
-        class="inline-flex items-center gap-1.5 rounded-md border border-sky-300/70 bg-sky-50/90 px-3 py-1.5 text-xs font-semibold text-sky-800 shadow-sm backdrop-blur hover:bg-sky-100 dark:border-sky-800/70 dark:bg-sky-950/70 dark:text-sky-200 dark:hover:bg-sky-900"
+        class="inline-flex items-center justify-center rounded-md border border-sky-300/70 bg-sky-50/90 p-2 text-sky-800 shadow-sm backdrop-blur hover:bg-sky-100 dark:border-sky-800/70 dark:bg-sky-950/70 dark:text-sky-200 dark:hover:bg-sky-900"
         onclick={handleAddCard}
         title="Add a design card (title + description + color)"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
           <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
         </svg>
-        Card
       </button>
       <button
         type="button"
@@ -723,18 +854,16 @@
         <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
           <path d="M4 3a1 1 0 011 1v5h10V4a1 1 0 112 0v12a1 1 0 11-2 0v-5H5v5a1 1 0 11-2 0V4a1 1 0 011-1z"/>
         </svg>
-        Title
       </button>
       <button
         type="button"
-        class="inline-flex items-center gap-1.5 rounded-md border border-amber-300/70 bg-amber-50/90 px-3 py-1.5 text-xs font-medium text-amber-800 shadow-sm backdrop-blur hover:bg-amber-100 dark:border-amber-800/70 dark:bg-amber-950/70 dark:text-amber-200 dark:hover:bg-amber-900"
+        class="inline-flex items-center justify-center rounded-md border border-amber-300/70 bg-amber-50/90 p-2 text-amber-800 shadow-sm backdrop-blur hover:bg-amber-100 dark:border-amber-800/70 dark:bg-amber-950/70 dark:text-amber-200 dark:hover:bg-amber-900"
         onclick={() => handleAddDecorative("text")}
         title="Drop a yellow sticky note"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
           <path d="M4 4a2 2 0 012-2h10a2 2 0 012 2v9.586a1 1 0 01-.293.707l-3.414 3.414A1 1 0 0111.586 18H6a2 2 0 01-2-2V4zm10 11h2v-2h-2v2z" />
         </svg>
-        Text label
       </button>
       <button
         type="button"
@@ -745,31 +874,28 @@
         <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
           <path fill-rule="evenodd" d="M3 4a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-3.586l-2.707 2.707A1 1 0 017 16v-2H5a2 2 0 01-2-2V4zm4 4a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
         </svg>
-        Comment
       </button>
       <span class="h-7 w-px self-center bg-neutral-200/80 dark:bg-neutral-700/80"></span>
       <button
         type="button"
         class={addBtn}
         onclick={enterExportMode}
-        title="Export a region of the canvas as a PNG"
+        title="Export or copy a region of the canvas as a PNG"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
           <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
         </svg>
-        Export PNG
       </button>
       <span class="h-7 w-px self-center bg-neutral-200/80 dark:bg-neutral-700/80"></span>
       <button
         type="button"
-        class="inline-flex items-center gap-1.5 rounded-md border border-violet-300/70 bg-violet-50/90 px-3 py-1.5 text-xs font-semibold text-violet-800 shadow-sm backdrop-blur hover:bg-violet-100 dark:border-violet-800/70 dark:bg-violet-950/70 dark:text-violet-200 dark:hover:bg-violet-900"
+        class="inline-flex items-center justify-center rounded-md border border-violet-300/70 bg-violet-50/90 p-2 text-violet-800 shadow-sm backdrop-blur hover:bg-violet-100 dark:border-violet-800/70 dark:bg-violet-950/70 dark:text-violet-200 dark:hover:bg-violet-900"
         onclick={togglePresenting}
-        title="Enter presenter view — hover a box to spotlight it while screen-sharing"
+        title="Presenter view — hover a box to spotlight it while screen-sharing"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
           <path fill-rule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2h-4v1h2a1 1 0 110 2H8a1 1 0 110-2h2v-1H6a2 2 0 01-2-2V5zm2 0v7h12V5H4z" clip-rule="evenodd"/>
         </svg>
-        Presenter view
       </button>
     </div>
   {/if}
@@ -827,7 +953,20 @@
           disabled={exporting}
           onclick={doExport}
         >
-          {exporting ? "Exporting…" : "Export PNG"}
+          {exporting ? "Working…" : "Save PNG"}
+        </button>
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-md border border-sky-300/70 bg-white/90 px-3 py-1.5 text-xs font-semibold text-sky-700 shadow-sm backdrop-blur hover:bg-sky-50 disabled:opacity-60 dark:border-sky-700/70 dark:bg-neutral-900/85 dark:text-sky-200 dark:hover:bg-neutral-800"
+          disabled={exporting}
+          onclick={doCopy}
+          title="Copy the framed region to the clipboard"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+            <path d="M7 3a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V7.414A2 2 0 0014.414 6L12 3.586A2 2 0 0010.586 3H7z"/>
+            <path d="M3 7a2 2 0 012-2v10h8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+          </svg>
+          Copy
         </button>
         <button
           type="button"

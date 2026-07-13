@@ -3,14 +3,16 @@
   import { app, todayIso } from "$lib/stores/app.svelte";
   import type {
     ArticleSummary,
+    BlueprintSummary,
     DayStats,
     ListSummary,
     NoteSummary,
-    TodoHit,
   } from "$lib/ipc";
   import IdChip from "$lib/components/IdChip.svelte";
 
-  type Bucket = "lists" | "tasks" | "workflows" | "notes" | "articles";
+  // Home counters focus on knowledge entities (articles/notes/blueprints).
+  // Lists & tasks live in the calendar below, so they're not counted here.
+  type Bucket = "articles" | "notes" | "blueprints";
   let openBucket = $state<Bucket | null>(null);
 
   // First-run orientation. Shown until there's any content or the user dismisses
@@ -39,15 +41,15 @@
   }
 
   // Sorted views of each collection for the expanded panels.
-  let sortedLists = $derived<ListSummary[]>(
-    [...app.lists].sort((a, b) => (a.date < b.date ? 1 : -1)),
-  );
   let sortedNotes = $derived<NoteSummary[]>(
     [...app.notes].sort((a, b) => (a.date < b.date ? 1 : -1)),
   );
-  let sortedWorkflows = $derived(app.workflows);
   let sortedArticles = $derived<ArticleSummary[]>(app.articles);
-  let sortedTasks = $derived<TodoHit[]>(app.allTodos);
+  let sortedBlueprints = $derived<BlueprintSummary[]>(
+    [...app.blueprints].sort((a, b) =>
+      a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0,
+    ),
+  );
 
   // Calendar grid spans PAST_WEEKS of history plus FUTURE_WEEKS of runway,
   // so you can plan lists for upcoming days. Future cells stay clickable but
@@ -243,11 +245,9 @@
 
   <section class="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-5">
     {#each [
-      { key: "lists", label: "Lists", value: app.lists.length },
-      { key: "tasks", label: "Tasks", value: app.allTodos.length },
-      { key: "workflows", label: "Workflows", value: app.workflows.length },
-      { key: "notes", label: "Notes", value: app.notes.length },
       { key: "articles", label: "Articles", value: app.articles.length },
+      { key: "notes", label: "Notes", value: app.notes.length },
+      { key: "blueprints", label: "Blueprints", value: app.blueprints.length },
     ] as card (card.key)}
       <button
         type="button"
@@ -274,6 +274,29 @@
         </p>
       </button>
     {/each}
+
+    <!-- Quick-nav actions: jump straight to the two overview sections. -->
+    <button
+      type="button"
+      onclick={() => app.openIndex()}
+      class="flex flex-col justify-between rounded-xl border border-neutral-200 bg-white p-4 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-blue-600 dark:hover:bg-blue-950/30"
+    >
+      <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-blue-500 dark:text-blue-400">
+        <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h8a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+      </svg>
+      <p class="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">Summary</p>
+    </button>
+    <button
+      type="button"
+      onclick={() => app.openGarden()}
+      class="flex flex-col justify-between rounded-xl border border-neutral-200 bg-white p-4 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-blue-600 dark:hover:bg-blue-950/30"
+    >
+      <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-emerald-500 dark:text-emerald-400">
+        <path d="M10 3.5a2 2 0 100 4 2 2 0 000-4zM4 12a2 2 0 114 0 2 2 0 01-4 0zm8 2a2 2 0 100 4 2 2 0 000-4z"/>
+        <path fill-rule="evenodd" d="M10 6.5v3m0 0l-3.2 2.2M10 9.5l2.6 4" stroke="currentColor" stroke-width="1.2" fill="none"/>
+      </svg>
+      <p class="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">Visualization</p>
+    </button>
   </section>
 
   {#if openBucket}
@@ -282,11 +305,9 @@
     >
       <header class="mb-3 flex items-center justify-between">
         <h3 class="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-          {#if openBucket === "lists"}All lists
-          {:else if openBucket === "tasks"}All tasks
-          {:else if openBucket === "workflows"}All workflows
+          {#if openBucket === "articles"}All articles
           {:else if openBucket === "notes"}All notes
-          {:else if openBucket === "articles"}All articles
+          {:else if openBucket === "blueprints"}All blueprints
           {/if}
         </h3>
         <button
@@ -306,79 +327,50 @@
       </header>
 
       <div class="max-h-96 overflow-y-auto">
-        {#if openBucket === "lists"}
-          {#if sortedLists.length === 0}
-            <p class="text-sm text-neutral-400 dark:text-neutral-500">No lists yet.</p>
+        {#if openBucket === "articles"}
+          {#if sortedArticles.length === 0}
+            <p class="text-sm text-neutral-400 dark:text-neutral-500">No articles yet.</p>
           {:else}
             <ul class="flex flex-col gap-1">
-              {#each sortedLists as l (l.id)}
+              {#each sortedArticles as a (a.id)}
                 <li class="flex items-center gap-2">
                   <button
                     type="button"
                     class="flex flex-1 items-center justify-between rounded-md px-2 py-1.5 text-left transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                    onclick={() => app.select(l.id)}
+                    onclick={() => app.selectArticle(a.id)}
                   >
                     <span class="truncate text-sm text-neutral-800 dark:text-neutral-200">
-                      {l.title}
+                      {a.title}
                     </span>
-                    <span class="ml-3 shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">
-                      {l.date} · {l.total > 0 ? `${l.done}/${l.total}` : "empty"}
-                    </span>
+                    {#if a.pinned}
+                      <span class="ml-3 shrink-0 text-[11px] text-amber-500">pinned</span>
+                    {/if}
                   </button>
-                  <IdChip kind="list" id={l.id} />
+                  <IdChip kind="article" id={a.id} />
                 </li>
               {/each}
             </ul>
           {/if}
-        {:else if openBucket === "tasks"}
-          {#if sortedTasks.length === 0}
-            <p class="text-sm text-neutral-400 dark:text-neutral-500">No tasks yet.</p>
+        {:else if openBucket === "blueprints"}
+          {#if sortedBlueprints.length === 0}
+            <p class="text-sm text-neutral-400 dark:text-neutral-500">No blueprints yet.</p>
           {:else}
             <ul class="flex flex-col gap-1">
-              {#each sortedTasks as t (t.id)}
+              {#each sortedBlueprints as b (b.id)}
                 <li class="flex items-center gap-2">
                   <button
                     type="button"
                     class="flex flex-1 items-center justify-between rounded-md px-2 py-1.5 text-left transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                    onclick={() => app.goToHit(t)}
-                  >
-                    <span
-                      class="truncate text-sm text-neutral-800 dark:text-neutral-200"
-                      class:line-through={t.completed}
-                      class:text-neutral-400={t.completed}
-                    >
-                      {t.text}
-                    </span>
-                    <span class="ml-3 shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">
-                      {t.listDate} · {t.listTitle}
-                    </span>
-                  </button>
-                  <IdChip kind="todo" id={t.id} />
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        {:else if openBucket === "workflows"}
-          {#if sortedWorkflows.length === 0}
-            <p class="text-sm text-neutral-400 dark:text-neutral-500">No workflows yet.</p>
-          {:else}
-            <ul class="flex flex-col gap-1">
-              {#each sortedWorkflows as w (w.id)}
-                <li class="flex items-center gap-2">
-                  <button
-                    type="button"
-                    class="flex flex-1 items-center justify-between rounded-md px-2 py-1.5 text-left transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                    onclick={() => app.selectWorkflow(w.id)}
+                    onclick={() => app.openBlueprint(b.id)}
                   >
                     <span class="truncate text-sm text-neutral-800 dark:text-neutral-200">
-                      {w.title}
+                      {b.title}
                     </span>
                     <span class="ml-3 shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">
-                      {w.stepCount}
-                      {w.stepCount === 1 ? "step" : "steps"}
+                      {b.nodeCount} {b.nodeCount === 1 ? "node" : "nodes"}
                     </span>
                   </button>
-                  <IdChip kind="workflow" id={w.id} />
+                  <IdChip kind="blueprint" id={b.id} />
                 </li>
               {/each}
             </ul>
@@ -403,30 +395,6 @@
                     </span>
                   </button>
                   <IdChip kind="note" id={n.id} />
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        {:else if openBucket === "articles"}
-          {#if sortedArticles.length === 0}
-            <p class="text-sm text-neutral-400 dark:text-neutral-500">No articles yet.</p>
-          {:else}
-            <ul class="flex flex-col gap-1">
-              {#each sortedArticles as a (a.id)}
-                <li class="flex items-center gap-2">
-                  <button
-                    type="button"
-                    class="flex flex-1 items-center justify-between rounded-md px-2 py-1.5 text-left transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                    onclick={() => app.selectArticle(a.id)}
-                  >
-                    <span class="truncate text-sm text-neutral-800 dark:text-neutral-200">
-                      {a.title}
-                    </span>
-                    {#if a.pinned}
-                      <span class="ml-3 shrink-0 text-[11px] text-amber-500">pinned</span>
-                    {/if}
-                  </button>
-                  <IdChip kind="article" id={a.id} />
                 </li>
               {/each}
             </ul>

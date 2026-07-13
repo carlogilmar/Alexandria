@@ -76,6 +76,7 @@ import {
   deleteBlueprint as deleteBlueprintIpc,
   getBlueprint,
   addBlueprintCard as addBlueprintCardIpc,
+  addBlueprintImageCard as addBlueprintImageCardIpc,
   addBlueprintDecorative as addBlueprintDecorativeIpc,
   updateBlueprintCard as updateBlueprintCardIpc,
   setBlueprintCardColor as setBlueprintCardColorIpc,
@@ -995,6 +996,29 @@ class AppStore {
         title,
         x,
         y,
+      );
+      this.blueprintNodes = [...this.blueprintNodes, created];
+      return created;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+
+  async addBlueprintImageCard(
+    imageUrl: string,
+    x: number,
+    y: number,
+    width: number | null,
+  ): Promise<BlueprintNode | null> {
+    if (!this.selectedBlueprint) return null;
+    try {
+      const created = await addBlueprintImageCardIpc(
+        this.selectedBlueprint.id,
+        imageUrl,
+        x,
+        y,
+        width,
       );
       this.blueprintNodes = [...this.blueprintNodes, created];
       return created;

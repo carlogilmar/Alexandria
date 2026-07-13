@@ -5,7 +5,7 @@ use sqlx::SqlitePool;
 use tauri::State;
 
 const NODE_COLS: &str =
-    "id, blueprint_id, kind, title, description, color, content, x, y, width, height, created_at, updated_at";
+    "id, blueprint_id, kind, title, description, color, content, image_url, x, y, width, height, created_at, updated_at";
 const EDGE_COLS: &str =
     "id, blueprint_id, source_id, target_id, source_handle, target_handle, label, created_at, updated_at";
 
@@ -163,14 +163,42 @@ pub(crate) async fn add_card(
 ) -> AppResult<BlueprintNode> {
     let node = sqlx::query_as::<_, BlueprintNode>(&format!(
         "INSERT INTO blueprint_nodes
-             (blueprint_id, kind, title, description, color, content, x, y, width, height, created_at, updated_at)
-         VALUES (?1, 'card', ?2, '', NULL, NULL, ?3, ?4, NULL, NULL, datetime('now'), datetime('now'))
+             (blueprint_id, kind, title, description, color, content, image_url, x, y, width, height, created_at, updated_at)
+         VALUES (?1, 'card', ?2, '', NULL, NULL, NULL, ?3, ?4, NULL, NULL, datetime('now'), datetime('now'))
          RETURNING {NODE_COLS}"
     ))
     .bind(blueprint_id)
     .bind(title)
     .bind(x)
     .bind(y)
+    .fetch_one(pool)
+    .await?;
+    touch(pool, blueprint_id).await?;
+    Ok(node)
+}
+
+// A card whose body IS a pasted image. Title/description start empty (an
+// optional caption); `width` is the frontend's chosen display width, height
+// stays NULL so the card auto-sizes to the image's aspect.
+pub(crate) async fn add_image_card(
+    pool: &SqlitePool,
+    blueprint_id: i64,
+    image_url: &str,
+    x: f64,
+    y: f64,
+    width: Option<f64>,
+) -> AppResult<BlueprintNode> {
+    let node = sqlx::query_as::<_, BlueprintNode>(&format!(
+        "INSERT INTO blueprint_nodes
+             (blueprint_id, kind, title, description, color, content, image_url, x, y, width, height, created_at, updated_at)
+         VALUES (?1, 'card', '', '', NULL, NULL, ?2, ?3, ?4, ?5, NULL, datetime('now'), datetime('now'))
+         RETURNING {NODE_COLS}"
+    ))
+    .bind(blueprint_id)
+    .bind(image_url)
+    .bind(x)
+    .bind(y)
+    .bind(width)
     .fetch_one(pool)
     .await?;
     touch(pool, blueprint_id).await?;
@@ -446,6 +474,18 @@ pub async fn add_blueprint_card(
 }
 
 #[tauri::command]
+pub async fn add_blueprint_image_card(
+    state: State<'_, AppState>,
+    blueprint_id: i64,
+    image_url: String,
+    x: f64,
+    y: f64,
+    width: Option<f64>,
+) -> AppResult<BlueprintNode> {
+    add_image_card(&state.pool, blueprint_id, &image_url, x, y, width).await
+}
+
+#[tauri::command]
 pub async fn add_blueprint_decorative(
     state: State<'_, AppState>,
     blueprint_id: i64,
@@ -588,6 +628,22 @@ mod tests {
         assert_eq!(n3.color.as_deref(), Some("blue"));
         let n4 = move_node(&pool, n.id, 100.0, 200.0).await.unwrap();
         assert_eq!(n4.x, 100.0);
+    }
+
+    #[tokio::test]
+    async fn image_card_round_trip() {
+        let pool = test_pool().await;
+        let b = create(&pool, "bp").await.unwrap();
+        let n = add_image_card(&pool, b.id, "asset://img/1.png", 5.0, 6.0, Some(280.0))
+            .await
+            .unwrap();
+        assert_eq!(n.kind, "card");
+        assert_eq!(n.image_url.as_deref(), Some("asset://img/1.png"));
+        assert_eq!(n.width, Some(280.0));
+        assert_eq!(n.title, "");
+        // Re-read to confirm it persisted through get_state.
+        let s = get_state(&pool, b.id).await.unwrap();
+        assert_eq!(s.nodes[0].image_url.as_deref(), Some("asset://img/1.png"));
     }
 
     #[tokio::test]

@@ -25,14 +25,18 @@ export const SIDEBAR_TINTS: Tint[] = [
   { name: "blue", label: "Blue", hue: 217 },
   { name: "violet", label: "Violet", hue: 265 },
   { name: "emerald", label: "Emerald", hue: 155 },
+  { name: "teal", label: "Teal", hue: 185 },
   { name: "amber", label: "Amber", hue: 38 },
   { name: "rose", label: "Rose", hue: 350 },
+  { name: "indigo", label: "Indigo", hue: 245 },
   // Dark surfaces (light text).
   { name: "ink", label: "Ink (black)", hue: null, dark: true },
   { name: "graphite", label: "Graphite", hue: 220, dark: true },
   { name: "navy", label: "Navy", hue: 222, dark: true },
   { name: "forest", label: "Forest", hue: 155, dark: true },
   { name: "wine", label: "Wine", hue: 345, dark: true },
+  { name: "espresso", label: "Espresso", hue: 25, dark: true },
+  { name: "plum", label: "Plum", hue: 290, dark: true },
   // Animated aurora gradients (dark, light text).
   {
     name: "aurora",
@@ -98,6 +102,30 @@ export const SIDEBAR_TINTS: Tint[] = [
     base: "hsl(210 30% 12%)",
     aurora: ["#e2e8f0", "#94a3b8", "#38bdf8"],
   },
+  {
+    name: "cosmos",
+    label: "Cosmos (animated)",
+    hue: null,
+    dark: true,
+    base: "hsl(250 48% 8%)",
+    aurora: ["#6366f1", "#d946ef", "#22d3ee"],
+  },
+  {
+    name: "lagoon",
+    label: "Lagoon (animated)",
+    hue: null,
+    dark: true,
+    base: "hsl(190 55% 8%)",
+    aurora: ["#2dd4bf", "#0ea5e9", "#a3e635"],
+  },
+  {
+    name: "magma",
+    label: "Magma (animated)",
+    hue: null,
+    dark: true,
+    base: "hsl(12 50% 8%)",
+    aurora: ["#f97316", "#dc2626", "#facc15"],
+  },
   // Light aurora surfaces (dark text): pastel blobs multiply-blended over a
   // near-white base — see Sidebar.svelte's .aurora-light rules.
   {
@@ -120,6 +148,13 @@ export const SIDEBAR_TINTS: Tint[] = [
     hue: null,
     base: "hsl(330 60% 97%)",
     aurora: ["#f9a8d4", "#c4b5fd", "#fda4af"],
+  },
+  {
+    name: "citrus",
+    label: "Citrus (animated, light)",
+    hue: null,
+    base: "hsl(45 80% 97%)",
+    aurora: ["#fde047", "#fdba74", "#bef264"],
   },
 ];
 
