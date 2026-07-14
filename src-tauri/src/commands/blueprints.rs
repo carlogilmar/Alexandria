@@ -205,6 +205,33 @@ pub(crate) async fn add_image_card(
     Ok(node)
 }
 
+// A frame: a labeled rectangle drawn behind cards to group a diagram
+// (visual only). Uses `content` for its label and starts at a given size.
+pub(crate) async fn add_frame(
+    pool: &SqlitePool,
+    blueprint_id: i64,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> AppResult<BlueprintNode> {
+    let node = sqlx::query_as::<_, BlueprintNode>(&format!(
+        "INSERT INTO blueprint_nodes
+             (blueprint_id, kind, title, description, color, content, image_url, x, y, width, height, created_at, updated_at)
+         VALUES (?1, 'frame', '', '', NULL, '', NULL, ?2, ?3, ?4, ?5, datetime('now'), datetime('now'))
+         RETURNING {NODE_COLS}"
+    ))
+    .bind(blueprint_id)
+    .bind(x)
+    .bind(y)
+    .bind(width)
+    .bind(height)
+    .fetch_one(pool)
+    .await?;
+    touch(pool, blueprint_id).await?;
+    Ok(node)
+}
+
 pub(crate) async fn add_decorative(
     pool: &SqlitePool,
     blueprint_id: i64,
@@ -486,6 +513,18 @@ pub async fn add_blueprint_image_card(
 }
 
 #[tauri::command]
+pub async fn add_blueprint_frame(
+    state: State<'_, AppState>,
+    blueprint_id: i64,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> AppResult<BlueprintNode> {
+    add_frame(&state.pool, blueprint_id, x, y, width, height).await
+}
+
+#[tauri::command]
 pub async fn add_blueprint_decorative(
     state: State<'_, AppState>,
     blueprint_id: i64,
@@ -644,6 +683,19 @@ mod tests {
         // Re-read to confirm it persisted through get_state.
         let s = get_state(&pool, b.id).await.unwrap();
         assert_eq!(s.nodes[0].image_url.as_deref(), Some("asset://img/1.png"));
+    }
+
+    #[tokio::test]
+    async fn frame_round_trip() {
+        let pool = test_pool().await;
+        let b = create(&pool, "bp").await.unwrap();
+        let f = add_frame(&pool, b.id, 0.0, 0.0, 420.0, 300.0).await.unwrap();
+        assert_eq!(f.kind, "frame");
+        assert_eq!(f.width, Some(420.0));
+        assert_eq!(f.height, Some(300.0));
+        // The label lives in `content` and updates like other decoratives.
+        let f2 = update_node_content(&pool, f.id, "Auth flow").await.unwrap();
+        assert_eq!(f2.content.as_deref(), Some("Auth flow"));
     }
 
     #[tokio::test]

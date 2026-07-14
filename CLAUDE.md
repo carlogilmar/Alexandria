@@ -272,10 +272,13 @@ numbered, applied at startup. To add one:
   `#tag`s in board/card titles render as badges (`$lib/badges.ts`).
 - `blueprints` + `blueprint_nodes` + `blueprint_edges`: the Blueprints
   section (Sprint 22) — multiple standalone design canvases. Node `kind` is
-  `card · text · comment · title`; cards carry `title`/`description`
+  `card · text · comment · title · frame`; cards carry `title`/`description`
   (markdown)/`color` and a nullable `image_url` (Sprint 24 — a pasted image
-  card, `add_image_card`), decoratives use `content`. No entity references, no
-  partial unique index. Edges persist `source_handle`/`target_handle`
+  card, `add_image_card`), decoratives + `frame` use `content` (frame = its
+  label). A `frame` (Sprint 24, migration `0019` recreated the table to widen
+  the `kind` CHECK) is a labeled resizable rectangle rendered behind cards
+  (zIndex 0 vs 1) to group a diagram — visual only, doesn't own its contents.
+  No entity references, no partial unique index. Edges persist `source_handle`/`target_handle`
   (`t|r|b|l` — cards have four connection points, loose connection mode)
   plus a `label`. Canvas mutations touch the parent's `updated_at`.
 - `flashcards` + `flashcard_categories`: the Flash Deck (Sprint 20). One global

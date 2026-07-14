@@ -130,10 +130,12 @@ Feedback from daily use:
   forced white with dark text (readable on any tint, but glaring in dark
   mode). Added dark overrides — a faint light panel (`rgba(255,255,255,0.06)`,
   works on any card tint) with light text.
-- **Edge visibility** (`BlueprintEditor` CSS): xyflow's default grey edge was
-  hard to see, especially on the dark canvas. Stroke is now a stronger,
-  theme-aware slate (`#475569` light / `#cbd5e1` dark) at `stroke-width: 2`.
-  The PNG export reads the computed stroke, so exports inherit it.
+- **Edges: left at xyflow's default grey** (`animated` dashed, inline
+  `stroke-dasharray: 6 4`). Two attempts were reverted at the user's request: a
+  slate `stroke`/`stroke-width:2` override read as heavy/static, and a sky-blue
+  colour via `--xy-edge-stroke` was "weird". The user prefers the original grey
+  animated dashes, so we set NOTHING on the edge stroke now. (If visibility is
+  ever raised again, tune it without killing the marching-dash feel.)
 - **Toolbar tooltips**: shortened to concise labels — "Add node", "Add
   header", "Add text", "Add comment", "Export", "Presenter view".
 - **Presenter icon**: the old monitor-with-stand glyph rendered incompletely;
@@ -167,8 +169,38 @@ Feedback from daily use:
   flash class toggles cleanly through the identity cache). Applies to Add
   card/header/text/comment and the last pasted image.
 - **Labeled Add buttons**: with Export/Presenter gone from the top-right
-  cluster, the four Add buttons show text labels again (Card / Header / Text /
-  Comment), icon + label.
+  cluster, the Add buttons show text labels again (Card / Frame / Header /
+  Text / Comment), icon + label.
+
+## 7. Frames (same sprint)
+
+A `frame` node kind — a labeled, resizable rectangle drawn behind cards to
+group/section a diagram on big boards. **Visual only**: moving the frame does
+NOT move the cards inside (chosen over Miro-style grouping to keep it simple;
+grouping is a possible follow-up).
+
+- **Migration `0019`**: recreated `blueprint_nodes` to widen the `kind` CHECK
+  to include `frame` (SQLite can't ALTER a CHECK), preserving `image_url`, and
+  rebuilt `blueprint_edges` so its FK re-binds (the 0006/0008/0010 pattern).
+- **Backend**: `add_frame` / `add_blueprint_frame` (label in `content`, a
+  starting width/height); label edits reuse `update_blueprint_node_content`,
+  size reuses `resize_blueprint_node`. Round-trip test added.
+- **Frontend**: `BlueprintFrameNode.svelte` (dashed tinted rectangle +
+  editable top-left label + NodeResizer + remove ×). In `toFlowNode`, frames
+  are `type: bpFrame` with `zIndex: 0` while every other node is `zIndex: 1`,
+  so frames always sit behind cards regardless of creation order. A "Frame"
+  toolbar button creates one centred on the viewport and reveal-flashes it.
+- **onConnect guard**: connections are now restricted to card↔card, so loose
+  connection mode can't drop a stray edge onto a frame (or a decorative).
+- **Frame is pointer-transparent** (`.svelte-flow__node-bpFrame` →
+  `pointer-events: none`, re-enabled on label/remove/resize handles): the large
+  frame wrapper was intercepting hover/clicks meant for the cards on top (seen
+  as "can't hover nodes inside a frame" in presenter view). Now interior
+  clicks fall through to the cards (and the pane, so you can pan through a
+  frame); the frame is still renamable/removable/resizable and draggable by its
+  label.
+
+Follow-ups: drag-to-move-contents (grouping); per-frame color.
 
 ## Deferred
 

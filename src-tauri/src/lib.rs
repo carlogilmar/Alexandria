@@ -135,6 +135,7 @@ pub fn run() {
             commands::blueprints::get_blueprint,
             commands::blueprints::add_blueprint_card,
             commands::blueprints::add_blueprint_image_card,
+            commands::blueprints::add_blueprint_frame,
             commands::blueprints::add_blueprint_decorative,
             commands::blueprints::update_blueprint_card,
             commands::blueprints::set_blueprint_card_color,

@@ -476,7 +476,12 @@ export const saveBinaryFile = (path: string, bytes: number[]) =>
   invoke<void>("save_binary_file", { path, bytes });
 
 // Blueprints (Sprint 22)
-export type BlueprintNodeKind = "card" | "text" | "comment" | "title";
+export type BlueprintNodeKind =
+  | "card"
+  | "text"
+  | "comment"
+  | "title"
+  | "frame";
 
 export type Blueprint = {
   id: number;
@@ -565,6 +570,20 @@ export const addBlueprintImageCard = (
     x,
     y,
     width,
+  });
+export const addBlueprintFrame = (
+  blueprintId: number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) =>
+  invoke<BlueprintNode>("add_blueprint_frame", {
+    blueprintId,
+    x,
+    y,
+    width,
+    height,
   });
 export const addBlueprintDecorative = (
   blueprintId: number,

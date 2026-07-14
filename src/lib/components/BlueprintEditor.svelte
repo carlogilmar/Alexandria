@@ -25,6 +25,7 @@
     type BlueprintNode,
   } from "$lib/ipc";
   import BlueprintCardNode from "$lib/components/BlueprintCardNode.svelte";
+  import BlueprintFrameNode from "$lib/components/BlueprintFrameNode.svelte";
   import IdChip from "$lib/components/IdChip.svelte";
   import MapTextNode from "$lib/components/MapTextNode.svelte";
   import MapCommentNode from "$lib/components/MapCommentNode.svelte";
@@ -50,6 +51,7 @@
       return {
         id: String(n.id),
         type: "bpCard",
+        zIndex: 1,
         position: { x: n.x, y: n.y },
         width: n.width ?? 240,
         // No default height: the card auto-sizes to its text. A persisted
@@ -68,6 +70,7 @@
       return {
         id: String(n.id),
         type: "textNote",
+        zIndex: 1,
         position: { x: n.x, y: n.y },
         width: n.width ?? 220,
         height: n.height ?? 90,
@@ -83,6 +86,7 @@
       return {
         id: String(n.id),
         type: "comment",
+        zIndex: 1,
         position: { x: n.x, y: n.y },
         data: {
           mapNodeId: n.id,
@@ -91,9 +95,30 @@
         },
       };
     }
+    if (n.kind === "frame") {
+      // zIndex 0 keeps frames BEHIND every other node (which are zIndex 1),
+      // regardless of creation order, so a frame added later doesn't cover
+      // existing cards.
+      return {
+        id: String(n.id),
+        type: "bpFrame",
+        zIndex: 0,
+        position: { x: n.x, y: n.y },
+        width: n.width ?? 420,
+        height: n.height ?? 300,
+        data: {
+          nodeId: n.id,
+          content: n.content ?? "",
+          color: n.color,
+          onCommitContent: commitNodeContent,
+          onResizeEnd: persistResize,
+        },
+      };
+    }
     return {
       id: String(n.id),
       type: "title",
+      zIndex: 1,
       position: { x: n.x, y: n.y },
       data: {
         mapNodeId: n.id,
@@ -120,6 +145,7 @@
 
   const nodeTypes: NodeTypes = {
     bpCard: BlueprintCardNode as unknown as NodeTypes[string],
+    bpFrame: BlueprintFrameNode as unknown as NodeTypes[string],
     textNote: MapTextNode as unknown as NodeTypes[string],
     comment: MapCommentNode as unknown as NodeTypes[string],
     title: MapTitleNode as unknown as NodeTypes[string],
@@ -216,6 +242,12 @@
     const targetId = Number(connection.target);
     if (!Number.isFinite(sourceId) || !Number.isFinite(targetId)) return;
     if (sourceId === targetId) return;
+    // Only cards connect. Loose connection mode would otherwise let a
+    // connection end on a decorative node or a frame (a big drop target) and
+    // create a stray edge.
+    const src = app.blueprintNodes.find((n) => n.id === sourceId);
+    const tgt = app.blueprintNodes.find((n) => n.id === targetId);
+    if (src?.kind !== "card" || tgt?.kind !== "card") return;
     // The DB enforces UNIQUE(source, target) — skip duplicates regardless of
     // which handles were used.
     if (
@@ -358,6 +390,25 @@
   async function handleAddDecorative(kind: "text" | "comment" | "title") {
     const pos = nextCascadePosition();
     revealNode(await app.addBlueprintDecorative(kind, "", pos.x, pos.y));
+  }
+  async function handleAddFrame() {
+    if (!svelteFlowEl) return;
+    const FRAME_W = 420;
+    const FRAME_H = 300;
+    const rect = svelteFlowEl.getBoundingClientRect();
+    // Centre the frame on the current viewport (its top-left = centre - half).
+    const c = screenToFlow(
+      rect.left + rect.width / 2,
+      rect.top + rect.height / 2,
+    );
+    revealNode(
+      await app.addBlueprintFrame(
+        c.x - FRAME_W / 2,
+        c.y - FRAME_H / 2,
+        FRAME_W,
+        FRAME_H,
+      ),
+    );
   }
 
   // ----- paste images onto the canvas -----
@@ -920,6 +971,17 @@
       <button
         type="button"
         class={addBtn}
+        onclick={handleAddFrame}
+        title="Add frame — a labeled box to group a diagram"
+      >
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" class="h-4 w-4">
+          <rect x="3" y="4.5" width="14" height="11" rx="1.5" stroke-dasharray="3 2"/>
+        </svg>
+        Frame
+      </button>
+      <button
+        type="button"
+        class={addBtn}
         onclick={() => handleAddDecorative("title")}
         title="Add header"
       >
@@ -1082,16 +1144,24 @@
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
   }
 
-  /* Connections: xyflow's default grey is faint (hard to see on the dark
-     canvas). Strengthen + thicken the stroke, theme-aware. The export path
-     reads the computed stroke, so PNGs inherit this too. */
-  :global(.svelte-flow .svelte-flow__edge .svelte-flow__edge-path) {
-    stroke: #475569;
-    stroke-width: 2;
+  /* Frame nodes must NOT capture pointer events over their (large) interior,
+     or they block hovering/clicking the cards sitting on top — which showed
+     up as "can't hover the nodes inside a frame" (notably in presenter view).
+     The wrapper is pass-through; only the label, remove ×, and resize handles
+     stay interactive (so the frame is still renamable / removable / resizable,
+     and draggable by its label). Interior clicks fall through to the cards or
+     the pane (so you can also pan through a frame). */
+  :global(.svelte-flow__node-bpFrame) {
+    pointer-events: none;
   }
-  :global(.svelte-flow.dark .svelte-flow__edge .svelte-flow__edge-path) {
-    stroke: #cbd5e1;
+  :global(.svelte-flow__node-bpFrame .bp-frame-label),
+  :global(.svelte-flow__node-bpFrame .bp-frame-input),
+  :global(.svelte-flow__node-bpFrame .bp-frame-remove),
+  :global(.svelte-flow__node-bpFrame .bp-frame-resize-handle),
+  :global(.svelte-flow__node-bpFrame .bp-frame-resize-line) {
+    pointer-events: auto;
   }
+
 
   /* ----- presenter view spotlight -----
      Every node eases opacity/filter so dimming is smooth. The moment the
