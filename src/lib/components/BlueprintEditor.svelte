@@ -3,6 +3,7 @@
     Background,
     ConnectionMode,
     Controls,
+    ControlButton,
     SelectionMode,
     MiniMap,
     SvelteFlow,
@@ -143,6 +144,7 @@
     if (ad.description !== bd.description) return false;
     if (ad.color !== bd.color) return false;
     if (ad.imageUrl !== bd.imageUrl) return false;
+    if (a.class !== b.class) return false;
     return true;
   }
   function sameEdge(a: Edge, b: Edge): boolean {
@@ -159,10 +161,13 @@
   $effect(() => {
     if (!app.selectedBlueprint) return;
 
+    // Read justAddedId so this effect re-runs when a node is flashed / cleared.
+    const flashId = justAddedId;
     const nextNodes: Node[] = [];
     const seenNodeIds = new Set<string>();
     for (const n of app.blueprintNodes) {
       const candidate = toFlowNode(n);
+      if (n.id === flashId) candidate.class = "bp-flash-new";
       const cached = flowNodeCache.get(candidate.id);
       const chosen = cached && sameNode(cached, candidate) ? cached : candidate;
       flowNodeCache.set(chosen.id, chosen);
@@ -310,7 +315,11 @@
       rect.top + rect.height / 2,
     );
     const step = 36;
-    const i = cascadeIndex++;
+    // Bounded cascade: wrap the index so successive adds stay clustered near
+    // the current viewport centre instead of spiralling ever further away
+    // (which is how new nodes ended up off-screen on big boards).
+    const i = cascadeIndex;
+    cascadeIndex = (cascadeIndex + 1) % 10;
     const angle = i * 0.9;
     const radius = step + Math.sqrt(i) * step * 0.7;
     return {
@@ -319,13 +328,36 @@
     };
   }
 
+  // A freshly-added node is easy to lose on a big board. Pan the viewport to
+  // it (keeping the current zoom) and flash a brief glow so the eye lands on
+  // it. `justAddedId` drives the `.bp-flash-new` class in the sync effect.
+  let justAddedId = $state<number | null>(null);
+  let flashTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function revealNode(node: BlueprintNode | null) {
+    if (!node) return;
+    justAddedId = node.id;
+    if (flashTimer) clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => {
+      justAddedId = null;
+      flashTimer = null;
+    }, 1600);
+    // Let the store→flow sync run first, then pan. Keep the user's zoom.
+    const cx = node.x + (node.width ?? 240) / 2;
+    const cy = node.y + (node.height ?? 60) / 2;
+    queueMicrotask(() => {
+      const zoom = flow.getViewport ? flow.getViewport().zoom : 1;
+      void flow.setCenter?.(cx, cy, { zoom, duration: 450 });
+    });
+  }
+
   async function handleAddCard() {
     const pos = nextCascadePosition();
-    await app.addBlueprintCard("New card", pos.x, pos.y);
+    revealNode(await app.addBlueprintCard("New card", pos.x, pos.y));
   }
   async function handleAddDecorative(kind: "text" | "comment" | "title") {
     const pos = nextCascadePosition();
-    await app.addBlueprintDecorative(kind, "", pos.x, pos.y);
+    revealNode(await app.addBlueprintDecorative(kind, "", pos.x, pos.y));
   }
 
   // ----- paste images onto the canvas -----
@@ -371,12 +403,14 @@
         } catch {
           /* keep the default width */
         }
-        await app.addBlueprintImageCard(
+        const created = await app.addBlueprintImageCard(
           url,
           drop.x + i * 24,
           drop.y + i * 24,
           width,
         );
+        // Flash/centre the last pasted image so it's easy to spot.
+        if (i === files.length - 1) revealNode(created);
       }
     } catch (err) {
       app.setFlash(`Couldn't paste image: ${err}`);
@@ -761,11 +795,11 @@
     theme.resolved === "dark" ? "dark" : "light",
   );
 
-  // Icon-only toolbar buttons — the name lives in each button's `title`
-  // tooltip. Square padding, no label text, so the cluster stays compact as
-  // it grows.
+  // Labeled toolbar buttons (icon + short text). With Export/Presenter moved
+  // into the xyflow Controls, the top-right cluster is just the four Add
+  // buttons, so there's room for labels again.
   const addBtn =
-    "inline-flex items-center justify-center rounded-md border border-neutral-300/70 bg-white/90 p-2 text-neutral-700 shadow-sm backdrop-blur hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/85 dark:text-neutral-200 dark:hover:bg-neutral-800";
+    "inline-flex items-center gap-1.5 rounded-md border border-neutral-300/70 bg-white/90 px-2.5 py-1.5 text-xs font-medium text-neutral-700 shadow-sm backdrop-blur hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/85 dark:text-neutral-200 dark:hover:bg-neutral-800";
 </script>
 
 <svelte:window onkeydown={onWindowKey} onpaste={onCanvasPaste} />
@@ -778,6 +812,21 @@
   role="application"
   aria-label="Blueprint canvas"
   onpointermove={(e) => (lastPointer = { x: e.clientX, y: e.clientY })}
+  onclickcapture={(e) => {
+    // Presenter view is read-only: swallow clicks before they reach a node's
+    // click-to-edit / remove handlers. Scope this to NODE clicks only — the
+    // Exit button + hint (this wrapper) and the xyflow Controls (Export /
+    // Presenter buttons, inside `.svelte-flow` but not a node) must still
+    // receive clicks. Panning & zoom use pointer/wheel events and the
+    // spotlight is pure CSS, so both keep working.
+    if (
+      presenting &&
+      e.target instanceof Element &&
+      e.target.closest(".svelte-flow__node")
+    ) {
+      e.stopPropagation();
+    }
+  }}
 >
   {#if app.blueprintLoading}
     <div class="absolute inset-0 z-10 flex items-center justify-center">
@@ -809,14 +858,36 @@
     colorMode={colorMode}
     connectionMode={ConnectionMode.Loose}
     selectionMode={SelectionMode.Partial}
+    nodesDraggable={!presenting}
+    nodesConnectable={!presenting}
+    elementsSelectable={!presenting}
     onnodedragstop={onNodeDragStop}
     onconnect={onConnect}
     ondelete={onDelete}
-    onedgeclick={onEdgeClick}
-    deleteKey={["Backspace", "Delete"]}
+    onedgeclick={presenting ? undefined : onEdgeClick}
+    deleteKey={presenting ? [] : ["Backspace", "Delete"]}
   >
     <Background />
-    <Controls />
+    <Controls>
+      <!-- Custom control buttons appended after the default zoom/fit/lock.
+           Export + Presenter live here (not the top-right cluster) so the
+           canvas tools are together. These sit outside `.svelte-flow__node`,
+           so the presenter-mode click lock doesn't swallow them. -->
+      <ControlButton onclick={enterExportMode} title="Export / copy PNG" aria-label="Export">
+        <svg viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
+        </svg>
+      </ControlButton>
+      <ControlButton
+        onclick={togglePresenting}
+        title={presenting ? "Exit presenter view" : "Presenter view"}
+        aria-label="Presenter view"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm4.4 3.32A.7.7 0 007.3 6.9v6.2a.7.7 0 001.1.58l4.65-3.1a.7.7 0 000-1.16L8.4 6.32z" clip-rule="evenodd"/>
+        </svg>
+      </ControlButton>
+    </Controls>
     <MiniMap pannable zoomable />
   </SvelteFlow>
 
@@ -837,65 +908,47 @@
     <div class="absolute right-4 top-4 z-20 flex items-start gap-2">
       <button
         type="button"
-        class="inline-flex items-center justify-center rounded-md border border-sky-300/70 bg-sky-50/90 p-2 text-sky-800 shadow-sm backdrop-blur hover:bg-sky-100 dark:border-sky-800/70 dark:bg-sky-950/70 dark:text-sky-200 dark:hover:bg-sky-900"
+        class="inline-flex items-center gap-1.5 rounded-md border border-sky-300/70 bg-sky-50/90 px-2.5 py-1.5 text-xs font-semibold text-sky-800 shadow-sm backdrop-blur hover:bg-sky-100 dark:border-sky-800/70 dark:bg-sky-950/70 dark:text-sky-200 dark:hover:bg-sky-900"
         onclick={handleAddCard}
-        title="Add a design card (title + description + color)"
+        title="Add card"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
           <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
         </svg>
+        Card
       </button>
       <button
         type="button"
         class={addBtn}
         onclick={() => handleAddDecorative("title")}
-        title="Drop a section title"
+        title="Add header"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
           <path d="M4 3a1 1 0 011 1v5h10V4a1 1 0 112 0v12a1 1 0 11-2 0v-5H5v5a1 1 0 11-2 0V4a1 1 0 011-1z"/>
         </svg>
+        Header
       </button>
       <button
         type="button"
-        class="inline-flex items-center justify-center rounded-md border border-amber-300/70 bg-amber-50/90 p-2 text-amber-800 shadow-sm backdrop-blur hover:bg-amber-100 dark:border-amber-800/70 dark:bg-amber-950/70 dark:text-amber-200 dark:hover:bg-amber-900"
+        class="inline-flex items-center gap-1.5 rounded-md border border-amber-300/70 bg-amber-50/90 px-2.5 py-1.5 text-xs font-medium text-amber-800 shadow-sm backdrop-blur hover:bg-amber-100 dark:border-amber-800/70 dark:bg-amber-950/70 dark:text-amber-200 dark:hover:bg-amber-900"
         onclick={() => handleAddDecorative("text")}
-        title="Drop a yellow sticky note"
+        title="Add text"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
           <path d="M4 4a2 2 0 012-2h10a2 2 0 012 2v9.586a1 1 0 01-.293.707l-3.414 3.414A1 1 0 0111.586 18H6a2 2 0 01-2-2V4zm10 11h2v-2h-2v2z" />
         </svg>
+        Text
       </button>
       <button
         type="button"
         class={addBtn}
         onclick={() => handleAddDecorative("comment")}
-        title="Drop a free-form comment"
+        title="Add comment"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
           <path fill-rule="evenodd" d="M3 4a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-3.586l-2.707 2.707A1 1 0 017 16v-2H5a2 2 0 01-2-2V4zm4 4a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
         </svg>
-      </button>
-      <span class="h-7 w-px self-center bg-neutral-200/80 dark:bg-neutral-700/80"></span>
-      <button
-        type="button"
-        class={addBtn}
-        onclick={enterExportMode}
-        title="Export or copy a region of the canvas as a PNG"
-      >
-        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
-          <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
-        </svg>
-      </button>
-      <span class="h-7 w-px self-center bg-neutral-200/80 dark:bg-neutral-700/80"></span>
-      <button
-        type="button"
-        class="inline-flex items-center justify-center rounded-md border border-violet-300/70 bg-violet-50/90 p-2 text-violet-800 shadow-sm backdrop-blur hover:bg-violet-100 dark:border-violet-800/70 dark:bg-violet-950/70 dark:text-violet-200 dark:hover:bg-violet-900"
-        onclick={togglePresenting}
-        title="Presenter view — hover a box to spotlight it while screen-sharing"
-      >
-        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
-          <path fill-rule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2h-4v1h2a1 1 0 110 2H8a1 1 0 110-2h2v-1H6a2 2 0 01-2-2V5zm2 0v7h12V5H4z" clip-rule="evenodd"/>
-        </svg>
+        Comment
       </button>
     </div>
   {/if}
@@ -1029,6 +1082,17 @@
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
   }
 
+  /* Connections: xyflow's default grey is faint (hard to see on the dark
+     canvas). Strengthen + thicken the stroke, theme-aware. The export path
+     reads the computed stroke, so PNGs inherit this too. */
+  :global(.svelte-flow .svelte-flow__edge .svelte-flow__edge-path) {
+    stroke: #475569;
+    stroke-width: 2;
+  }
+  :global(.svelte-flow.dark .svelte-flow__edge .svelte-flow__edge-path) {
+    stroke: #cbd5e1;
+  }
+
   /* ----- presenter view spotlight -----
      Every node eases opacity/filter so dimming is smooth. The moment the
      cursor is over ANY node (`:has(...:hover)`), all nodes dim; the hovered
@@ -1049,6 +1113,41 @@
     opacity: 1 !important;
     filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.3)) !important;
     z-index: 60 !important;
+  }
+  /* Freshly-added node: a brief sky-blue glow so it's easy to spot on a big
+     board (paired with a pan-to in revealNode). drop-shadow follows the
+     node's rounded shape; the animation is one-shot. */
+  :global(.svelte-flow__node.bp-flash-new) {
+    animation: bp-flash 1.5s ease-out;
+    z-index: 55;
+  }
+  @keyframes -global-bp-flash {
+    0% {
+      filter: drop-shadow(0 0 0 rgba(14, 165, 233, 0));
+    }
+    15% {
+      filter: drop-shadow(0 0 12px rgba(14, 165, 233, 0.95));
+    }
+    100% {
+      filter: drop-shadow(0 0 0 rgba(14, 165, 233, 0));
+    }
+  }
+
+  /* Reveal the wrapper's stage gradient: xyflow paints its own opaque pane
+     background that otherwise hides it, so drop that to transparent while
+     presenting. */
+  :global(.bp-presenting .svelte-flow),
+  :global(.bp-presenting .svelte-flow__pane),
+  :global(.bp-presenting .svelte-flow__renderer) {
+    background: transparent !important;
+  }
+  /* Read-only feel: hide in-node ACTION buttons (remove ×, colour strip) while
+     presenting. Scoped to `-remove` buttons + the colour picker — NOT content
+     buttons like `.title-display` / `.comment-display`, which ARE the node's
+     text (hiding those made section headers disappear). */
+  :global(.bp-presenting .svelte-flow__node [class*="-remove"]),
+  :global(.bp-presenting .svelte-flow__node .bp-card-colors) {
+    display: none !important;
   }
 
   .bp-crop {

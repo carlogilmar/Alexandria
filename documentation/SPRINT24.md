@@ -122,6 +122,54 @@ A usability pass once Blueprints became a daily driver:
 
 All frontend-only; `svelte-check` clean.
 
+## 6. Blueprint polish pass (same sprint)
+
+Feedback from daily use:
+
+- **Dark-mode tables** (`BlueprintCardNode`): card description tables were
+  forced white with dark text (readable on any tint, but glaring in dark
+  mode). Added dark overrides — a faint light panel (`rgba(255,255,255,0.06)`,
+  works on any card tint) with light text.
+- **Edge visibility** (`BlueprintEditor` CSS): xyflow's default grey edge was
+  hard to see, especially on the dark canvas. Stroke is now a stronger,
+  theme-aware slate (`#475569` light / `#cbd5e1` dark) at `stroke-width: 2`.
+  The PNG export reads the computed stroke, so exports inherit it.
+- **Toolbar tooltips**: shortened to concise labels — "Add node", "Add
+  header", "Add text", "Add comment", "Export", "Presenter view".
+- **Presenter icon**: the old monitor-with-stand glyph rendered incompletely;
+  replaced with a single-path monitor-with-play icon that fills the viewBox.
+- **Presenter background now actually shows**: the stage gradient was being
+  hidden because xyflow paints its own opaque pane background over the
+  wrapper. Presenter mode now forces `.svelte-flow`/pane/renderer transparent
+  so the gradient is visible.
+- **Presenter is read-only / locked**: `nodesDraggable`, `nodesConnectable`,
+  `elementsSelectable` all off while presenting; delete key disabled; edge
+  clicks ignored; a capture-phase click handler on the wrapper swallows clicks
+  before they reach node edit/remove handlers; in-node ACTION buttons hidden
+  via CSS — scoped to `[class*="-remove"]` + the colour picker, NOT content
+  buttons like `.title-display`/`.comment-display` (hiding those made section
+  headers vanish in presenter view — fixed).
+  Add-node buttons were already hidden. Panning/zoom (pointer/wheel) and the
+  hover spotlight (pure CSS) still work.
+- **Export + Presenter moved into the xyflow Controls** (bottom-left): added as
+  `<ControlButton>` children of `<Controls>` (alongside zoom/fit/lock), and
+  removed from the top-right cluster (which is now just the four Add buttons).
+  The presenter click-lock is scoped to `.svelte-flow__node` clicks precisely
+  so it does NOT swallow the Controls buttons — that's how you toggle presenter
+  off from the same spot. (Earlier bug: the lock was scoped to the whole
+  wrapper and killed the Exit button; now fixed.)
+- **New-node reveal**: on a big board a freshly-added node was easy to lose.
+  Adds now (a) place via a *bounded* cascade (index wraps mod 10, so nodes
+  cluster near the viewport centre instead of spiralling off-screen), and
+  (b) `revealNode()` pans the viewport to the new node (keeping current zoom,
+  450ms) and flashes a one-shot sky-blue glow (`.bp-flash-new`, driven by
+  `justAddedId` in the sync effect; `sameNode` now compares `class` so the
+  flash class toggles cleanly through the identity cache). Applies to Add
+  card/header/text/comment and the last pasted image.
+- **Labeled Add buttons**: with Export/Presenter gone from the top-right
+  cluster, the four Add buttons show text labels again (Card / Header / Text /
+  Comment), icon + label.
+
 ## Deferred
 
 - Adding a title/description to an image card has no click affordance beyond

@@ -406,6 +406,16 @@
     vertical-align: middle;
     color: rgb(23, 23, 23);
   }
+  /* Dark mode: a faint light panel (works on any card tint) with light text,
+     instead of a glaring white block. */
+  :global(html.dark) .bp-card-desc :global(table) {
+    background: rgba(255, 255, 255, 0.06);
+  }
+  :global(html.dark) .bp-card-desc :global(th),
+  :global(html.dark) .bp-card-desc :global(td) {
+    border-color: rgba(255, 255, 255, 0.18);
+    color: rgb(229, 229, 229);
+  }
   .bp-card-desc :global(th) {
     font-weight: 650;
   }
