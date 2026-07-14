@@ -34,3 +34,18 @@ pub async fn save_binary_file(path: String, bytes: Vec<u8>) -> AppResult<()> {
     std::fs::write(&path, bytes)?;
     Ok(())
 }
+
+// Copy a PNG (raw bytes) to the OS clipboard. WKWebView blocks
+// navigator.clipboard.write() for images (NotAllowedError), so the blueprint
+// "Copy PNG" path routes through here. `Image::from_bytes` decodes the PNG
+// (tauri `image-png` feature) into RGBA, which the clipboard plugin needs.
+#[tauri::command]
+pub async fn copy_image_to_clipboard(app: tauri::AppHandle, bytes: Vec<u8>) -> AppResult<()> {
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+    let image = tauri::image::Image::from_bytes(&bytes)
+        .map_err(|e| AppError::Other(format!("could not decode image: {e}")))?;
+    app.clipboard()
+        .write_image(&image)
+        .map_err(|e| AppError::Other(format!("could not write to clipboard: {e}")))?;
+    Ok(())
+}

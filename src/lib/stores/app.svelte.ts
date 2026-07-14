@@ -166,6 +166,14 @@ export function todayIso(): string {
   return `${y}-${m}-${day}`;
 }
 
+const QUICK_ARTICLE_KEY = "quickArticleId";
+function readQuickArticleId(): number | null {
+  if (typeof localStorage === "undefined") return null;
+  const v = localStorage.getItem(QUICK_ARTICLE_KEY);
+  const n = v ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : null;
+}
+
 export function defaultListTitleForDate(dateIso: string): string {
   if (dateIso === todayIso()) return "ToDo's of today";
   const pretty = new Date(dateIso + "T00:00:00").toLocaleDateString(undefined, {
@@ -240,6 +248,9 @@ class AppStore {
   error = $state<string | null>(null);
   flash = $state<string | null>(null);
   helpOpen = $state(false);
+  // "+ Add" (create-entity) modal — page-level so it isn't trapped in the
+  // sidebar's `isolate` stacking context (which painted it under the view).
+  addModalOpen = $state(false);
   // Global command palette (⌘K) + in-app formatting reference.
   paletteOpen = $state(false);
   formattingHelpOpen = $state(false);
@@ -259,6 +270,9 @@ class AppStore {
 
   articles = $state<ArticleSummary[]>([]);
   selectedArticle = $state<Article | null>(null);
+  // A single "quick access" article the user designates (e.g. a references
+  // doc), openable via ⌘⇧A / a Stream Deck button. Persisted in localStorage.
+  quickArticleId = $state<number | null>(readQuickArticleId());
 
   allTodos = $state<TodoHit[]>([]);
 
@@ -634,6 +648,47 @@ class AppStore {
     this.view = "home";
     await this.refreshNotes();
     this.setFlash("Note deleted");
+  }
+
+  // ---- Quick actions (Stream Deck / ⌘⇧ shortcuts) ----
+
+  // Open today's list if one exists (never auto-creates — Sprint 11). Mirrors
+  // the sidebar's detection: today's date, not archived, lowest id wins.
+  async openTodayList() {
+    const today = todayIso();
+    const candidates = this.lists.filter(
+      (l) => l.date === today && !l.archived,
+    );
+    if (candidates.length === 0) {
+      this.setFlash("No list for today yet — ⌘N to create one");
+      return;
+    }
+    const list = candidates.reduce((a, b) => (b.id < a.id ? b : a));
+    await this.select(list.id);
+  }
+
+  // Designate / clear the single "quick access" article.
+  toggleQuickArticle(id: number) {
+    this.quickArticleId = this.quickArticleId === id ? null : id;
+    if (typeof localStorage !== "undefined") {
+      if (this.quickArticleId === null) {
+        localStorage.removeItem(QUICK_ARTICLE_KEY);
+        this.setFlash("Quick article cleared");
+      } else {
+        localStorage.setItem(QUICK_ARTICLE_KEY, String(this.quickArticleId));
+        this.setFlash("Set as quick article (⌘⇧A)");
+      }
+    }
+  }
+
+  // Open the designated quick article, if it still exists.
+  async openQuickArticle() {
+    const id = this.quickArticleId;
+    if (id === null || !this.articles.some((a) => a.id === id)) {
+      this.setFlash("No quick article set — open an article and press the ★");
+      return;
+    }
+    await this.selectArticle(id);
   }
 
   // ---- Index doc ----

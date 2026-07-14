@@ -21,6 +21,7 @@
   import {
     saveBinaryFile,
     saveImageFile,
+    copyImageToClipboard,
     type BlueprintEdge,
     type BlueprintNode,
   } from "$lib/ipc";
@@ -806,11 +807,10 @@
     exporting = true;
     try {
       const blob = await composeCropPng();
-      // WKWebView (modern macOS) supports async clipboard image writes. The
-      // click on the Copy button is the required user gesture.
-      await navigator.clipboard.write([
-        new ClipboardItem({ [blob.type]: blob }),
-      ]);
+      // Route through the native clipboard — WKWebView blocks
+      // navigator.clipboard.write() for images (NotAllowedError).
+      const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
+      await copyImageToClipboard(bytes);
       app.setFlash("PNG copied to clipboard");
       exportMode = false;
     } catch (e) {
@@ -840,6 +840,42 @@
 
   function onWindowKey(e: KeyboardEvent) {
     if (e.key === "Escape" && presenting) presenting = false;
+  }
+
+  // ----- blueprint title (rename from the top-left chip) -----
+  let editingTitle = $state(false);
+  let titleDraft = $state("");
+  let titleInputEl: HTMLInputElement | undefined = $state();
+
+  function startTitleEdit() {
+    if (!app.selectedBlueprint) return;
+    titleDraft = app.selectedBlueprint.title;
+    editingTitle = true;
+    queueMicrotask(() => {
+      titleInputEl?.focus();
+      titleInputEl?.select();
+    });
+  }
+  async function commitTitle() {
+    editingTitle = false;
+    const next = titleDraft.trim();
+    if (
+      !app.selectedBlueprint ||
+      !next ||
+      next === app.selectedBlueprint.title
+    ) {
+      return;
+    }
+    await app.renameBlueprint(app.selectedBlueprint.id, next);
+  }
+  function onTitleKey(e: KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      (e.target as HTMLInputElement).blur();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      editingTitle = false;
+    }
   }
 
   let colorMode = $derived<"light" | "dark">(
@@ -924,12 +960,28 @@
            Export + Presenter live here (not the top-right cluster) so the
            canvas tools are together. These sit outside `.svelte-flow__node`,
            so the presenter-mode click lock doesn't swallow them. -->
-      <ControlButton onclick={enterExportMode} title="Export / copy PNG" aria-label="Export">
-        <svg viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
+      <ControlButton
+        class="bp-ctrl-export"
+        color="#f59e0b"
+        colorHover="#d97706"
+        onclick={enterExportMode}
+        title="Export / copy PNG"
+        aria-label="Export"
+      >
+        <!-- Scissors — export = crop a region. Stroke-based (see CSS override
+             so the finger-holes stay open rings, not filled dots). -->
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="6" cy="6" r="3" />
+          <circle cx="6" cy="18" r="3" />
+          <line x1="20" y1="4" x2="8.12" y2="15.88" />
+          <line x1="14.47" y1="14.48" x2="20" y2="20" />
+          <line x1="8.12" y1="8.12" x2="12" y2="12" />
         </svg>
       </ControlButton>
       <ControlButton
+        class="bp-ctrl-present"
+        color="#8b5cf6"
+        colorHover="#7c3aed"
         onclick={togglePresenting}
         title={presenting ? "Exit presenter view" : "Presenter view"}
         aria-label="Presenter view"
@@ -942,11 +994,27 @@
     <MiniMap pannable zoomable />
   </SvelteFlow>
 
-  <!-- Blueprint title + copyable reference chip (top-left) -->
+  <!-- Blueprint title (click to rename) + copyable reference chip (top-left) -->
   <div class="pointer-events-none absolute left-4 top-4 z-20 flex items-center gap-2">
-    <span class="rounded-md border border-neutral-200/70 bg-white/85 px-3 py-1.5 text-xs font-semibold text-neutral-700 shadow-sm backdrop-blur dark:border-neutral-700/70 dark:bg-neutral-900/85 dark:text-neutral-200">
-      {app.selectedBlueprint?.title ?? ""}
-    </span>
+    {#if editingTitle}
+      <input
+        bind:this={titleInputEl}
+        bind:value={titleDraft}
+        onblur={commitTitle}
+        onkeydown={onTitleKey}
+        placeholder="Blueprint title"
+        class="pointer-events-auto rounded-md border border-sky-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-800 shadow-sm outline-none focus:ring-2 focus:ring-sky-500/30 dark:border-sky-700 dark:bg-neutral-900 dark:text-neutral-100"
+      />
+    {:else}
+      <button
+        type="button"
+        title="Rename blueprint"
+        onclick={startTitleEdit}
+        class="pointer-events-auto rounded-md border border-neutral-200/70 bg-white/85 px-3 py-1.5 text-xs font-semibold text-neutral-700 shadow-sm backdrop-blur transition-colors hover:bg-white dark:border-neutral-700/70 dark:bg-neutral-900/85 dark:text-neutral-200 dark:hover:bg-neutral-800"
+      >
+        {app.selectedBlueprint?.title ?? ""}
+      </button>
+    {/if}
     {#if app.selectedBlueprint}
       <span class="pointer-events-auto">
         <IdChip kind="blueprint" id={app.selectedBlueprint.id} />
@@ -1142,6 +1210,17 @@
   }
   :global(.svelte-flow.dark .svelte-flow__edge-label) {
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+  }
+
+  /* The scissors (export) control button is stroke-based; xyflow forces
+     `fill: currentColor` on control-button svgs, which would fill the finger
+     holes. Override to outline the strokes. More specific than xyflow's rule. */
+  :global(.svelte-flow__controls-button.bp-ctrl-export svg) {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   /* Frame nodes must NOT capture pointer events over their (large) interior,

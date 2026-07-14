@@ -11,6 +11,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             let path = db::default_db_path()?;
             let pool = tauri::async_runtime::block_on(db::open_pool(&path))?;
@@ -40,6 +41,7 @@ pub fn run() {
             commands::export::export_range_md,
             commands::export::save_text_file,
             commands::export::save_binary_file,
+            commands::export::copy_image_to_clipboard,
             commands::search::search_todos,
             commands::search::list_all_todos,
             commands::search::get_stats,

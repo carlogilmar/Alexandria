@@ -66,6 +66,28 @@
         <button
           type="button"
           class="rounded-md p-1.5 transition-colors"
+          class:text-yellow-500={app.quickArticleId === app.selectedArticle.id}
+          class:hover:bg-yellow-50={app.quickArticleId === app.selectedArticle.id}
+          class:dark:hover:bg-yellow-950={app.quickArticleId === app.selectedArticle.id}
+          class:text-neutral-400={app.quickArticleId !== app.selectedArticle.id}
+          class:hover:bg-neutral-200={app.quickArticleId !== app.selectedArticle.id}
+          class:dark:text-neutral-500={app.quickArticleId !== app.selectedArticle.id}
+          class:dark:hover:bg-neutral-700={app.quickArticleId !== app.selectedArticle.id}
+          aria-label="Quick article"
+          title={app.quickArticleId === app.selectedArticle.id
+            ? "Quick article (⌘⇧A) — click to clear"
+            : "Set as quick article (open with ⌘⇧A)"}
+          onclick={() =>
+            app.selectedArticle &&
+            app.toggleQuickArticle(app.selectedArticle.id)}
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+            <path d="M10 1.6l2.47 5.006 5.525.803-3.998 3.897.944 5.503L10 14.213l-4.941 2.596.944-5.503L2.005 7.41l5.525-.803L10 1.6z"/>
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="rounded-md p-1.5 transition-colors"
           class:text-amber-500={app.selectedArticle.pinned}
           class:hover:bg-amber-50={app.selectedArticle.pinned}
           class:dark:hover:bg-amber-950={app.selectedArticle.pinned}

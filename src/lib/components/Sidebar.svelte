@@ -1,13 +1,11 @@
 <script lang="ts">
   import { app, todayIso } from "$lib/stores/app.svelte";
   import { theme } from "$lib/stores/theme.svelte";
-  import AddEntityModal from "$lib/components/AddEntityModal.svelte";
   import TagBadges from "$lib/components/TagBadges.svelte";
 
   let query = $state("");
   let searchInput: HTMLInputElement | undefined = $state();
   let logoFailed = $state(false);
-  let addModalOpen = $state(false);
 
   // Git commit this bundle was built from (injected by Vite — see vite.config.js).
   const commitHash = __APP_COMMIT__;
@@ -283,7 +281,7 @@
       <button
         type="button"
         class="mb-4 flex w-full items-center justify-center gap-1.5 rounded-md bg-blue-600 px-2 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
-        onclick={() => (addModalOpen = true)}
+        onclick={() => (app.addModalOpen = true)}
       >
         <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
           <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
@@ -477,10 +475,6 @@
       {/if}
     {/if}
   </nav>
-
-  {#if addModalOpen}
-    <AddEntityModal onClose={() => (addModalOpen = false)} />
-  {/if}
 
   <div
     class="mt-2 border-t border-neutral-300/40 px-2 pt-2 text-[11px] text-neutral-400 dark:border-neutral-700/40 dark:text-neutral-500"

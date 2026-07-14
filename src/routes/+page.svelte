@@ -23,6 +23,7 @@
   import TopNav from "$lib/components/TopNav.svelte";
   import CommandPalette from "$lib/components/CommandPalette.svelte";
   import FormattingHelp from "$lib/components/FormattingHelp.svelte";
+  import AddEntityModal from "$lib/components/AddEntityModal.svelte";
 
   let sidebar: Sidebar | undefined = $state();
   let inspectorTodo = $derived(app.selectedTodo());
@@ -106,6 +107,27 @@
     } else if (e.shiftKey && (e.key === "C" || e.key === "c")) {
       e.preventDefault();
       if (app.view === "list") app.copyCurrent();
+    } else if (e.shiftKey && (e.key === "T" || e.key === "t")) {
+      // ⌘⇧T — today's list (if one exists)
+      e.preventDefault();
+      void app.openTodayList();
+    } else if (e.shiftKey && (e.key === "B" || e.key === "b")) {
+      // ⌘⇧B — new blueprint
+      e.preventDefault();
+      void app.newBlueprint("Untitled blueprint");
+    } else if (e.shiftKey && (e.key === "N" || e.key === "n")) {
+      // ⌘⇧N — new note (⌘N without shift is still new list)
+      e.preventDefault();
+      void app.newNote();
+    } else if (e.shiftKey && (e.key === "S" || e.key === "s")) {
+      // ⌘⇧S — Summary
+      e.preventDefault();
+      void app.openIndex();
+    } else if (e.shiftKey && (e.key === "A" || e.key === "a")) {
+      // ⌘⇧A — the designated quick article (references doc). NOT ⌘⇧R: that's
+      // the webview's force-reload accelerator (native, can't be prevented).
+      e.preventDefault();
+      void app.openQuickArticle();
     } else if (e.key === "1") {
       e.preventDefault();
       app.goHome(true);
@@ -218,11 +240,6 @@
     {/if}
     </div>
   </div>
-  {#if app.view === "list" && inspectorTodo}
-    {#key inspectorTodo.id}
-      <Inspector todo={inspectorTodo} />
-    {/key}
-  {/if}
 </div>
 
 {#if app.paletteOpen}
@@ -235,6 +252,16 @@
 
 {#if app.helpOpen}
   <HelpModal />
+{/if}
+
+{#if app.addModalOpen}
+  <AddEntityModal onClose={() => (app.addModalOpen = false)} />
+{/if}
+
+{#if app.view === "list" && inspectorTodo}
+  {#key inspectorTodo.id}
+    <Inspector todo={inspectorTodo} />
+  {/key}
 {/if}
 
 {#if app.flash}

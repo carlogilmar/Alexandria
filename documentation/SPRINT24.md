@@ -52,10 +52,16 @@ returns the encoded `Blob`, and two callers consume it:
 
 The crop bar now offers **Save PNG** and **Copy** side by side; both reuse
 the same crop rectangle and the same "card style" composition (flat bg + dot
-grid + margin + hairline border + title). Clipboard image writes work in
-WKWebView on current macOS; the button click is the required user gesture. On
-failure it flashes an error rather than failing silently. **Needs a live
-test** — image clipboard support is the one thing not verifiable headless.
+grid + margin + hairline border + title).
+
+**Clipboard via native, not the web API.** `navigator.clipboard.write()` for
+images throws `NotAllowedError` in WKWebView ("the request is not allowed by
+the user agent") — text works, images don't. So `doCopy` PNG-encodes the blob
+and hands the bytes to a Rust command `copy_image_to_clipboard`, which decodes
+the PNG (tauri `image-png` feature → `Image::from_bytes`) and writes it with
+the `tauri-plugin-clipboard-manager` plugin (`app.clipboard().write_image`).
+Plugin registered in `lib.rs`; `clipboard-manager:allow-write-image` added to
+capabilities. (The web-API version was the "not allowed" bug the user hit.)
 
 ## 4. Paste images onto the canvas (Approach A)
 
@@ -159,7 +165,11 @@ Feedback from daily use:
   The presenter click-lock is scoped to `.svelte-flow__node` clicks precisely
   so it does NOT swallow the Controls buttons — that's how you toggle presenter
   off from the same spot. (Earlier bug: the lock was scoped to the whole
-  wrapper and killed the Exit button; now fixed.)
+  wrapper and killed the Exit button; now fixed.) The two custom buttons are
+  colour-coded via `ControlButton`'s `color`/`colorHover` props (which set
+  xyflow's `--xy-controls-button-color-props`): Export is amber with a
+  **scissors** icon (stroke-based — a CSS override beats xyflow's
+  `fill: currentColor` so the finger-holes stay open), Presenter is violet.
 - **New-node reveal**: on a big board a freshly-added node was easy to lose.
   Adds now (a) place via a *bounded* cascade (index wraps mod 10, so nodes
   cluster near the viewport centre instead of spiralling off-screen), and
@@ -201,6 +211,80 @@ grouping is a possible follow-up).
   label.
 
 Follow-ups: drag-to-move-contents (grouping); per-frame color.
+
+## 8. Copy-code buttons (same sprint)
+
+GitHub-style "copy" button on every fenced code block, across all markdown
+surfaces (notes, articles, embeds, blueprint cards). Frontend-only, in the
+shared `$lib/markdownit.ts` factory.
+
+- The `fence` renderer wraps each non-mermaid block in
+  `<div class="md-code">` + a static copy button (clipboard + check icons).
+- A single delegated document listener (`installCodeCopy`, installed once) does
+  the copy — delegation survives the `{@html}` re-renders every surface does,
+  where a per-button Svelte handler couldn't. It reads the code from the
+  sibling `<code>`'s `textContent` (so syntax-highlight spans are stripped) and
+  `navigator.clipboard.writeText`s it. Capture phase + `stopPropagation` so the
+  click doesn't also trip a surface's click-to-edit. On success it toggles
+  `.md-copied` (clipboard→check, green) for 1.4s.
+- CSS in `app.css` (`.md-code` / `.md-copy-btn`): button top-right, revealed on
+  block hover/focus, light + dark.
+
+## 9. Quick-action shortcuts (Stream Deck) (same sprint)
+
+A cohesive **⌘⇧** cluster of global shortcuts so the user can bind Stream Deck
+buttons (which just send keystrokes). All in `+page.svelte`'s `handleKeydown`,
+alongside the existing ⌘-digit nav:
+
+- **⌘⇧T** — open today's list *if it exists* (`app.openTodayList`: mirrors the
+  sidebar's detection — today's date, not archived, lowest id; flashes "No list
+  for today yet" otherwise, never auto-creates per Sprint 11). ⌘N still creates.
+- **⌘⇧N** — new note (`newNote()`, defaults to today). ⌘N (no shift) is still
+  new list.
+- **⌘⇧B** — new blueprint (`newBlueprint("Untitled blueprint")`, creates+opens).
+- **⌘⇧S** — Summary (`openIndex`).
+- **⌘⇧A** — open the designated **quick article** (a references doc). (Was
+  ⌘⇧R, but that's the webview's native force-reload accelerator — it fires
+  before JS and can't be `preventDefault`ed, so the app just reloaded. Moved to
+  ⌘⇧A.) A single
+  `app.quickArticleId` (persisted in localStorage) is set/cleared with a **★**
+  toggle in `ArticleView`'s header; `openQuickArticle` opens it, or flashes a
+  hint if none is set / it no longer exists.
+
+Added to `HelpModal` under "Quick actions (Stream Deck friendly)".
+
+## 10. Add-modal + blueprint-title fixes (same sprint)
+
+- **Add-entity modal rendered under the view** — `AddEntityModal` was mounted
+  *inside* `Sidebar`, whose `isolate` creates a stacking context, so the
+  modal's `fixed inset-0 z-50` was trapped and the main column painted over it
+  ("weird mode"). Lifted to the page root: new `app.addModalOpen` flag (like
+  `paletteOpen`/`helpOpen`), rendered in `+page.svelte`; the sidebar "+ Add"
+  button just flips the flag.
+- **Enter creates** — the modal submitted only on ⌘Enter; now plain **Enter**
+  (from the title field or anywhere in the dialog) creates. Esc still cancels.
+- **Blueprint title is editable** — the top-left title chip in
+  `BlueprintEditor` is now a click-to-rename control (input on click → Enter/
+  blur commits via `app.renameBlueprint`, Esc cancels), matching how note /
+  article titles work.
+
+## 11. Task detail → modal + notes-style editor (same sprint)
+
+The task **Inspector** was a cramped right sidebar with a raw markdown textarea
+*and* a separate rendered preview stacked below it — hard to use. Reworked:
+
+- **Now a centered modal** (`Inspector.svelte` root is a `fixed inset-0`
+  dialog + backdrop) instead of an `<aside>`. Rendered at the page root in
+  `+page.svelte` (moved out of the flex row) so it overlays cleanly; backdrop
+  click or Esc (global handler) closes it.
+- **Description reuses `MarkdownEditor`** — the same click-to-edit component
+  notes/articles use (rendered view + Edit button → textarea → click-out
+  commits). Task descriptions now get everything that comes with it for free:
+  entity links, `{{embeds}}`-style links, ```mermaid diagrams, `- [ ]`
+  sub-checklists, syntax highlighting, the copy-code button. Wired via
+  `onCommit → app.updateSelectedNotes`.
+- Title is a prominent inline input (Enter/blur commits, Esc reverts —
+  `stopPropagation` so Esc doesn't also close the modal); tags section kept.
 
 ## Deferred
 

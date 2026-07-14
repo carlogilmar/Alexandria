@@ -31,7 +31,8 @@
     if (e.key === "Escape") {
       e.preventDefault();
       onClose();
-    } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+    } else if (e.key === "Enter" && !e.shiftKey) {
+      // Enter (from the title field or anywhere in the dialog) creates.
       e.preventDefault();
       void submit();
     }

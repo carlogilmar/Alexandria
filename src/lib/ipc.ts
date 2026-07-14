@@ -474,6 +474,10 @@ export const saveTextFile = (path: string, content: string) =>
   invoke<void>("save_text_file", { path, content });
 export const saveBinaryFile = (path: string, bytes: number[]) =>
   invoke<void>("save_binary_file", { path, bytes });
+// Copy raw PNG bytes to the OS clipboard via the native clipboard (WKWebView
+// blocks navigator.clipboard.write for images).
+export const copyImageToClipboard = (bytes: number[]) =>
+  invoke<void>("copy_image_to_clipboard", { bytes });
 
 // Blueprints (Sprint 22)
 export type BlueprintNodeKind =

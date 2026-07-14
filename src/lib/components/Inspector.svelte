@@ -1,55 +1,29 @@
 <script lang="ts">
-  import MarkdownIt from "markdown-it";
-  import { openUrl } from "@tauri-apps/plugin-opener";
   import { app } from "$lib/stores/app.svelte";
   import type { Tag, Todo } from "$lib/ipc";
   import IdChip from "$lib/components/IdChip.svelte";
+  import MarkdownEditor from "$lib/components/MarkdownEditor.svelte";
 
   type Props = { todo: Todo };
   let { todo }: Props = $props();
 
-  const md = new MarkdownIt({
-    html: false,
-    linkify: true,
-    breaks: true,
-    typographer: false,
-  });
-  // Mark every link so we can intercept clicks and force them through the
-  // OS opener (otherwise they'd try to navigate the WKWebView).
-  const defaultLinkOpen =
-    md.renderer.rules.link_open ??
-    ((tokens, idx, opts, _env, self) => self.renderToken(tokens, idx, opts));
-  md.renderer.rules.link_open = (tokens, idx, opts, env, self) => {
-    const t = tokens[idx];
-    if (t.attrIndex("target") < 0) t.attrPush(["target", "_blank"]);
-    if (t.attrIndex("rel") < 0) t.attrPush(["rel", "noopener noreferrer"]);
-    return defaultLinkOpen(tokens, idx, opts, env, self);
-  };
-
   let textDraft = $state("");
-  let notesDraft = $state("");
   let tagInput = $state("");
   let highlightIdx = $state(0);
-  let notesTextarea: HTMLTextAreaElement | undefined = $state();
   let tagListEl: HTMLUListElement | undefined = $state();
 
-  // Sync drafts from the prop. Inspector is wrapped in {#key} on the
+  // Sync the title draft from the prop. Inspector is wrapped in {#key} on the
   // parent so this effectively runs once per selected todo.
   $effect(() => {
     textDraft = todo.text;
-    notesDraft = todo.notes ?? "";
   });
-
-  let renderedNotes = $derived(notesDraft.trim() ? md.render(notesDraft) : "");
 
   let suggestions = $derived.by<Tag[]>(() => {
     const q = tagInput.trim().toLowerCase();
     if (!q) return [];
     const already = new Set(app.selectedTodoTags.map((t) => t.name));
     return app.allTags
-      .filter(
-        (t) => !already.has(t.name) && t.name.toLowerCase().includes(q),
-      )
+      .filter((t) => !already.has(t.name) && t.name.toLowerCase().includes(q))
       .slice(0, 5);
   });
 
@@ -58,6 +32,10 @@
     else if (highlightIdx >= suggestions.length)
       highlightIdx = suggestions.length - 1;
   });
+
+  function close() {
+    app.selectTodo(null);
+  }
 
   async function commitText() {
     const next = textDraft.trim();
@@ -68,9 +46,9 @@
     await app.updateSelectedText(next);
   }
 
-  async function commitNotes() {
-    if ((notesDraft ?? "") === (todo.notes ?? "")) return;
-    await app.updateSelectedNotes(notesDraft);
+  async function commitNotes(next: string) {
+    if ((next ?? "") === (todo.notes ?? "")) return;
+    await app.updateSelectedNotes(next);
   }
 
   async function commitTag(name: string) {
@@ -102,227 +80,139 @@
     } else if (e.key === "Escape") {
       if (tagInput) {
         e.preventDefault();
+        e.stopPropagation();
         tagInput = "";
-      }
-    }
-  }
-
-  function onNotesPreviewClick(e: MouseEvent) {
-    const anchor = (e.target as HTMLElement).closest("a");
-    if (anchor) {
-      e.preventDefault();
-      const href = anchor.getAttribute("href");
-      if (href && /^https?:\/\//.test(href)) {
-        openUrl(href).catch((err) => app.setFlash(`Couldn't open link: ${err}`));
       }
     }
   }
 </script>
 
-<aside
-  class="flex h-screen w-72 shrink-0 flex-col overflow-y-auto border-l border-neutral-300/40 px-4 pb-5 pt-12 dark:border-neutral-700/40"
+<!-- Task detail modal (was a right sidebar). Esc closes it via the global
+     handler in +page.svelte; backdrop click closes here. -->
+<div
+  role="dialog"
+  aria-modal="true"
+  aria-label="Task details"
+  class="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 p-4 backdrop-blur-sm dark:bg-black/50"
 >
-  <header class="mb-4 flex items-center justify-between gap-2">
-    <div class="flex items-center gap-2">
-      <h2
-        class="text-xs font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500"
-      >
-        Details
+  <button
+    type="button"
+    class="absolute inset-0 cursor-default"
+    aria-label="Close"
+    onclick={close}
+  ></button>
+
+  <div
+    class="relative flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-neutral-200/80 bg-white shadow-2xl dark:border-neutral-700/80 dark:bg-neutral-900"
+  >
+    <header
+      class="flex shrink-0 items-center gap-2 border-b border-neutral-200/60 px-5 py-3 dark:border-neutral-700/60"
+    >
+      <h2 class="text-xs font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+        Task
       </h2>
       <IdChip kind="todo" id={todo.id} />
-    </div>
-    <button
-      type="button"
-      class="rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-200/60 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-200"
-      aria-label="Close details"
-      onclick={() => app.selectTodo(null)}
-    >
-      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
-        <path
-          fill-rule="evenodd"
-          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-          clip-rule="evenodd"
-        />
-      </svg>
-    </button>
-  </header>
-
-  <div class="mb-5">
-    <label
-      class="mb-1 block text-[11px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500"
-      for="inspector-text"
-    >
-      Task
-    </label>
-    <input
-      id="inspector-text"
-      bind:value={textDraft}
-      onblur={commitText}
-      onkeydown={(e) => {
-        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-        else if (e.key === "Escape") {
-          textDraft = todo.text;
-          (e.target as HTMLInputElement).blur();
-        }
-      }}
-      class="w-full rounded-md border border-neutral-200/60 bg-white/60 px-2 py-1.5 text-sm leading-snug outline-none placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-      class:line-through={todo.completed}
-    />
-  </div>
-
-  <div class="mb-5">
-    <label
-      class="mb-1 block text-[11px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500"
-      for="inspector-notes"
-    >
-      Notes
-      <span class="ml-2 normal-case tracking-normal text-neutral-300 dark:text-neutral-600">
-        markdown · <code>- item</code> for bullets, <code>[text](url)</code> for links
-      </span>
-    </label>
-    <textarea
-      id="inspector-notes"
-      bind:this={notesTextarea}
-      bind:value={notesDraft}
-      onblur={commitNotes}
-      placeholder="Add notes…"
-      rows="5"
-      class="w-full resize-none rounded-md border border-neutral-200/60 bg-white/60 px-2 py-1.5 font-mono text-[13px] leading-snug outline-none placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-    ></textarea>
-    {#if renderedNotes}
-      <!-- markdown-it has html:false so the rendered output is safe to inject. -->
-      <div
-        class="markdown-preview mt-2 max-h-80 overflow-y-auto overflow-x-hidden rounded-md border border-neutral-200/40 bg-neutral-50/60 px-3 py-2 text-sm leading-snug text-neutral-700 dark:border-neutral-700/40 dark:bg-neutral-900/30 dark:text-neutral-200"
-        role="presentation"
-        onclick={onNotesPreviewClick}
-        onkeydown={() => {}}
-      >
-        {@html renderedNotes}
-      </div>
-    {/if}
-  </div>
-
-  <div class="relative">
-    <label
-      class="mb-1 block text-[11px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500"
-      for="inspector-tags"
-    >
-      Tags
-    </label>
-    <div class="mb-2 flex flex-wrap gap-1">
-      {#each app.selectedTodoTags as tag (tag.id)}
-        <span
-          class="inline-flex items-center gap-1 rounded-full bg-neutral-200/70 px-2 py-0.5 text-[11px] text-neutral-700 dark:bg-neutral-700/70 dark:text-neutral-200"
-        >
-          #{tag.name}
-          <button
-            type="button"
-            class="text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100"
-            aria-label="Remove tag"
-            onclick={() => app.removeTagFromSelected(tag.id)}
-          >
-            ×
-          </button>
+      {#if todo.completed}
+        <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+          done
         </span>
-      {/each}
-    </div>
-    <input
-      id="inspector-tags"
-      bind:value={tagInput}
-      onkeydown={onTagKey}
-      placeholder="Add tag and press Enter"
-      autocomplete="off"
-      class="w-full rounded-md border border-neutral-200/60 bg-white/60 px-2 py-1 text-xs outline-none placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-    />
-    {#if suggestions.length > 0}
-      <ul
-        bind:this={tagListEl}
-        class="absolute bottom-full left-0 right-0 z-10 mb-1 overflow-hidden rounded-md border border-neutral-200/80 bg-white/95 py-1 text-xs shadow-lg backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-900/95"
+      {/if}
+      <button
+        type="button"
+        class="ml-auto rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-200/60 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-200"
+        aria-label="Close details"
+        onclick={close}
       >
-        {#each suggestions as s, i (s.id)}
-          <li>
-            <button
-              type="button"
-              class="block w-full px-2 py-1 text-left text-neutral-700 dark:text-neutral-200"
-              class:bg-blue-100={highlightIdx === i}
-              class:dark:bg-blue-900={highlightIdx === i}
-              onmouseenter={() => (highlightIdx = i)}
-              onclick={() => commitTag(s.name)}
-            >
-              #{s.name}
-            </button>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </div>
-</aside>
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+    </header>
 
-<style>
-  .markdown-preview {
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-  .markdown-preview :global(pre) {
-    white-space: pre-wrap;
-    overflow-x: auto;
-    background: rgba(0, 0, 0, 0.05);
-    padding: 0.5rem;
-    border-radius: 4px;
-    font-size: 0.85em;
-    margin: 0.25rem 0;
-  }
-  :global(html.dark) .markdown-preview :global(pre) {
-    background: rgba(255, 255, 255, 0.06);
-  }
-  .markdown-preview :global(img) {
-    max-width: 100%;
-    height: auto;
-  }
-  .markdown-preview :global(table) {
-    display: block;
-    overflow-x: auto;
-    max-width: 100%;
-  }
-  .markdown-preview :global(ul) {
-    list-style: disc;
-    padding-left: 1.25rem;
-    margin: 0.25rem 0;
-  }
-  .markdown-preview :global(ol) {
-    list-style: decimal;
-    padding-left: 1.25rem;
-    margin: 0.25rem 0;
-  }
-  .markdown-preview :global(li) {
-    margin: 0.15rem 0;
-  }
-  .markdown-preview :global(p) {
-    margin: 0.25rem 0;
-  }
-  .markdown-preview :global(a) {
-    color: #2563eb;
-    text-decoration: underline;
-    text-decoration-thickness: 1px;
-    text-underline-offset: 2px;
-    cursor: pointer;
-  }
-  :global(html.dark) .markdown-preview :global(a) {
-    color: #60a5fa;
-  }
-  .markdown-preview :global(code) {
-    background: rgba(0, 0, 0, 0.06);
-    padding: 0 0.25rem;
-    border-radius: 3px;
-    font-size: 0.85em;
-  }
-  :global(html.dark) .markdown-preview :global(code) {
-    background: rgba(255, 255, 255, 0.08);
-  }
-  .markdown-preview :global(strong) {
-    font-weight: 600;
-  }
-  .markdown-preview :global(em) {
-    font-style: italic;
-  }
-</style>
+    <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+      <!-- Title -->
+      <input
+        bind:value={textDraft}
+        onblur={commitText}
+        onkeydown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          else if (e.key === "Escape") {
+            e.stopPropagation();
+            textDraft = todo.text;
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        placeholder="Task title"
+        class="w-full rounded-md border border-transparent bg-transparent px-1 py-0.5 text-lg font-semibold tracking-tight text-neutral-900 outline-none transition-colors hover:bg-neutral-100/60 focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:text-neutral-100 dark:hover:bg-neutral-800/60 dark:focus:bg-neutral-900"
+        class:line-through={todo.completed}
+      />
+
+      <!-- Description — same click-to-edit markdown editor as notes/articles. -->
+      <div class="mt-4">
+        <p class="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+          Description
+        </p>
+        {#key todo.id}
+          <MarkdownEditor
+            value={todo.notes ?? ""}
+            minHeight="9rem"
+            placeholder="Add a description — click Edit to write markdown. Links, ```mermaid diagrams and - [ ] checklists all work."
+            onCommit={commitNotes}
+          />
+        {/key}
+      </div>
+
+      <!-- Tags -->
+      <div class="relative mt-6">
+        <p class="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+          Tags
+        </p>
+        <div class="mb-2 flex flex-wrap gap-1">
+          {#each app.selectedTodoTags as tag (tag.id)}
+            <span
+              class="inline-flex items-center gap-1 rounded-full bg-neutral-200/70 px-2 py-0.5 text-[11px] text-neutral-700 dark:bg-neutral-700/70 dark:text-neutral-200"
+            >
+              #{tag.name}
+              <button
+                type="button"
+                class="text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100"
+                aria-label="Remove tag"
+                onclick={() => app.removeTagFromSelected(tag.id)}
+              >
+                ×
+              </button>
+            </span>
+          {/each}
+        </div>
+        <input
+          bind:value={tagInput}
+          onkeydown={onTagKey}
+          placeholder="Add tag and press Enter"
+          autocomplete="off"
+          class="w-full rounded-md border border-neutral-200/60 bg-white/60 px-2 py-1 text-xs outline-none placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+        />
+        {#if suggestions.length > 0}
+          <ul
+            bind:this={tagListEl}
+            class="absolute bottom-full left-0 right-0 z-10 mb-1 overflow-hidden rounded-md border border-neutral-200/80 bg-white/95 py-1 text-xs shadow-lg backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-900/95"
+          >
+            {#each suggestions as s, i (s.id)}
+              <li>
+                <button
+                  type="button"
+                  class="block w-full px-2 py-1 text-left text-neutral-700 dark:text-neutral-200"
+                  class:bg-blue-100={highlightIdx === i}
+                  class:dark:bg-blue-900={highlightIdx === i}
+                  onmouseenter={() => (highlightIdx = i)}
+                  onclick={() => commitTag(s.name)}
+                >
+                  #{s.name}
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    </div>
+  </div>
+</div>

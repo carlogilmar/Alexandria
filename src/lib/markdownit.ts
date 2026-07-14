@@ -82,7 +82,12 @@ export function createMarkdownIt(): MarkdownIt {
       const escaped = md.utils.escapeHtml(tokens[idx].content);
       return `<div class="mermaid-block" data-source="${escaped}" data-rendered="0">${escaped}</div>`;
     }
-    return defaultFence(tokens, idx, opts, env, self);
+    // Every other fenced block gets a GitHub-style copy button. The button is
+    // static HTML (no per-instance handler survives `{@html}` re-renders); a
+    // single delegated document listener — installCodeCopy — handles the click
+    // and reads the code from the sibling <code>'s textContent.
+    const rendered = defaultFence(tokens, idx, opts, env, self);
+    return `<div class="md-code">${CODE_COPY_BTN}${rendered}</div>`;
   };
 
   // `Some text` followed by a line of dashes shouldn't silently become a big
@@ -115,7 +120,54 @@ export function createMarkdownIt(): MarkdownIt {
   // GitHub-style task lists: `- [ ] todo` / `- [x] done` → checkbox items.
   addTaskLists(md);
 
+  // One delegated listener powers the copy buttons across every surface.
+  installCodeCopy();
+
   return md;
+}
+
+// The copy button injected into each non-mermaid fenced block. Two icons —
+// clipboard + check — CSS-toggled by the `.md-copied` class after a copy.
+const CODE_COPY_BTN =
+  '<button class="md-copy-btn" type="button" title="Copy code" aria-label="Copy code">' +
+  '<svg class="md-copy-i" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">' +
+  '<path d="M7 3a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V7.414A2 2 0 0014.414 6L12 3.586A2 2 0 0010.586 3H7z"/>' +
+  '<path d="M3 7a2 2 0 012-2v10h8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>' +
+  '<svg class="md-copy-check" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">' +
+  '<path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.42 0l-3.5-3.5a1 1 0 011.42-1.42l2.79 2.8 6.79-6.8a1 1 0 011.42 0z" clip-rule="evenodd"/></svg>' +
+  "</button>";
+
+// Install a single, document-wide delegated click handler for copy buttons.
+// Delegation (vs. a per-button handler) survives the `{@html}` re-renders
+// every markdown surface does. Capture phase + stopPropagation so the click
+// doesn't also trip a surface's click-to-edit.
+let codeCopyInstalled = false;
+function installCodeCopy(): void {
+  if (codeCopyInstalled || typeof document === "undefined") return;
+  codeCopyInstalled = true;
+  document.addEventListener(
+    "click",
+    (e) => {
+      const target = e.target as Element | null;
+      const btn = target?.closest?.(".md-copy-btn") as HTMLButtonElement | null;
+      if (!btn) return;
+      e.stopPropagation();
+      e.preventDefault();
+      const code = btn.closest(".md-code")?.querySelector("code");
+      const text = code?.textContent ?? "";
+      if (!text) return;
+      void navigator.clipboard.writeText(text).then(
+        () => {
+          btn.classList.add("md-copied");
+          window.setTimeout(() => btn.classList.remove("md-copied"), 1400);
+        },
+        () => {
+          /* clipboard denied — no-op */
+        },
+      );
+    },
+    true,
+  );
 }
 
 // Convert list items starting with `[ ] ` / `[x] ` into checkbox items. Each
