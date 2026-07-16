@@ -34,6 +34,7 @@
         { syntax: "- [ ] task  /  - [x] done", does: "Task checkbox — click it in the preview to toggle; done tasks strike through" },
         { syntax: "```elixir … ```", does: "Code block with syntax highlighting (elixir, js, ts, python, rust, sql, bash, json, html, css, yaml)" },
         { syntax: "```mermaid … ```", does: "Renders a diagram inline" },
+        { syntax: "```cards … ```", does: "Grid of link cards — build dashboards. See “Cards” below (or the Insert cards button)" },
         { syntax: "--- ", does: "A divider line" },
       ],
     },
@@ -43,6 +44,18 @@
         { syntax: "[label](note:5)", does: "Link to a note / article / workflow / list / flashcard / blueprint (use the link button)" },
         { syntax: "{{note:5}}  (articles only, own line)", does: "Embed a note / article / workflow / list / todo / flashcard inline" },
         { syntax: "![alt](url)  or paste an image", does: "Image (also via Insert image)" },
+      ],
+    },
+    {
+      title: "Cards (dashboards)",
+      rows: [
+        { syntax: "```cards … ```", does: "A grid of clickable tiles. One card per block, blocks separated by a --- line. Use the Insert cards button for a template." },
+        { syntax: "title: My site", does: "Card heading (the only required field)" },
+        { syntax: "desc: Short description", does: "Small description line" },
+        { syntax: "link: https://…  or  blueprint:12", does: "External URL (opens in browser) or an internal entity note/list/workflow/article/flashcard/blueprint:id (opens in-app). Omit for a non-clickable card." },
+        { syntax: "color: blue", does: "Tint: red · orange · amber · green · teal · blue · violet · pink · gray · black.  Gradients: sunset · ocean · forest · dusk · candy" },
+        { syntax: "filled: true", does: "Bold, darker saturated background with white text (solid colors only)" },
+        { syntax: "icon: 📊", does: "Any emoji, shown top-left" },
       ],
     },
   ];

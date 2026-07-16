@@ -345,7 +345,26 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 24 (Blueprints as a presentation & documentation
+Last updated: end of Sprint 26 (Slash command menu — type `/` at line-start or
+after a space in the note/article editors to open a Notion-style command popup
+AT THE CARET (Heading/list/checklist/quote/callout/code/table/diagram/cards/
+divider/link/image); filter by typing, ↑↓/Enter/Tab/Esc. `SlashMenu.svelte`
+(shared) attaches capture-phase key handlers to the textarea and positions via
+a mirror-div caret measurement; snippet commands replace the `/query`, Link/
+Image call the editors' pickers. Editor toolbars slimmed to icon-only +
+tooltips. See documentation/SPRINT26.md. Also (Sprint 25) added card `filled:
+true` (bold darker fill) + `color: black`, and fixed the card hover picking up
+the link-chip purple. — earlier: Sprint 25) Link cards — a ```cards markdown fence renders
+a responsive grid of clickable tiles (title/desc/link/color/icon per card,
+separated by `---`) for building dashboard notes/articles. `renderCards` in
+`$lib/markdownit.ts` emits the grid HTML directly; card `<a>` links reuse the
+editors' existing `onPreviewClick` anchor handling (entity nav + external open);
+styled in `app.css` under `.md-cards` (solid hue tints via a `--h` var +
+gradient presets sunset/ocean/forest/dusk/candy). "Insert cards" button in both
+editors. See documentation/SPRINT25.md. Also markdown polish: bigger h1, rounded
+tables + tinted header + row hover, better code blocks, aligned task checkboxes;
+wider note/article columns (max-w-4xl); task detail is now a modal reusing the
+notes MarkdownEditor. — earlier in this session, Sprint 24:) Blueprints as a presentation & documentation
 surface — all four items scoped to the Blueprints section. **Presenter view**:
 a toolbar toggle (Esc to exit) that hides authoring chrome, swaps the backdrop
 to a theme-aware stage gradient, and spotlights whatever node the cursor is

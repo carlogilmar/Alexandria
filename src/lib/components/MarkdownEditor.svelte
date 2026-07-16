@@ -11,6 +11,7 @@
     toggleTaskInSource,
   } from "$lib/markdownit";
   import EntityLinkPicker from "$lib/components/EntityLinkPicker.svelte";
+  import SlashMenu from "$lib/components/SlashMenu.svelte";
 
   type Props = {
     value: string;
@@ -247,8 +248,32 @@
     );
   }
 
-  function openLinkPicker(e: MouseEvent) {
-    e.preventDefault();
+  // Slash-menu edit: replace the whole draft + place the caret (the menu
+  // strips the "/query" and inserts the chosen snippet).
+  function slashApplyEdit(next: string, caret: number) {
+    editing = true;
+    draft = next;
+    queueMicrotask(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(caret, caret);
+    });
+  }
+
+  function insertCards() {
+    const before = draft.length > 0 && !draft.endsWith("\n") ? "\n" : "";
+    insertAtCursor(
+      `${before}\n\`\`\`cards\n` +
+        `title: My site\ndesc: Short description\nlink: https://example.com\ncolor: blue\nicon: 🔗\n` +
+        `---\n` +
+        `title: A blueprint\ndesc: Bold filled card\nlink: blueprint:1\ncolor: violet\nfilled: true\n` +
+        `---\n` +
+        `title: Launch plan\ndesc: Gradient card\nlink: note:1\ncolor: sunset\nicon: 🚀\n` +
+        `\`\`\`\n`,
+    );
+  }
+
+  function openLinkPicker(e?: MouseEvent) {
+    e?.preventDefault();
     const ta = textarea;
     savedSel = ta
       ? {
@@ -336,7 +361,7 @@
 {#if editing}
   <div class="flex flex-col gap-1.5">
     <div class="flex items-center gap-2 text-[11px] text-neutral-400 dark:text-neutral-500">
-      <span class="italic">click outside to preview</span>
+      <span class="italic">type <kbd class="rounded border border-neutral-300/70 px-1 not-italic dark:border-neutral-600/70">/</kbd> for commands · click outside to preview</span>
       <span class="mr-auto tabular-nums">· {wc.words} words</span>
       <button
         type="button"
@@ -351,40 +376,52 @@
         type="button"
         onmousedown={(e) => e.preventDefault()}
         onclick={openLinkPicker}
+        title="Insert link"
         class={btnCls}
       >
         <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3">
           <path fill-rule="evenodd" d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 00.225 5.865.75.75 0 00.977-1.138 2.5 2.5 0 01-.142-3.667l3-3z" clip-rule="evenodd" />
           <path fill-rule="evenodd" d="M11.603 7.963a.75.75 0 00-.977 1.138 2.5 2.5 0 01.142 3.667l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224a4 4 0 105.656 5.656l3-3a4 4 0 00-.225-5.865z" clip-rule="evenodd" />
         </svg>
-        Insert link
       </button>
       <button
         type="button"
         onmousedown={(e) => e.preventDefault()}
         onclick={insertTable}
+        title="Insert table"
         class={btnCls}
       >
         <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3">
           <path fill-rule="evenodd" d="M2 5.25A2.25 2.25 0 014.25 3h11.5A2.25 2.25 0 0118 5.25v9.5A2.25 2.25 0 0115.75 17H4.25A2.25 2.25 0 012 14.75v-9.5zM4.25 4.5a.75.75 0 00-.75.75V7h4V4.5h-3.25zM8.5 4.5V7h3V4.5h-3zM12.5 4.5V7h4V5.25a.75.75 0 00-.75-.75H12.5zM16.5 8.5h-4V11h4V8.5zM16.5 12.5h-4v3h3.25a.75.75 0 00.75-.75V12.5zM11.5 15.5v-3h-3v3h3zM7.5 15.5v-3h-4v2.25c0 .414.336.75.75.75H7.5zM3.5 11h4V8.5h-4V11z" clip-rule="evenodd" />
         </svg>
-        Insert table
       </button>
       <button
         type="button"
         onmousedown={(e) => e.preventDefault()}
         onclick={insertDiagram}
+        title="Insert diagram"
         class={btnCls}
       >
         <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3">
           <path fill-rule="evenodd" d="M3 4.75A1.75 1.75 0 014.75 3h3.5A1.75 1.75 0 0110 4.75v2.5A1.75 1.75 0 018.25 9H7v2h3.5a.75.75 0 01.75.75V13h1A1.75 1.75 0 0113 14.75v.5A1.75 1.75 0 0111.25 17h-2.5A1.75 1.75 0 017 15.25v-.5A1.75 1.75 0 018.75 13h1v-1.5H5.5A.75.75 0 014.75 11V9h-.5A1.75 1.75 0 012.5 7.25v-2.5zm10.75 8.25h2.5A1.75 1.75 0 0118 14.75v.5A1.75 1.75 0 0116.25 17h-2.5A1.75 1.75 0 0112 15.25v-.5A1.75 1.75 0 0113.75 13z" clip-rule="evenodd" />
         </svg>
-        Insert diagram
+      </button>
+      <button
+        type="button"
+        onmousedown={(e) => e.preventDefault()}
+        onclick={insertCards}
+        title="Insert cards"
+        class={btnCls}
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3">
+          <path d="M3 4.5A1.5 1.5 0 014.5 3h3A1.5 1.5 0 019 4.5v3A1.5 1.5 0 017.5 9h-3A1.5 1.5 0 013 7.5v-3zM11 4.5A1.5 1.5 0 0112.5 3h3A1.5 1.5 0 0117 4.5v3A1.5 1.5 0 0115.5 9h-3A1.5 1.5 0 0111 7.5v-3zM3 12.5A1.5 1.5 0 014.5 11h3A1.5 1.5 0 019 12.5v3A1.5 1.5 0 017.5 17h-3A1.5 1.5 0 013 15.5v-3zM11 12.5A1.5 1.5 0 0112.5 11h3a1.5 1.5 0 011.5 1.5v3A1.5 1.5 0 0115.5 17h-3a1.5 1.5 0 01-1.5-1.5v-3z" />
+        </svg>
       </button>
       <button
         type="button"
         onmousedown={(e) => e.preventDefault()}
         onclick={pickAndInsertImage}
+        title="Insert image"
         class={btnCls}
       >
         <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3">
@@ -394,7 +431,6 @@
             clip-rule="evenodd"
           />
         </svg>
-        Insert image
       </button>
     </div>
     <textarea
@@ -408,18 +444,25 @@
       style="min-height: {minHeight};"
       class="w-full resize-none overflow-hidden rounded-md border border-neutral-200/60 bg-white/60 px-3 py-2 font-mono text-[13px] leading-relaxed outline-none placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
     ></textarea>
+    <SlashMenu
+      {textarea}
+      onEdit={slashApplyEdit}
+      onLink={openLinkPicker}
+      onImage={pickAndInsertImage}
+    />
   </div>
 {:else if rendered}
   <div class="relative">
     <button
       type="button"
-      class="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-md border border-neutral-200/70 bg-white/80 px-2 py-0.5 text-[11px] font-medium text-neutral-600 opacity-80 shadow-sm transition-colors hover:bg-neutral-100 hover:opacity-100 dark:border-neutral-700/70 dark:bg-neutral-900/70 dark:text-neutral-300 dark:hover:bg-neutral-800"
+      class="absolute right-2 top-2 z-10 inline-flex items-center justify-center rounded-md border border-neutral-200/70 bg-white/80 p-1.5 text-neutral-600 opacity-80 shadow-sm transition-colors hover:bg-neutral-100 hover:opacity-100 dark:border-neutral-700/70 dark:bg-neutral-900/70 dark:text-neutral-300 dark:hover:bg-neutral-800"
       onclick={startEditing}
+      title="Edit"
+      aria-label="Edit"
     >
-      <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3">
+      <svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
         <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
       </svg>
-      Edit
     </button>
     <div
       bind:this={previewEl}
@@ -536,7 +579,7 @@
   }
   /* Links render as small button-like chips — easier to spot and click than
      underlined text (Sprint 23 follow-up). */
-  .markdown-body :global(a) {
+  .markdown-body :global(a:not(.md-card)) {
     display: inline-block;
     padding: 0 0.5rem;
     border-radius: 0.375rem;
@@ -550,15 +593,15 @@
     cursor: pointer;
     transition: background 120ms;
   }
-  .markdown-body :global(a:hover) {
+  .markdown-body :global(a:not(.md-card):hover) {
     background: rgba(37, 99, 235, 0.18);
   }
-  :global(html.dark) .markdown-body :global(a) {
+  :global(html.dark) .markdown-body :global(a:not(.md-card)) {
     color: #60a5fa;
     border-color: rgba(96, 165, 250, 0.35);
     background: rgba(96, 165, 250, 0.12);
   }
-  :global(html.dark) .markdown-body :global(a:hover) {
+  :global(html.dark) .markdown-body :global(a:not(.md-card):hover) {
     background: rgba(96, 165, 250, 0.22);
   }
   /* Inline code only — code inside <pre> must NOT get the pill background

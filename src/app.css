@@ -354,3 +354,146 @@ html.dark .markdown-body .md-code .md-copy-btn.md-copied {
   color: #56d364;
   border-color: rgba(86, 211, 100, 0.45);
 }
+
+/* ------------------------------------------------------------------ */
+/* Link cards (```cards fence): a responsive grid of clickable tiles  */
+/* for building dashboards of internal-entity / external links.       */
+/* High specificity (.markdown-body .md-cards …) so card anchors beat */
+/* the link-chip pill styling in the editor components.               */
+/* ------------------------------------------------------------------ */
+.markdown-body .md-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.75rem;
+  margin: 0.9rem 0;
+}
+.markdown-body .md-cards .md-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  position: relative;
+  min-height: 74px;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  text-decoration: none;
+  font-size: inherit;
+  line-height: 1.35;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+.markdown-body .md-cards a.md-card {
+  cursor: pointer;
+}
+.markdown-body .md-cards a.md-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+}
+.markdown-body .md-cards .md-card-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+  margin-bottom: 0.1rem;
+}
+.markdown-body .md-cards .md-card-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.markdown-body .md-cards .md-card-desc {
+  font-size: 0.8rem;
+  opacity: 0.72;
+}
+.markdown-body .md-cards .md-card-badge {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.65rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+}
+/* Solid tints — hue driven by the color class's --h. */
+.markdown-body .md-cards .md-card-solid {
+  background: hsl(var(--h, 220) 58% 97%);
+  border-color: hsl(var(--h, 220) 45% 86%);
+}
+html.dark .markdown-body .md-cards .md-card-solid {
+  background: hsl(var(--h, 220) 32% 15%);
+  border-color: hsl(var(--h, 220) 30% 32%);
+}
+.markdown-body .md-cards .md-card-red { --h: 0; }
+.markdown-body .md-cards .md-card-orange { --h: 28; }
+.markdown-body .md-cards .md-card-amber { --h: 45; }
+.markdown-body .md-cards .md-card-green { --h: 145; }
+.markdown-body .md-cards .md-card-teal { --h: 175; }
+.markdown-body .md-cards .md-card-blue { --h: 215; }
+.markdown-body .md-cards .md-card-violet { --h: 265; }
+.markdown-body .md-cards .md-card-pink { --h: 330; }
+/* gray: desaturated, not hue-driven */
+.markdown-body .md-cards .md-card-solid.md-card-gray {
+  background: hsl(220 10% 96%);
+  border-color: hsl(220 12% 86%);
+}
+html.dark .markdown-body .md-cards .md-card-solid.md-card-gray {
+  background: hsl(220 8% 17%);
+  border-color: hsl(220 8% 30%);
+}
+/* Black — a near-black card with white text (subtle border so it reads on
+   both light and dark canvases). Not hue-driven. */
+.markdown-body .md-cards .md-card-black {
+  background: #0f0f12;
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+.markdown-body .md-cards .md-card-black .md-card-desc,
+.markdown-body .md-cards .md-card-black .md-card-badge {
+  opacity: 0.85;
+}
+
+/* Filled: a bold, darker saturated fill with white text (color: … + filled:
+   true). Same look in light + dark for punchy dashboards. */
+.markdown-body .md-cards .md-card-filled {
+  background: hsl(var(--h, 220) 58% 45%);
+  border-color: transparent;
+  color: #fff;
+}
+html.dark .markdown-body .md-cards .md-card-filled {
+  background: hsl(var(--h, 220) 50% 40%);
+}
+.markdown-body .md-cards .md-card-filled .md-card-desc,
+.markdown-body .md-cards .md-card-filled .md-card-badge {
+  opacity: 0.9;
+}
+.markdown-body .md-cards .md-card-filled.md-card-gray {
+  background: hsl(220 8% 42%);
+}
+html.dark .markdown-body .md-cards .md-card-filled.md-card-gray {
+  background: hsl(220 8% 34%);
+}
+/* Gradient presets — white text, no border. */
+.markdown-body .md-cards .md-card-grad {
+  color: #fff;
+  border-color: transparent;
+}
+.markdown-body .md-cards .md-card-grad .md-card-desc,
+.markdown-body .md-cards .md-card-grad .md-card-badge {
+  opacity: 0.9;
+}
+.markdown-body .md-cards .md-card-sunset {
+  background: linear-gradient(135deg, #f97316, #ec4899);
+}
+.markdown-body .md-cards .md-card-ocean {
+  background: linear-gradient(135deg, #0ea5e9, #14b8a6);
+}
+.markdown-body .md-cards .md-card-forest {
+  background: linear-gradient(135deg, #22c55e, #14b8a6);
+}
+.markdown-body .md-cards .md-card-dusk {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+}
+.markdown-body .md-cards .md-card-candy {
+  background: linear-gradient(135deg, #ec4899, #a855f7);
+}

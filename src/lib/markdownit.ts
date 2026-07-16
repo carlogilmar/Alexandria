@@ -82,6 +82,12 @@ export function createMarkdownIt(): MarkdownIt {
       const escaped = md.utils.escapeHtml(tokens[idx].content);
       return `<div class="mermaid-block" data-source="${escaped}" data-rendered="0">${escaped}</div>`;
     }
+    // ```cards → a responsive grid of link tiles (title/desc/link/color/icon).
+    // Rendered directly to HTML (no async), links reuse the editors' existing
+    // anchor click handling (internal entity nav + external open).
+    if (info === "cards") {
+      return renderCards(tokens[idx].content, md);
+    }
     // Every other fenced block gets a GitHub-style copy button. The button is
     // static HTML (no per-instance handler survives `{@html}` re-renders); a
     // single delegated document listener — installCodeCopy — handles the click
@@ -136,6 +142,85 @@ const CODE_COPY_BTN =
   '<svg class="md-copy-check" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">' +
   '<path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.42 0l-3.5-3.5a1 1 0 011.42-1.42l2.79 2.8 6.79-6.8a1 1 0 011.42 0z" clip-rule="evenodd"/></svg>' +
   "</button>";
+
+// ```cards renderer. Cards are separated by a `---` line; each card is
+// `key: value` lines (title / desc / link / color / icon). Emits a grid of
+// tiles — an <a> when a link is present (so the editors' existing anchor
+// click handling navigates entities / opens URLs), else a plain <div>.
+const CARD_SOLID = new Set([
+  "red",
+  "orange",
+  "amber",
+  "green",
+  "teal",
+  "blue",
+  "violet",
+  "pink",
+  "gray",
+  "black",
+]);
+const CARD_GRADIENT = new Set(["sunset", "ocean", "forest", "dusk", "candy"]);
+const CARD_ENTITY = /^(note|list|workflow|article|flashcard|blueprint):(\d+)$/;
+
+function renderCards(source: string, md: MarkdownIt): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  const blocks = source.split(/^\s*-{3,}\s*$/m);
+  const cards: string[] = [];
+  for (const block of blocks) {
+    const f: Record<string, string> = {};
+    for (const line of block.split("\n")) {
+      const m = /^\s*([a-zA-Z]+)\s*:\s*(.*)$/.exec(line);
+      if (m) f[m[1].toLowerCase()] = m[2].trim();
+    }
+    const title = f.title ?? "";
+    const desc = f.desc ?? "";
+    const link = f.link ?? "";
+    if (!title && !desc && !link) continue;
+
+    const color = (f.color ?? "").toLowerCase();
+    // `filled: true` → a bold, darker saturated fill with white text (vs the
+    // default pale tint). Ignored for gradients (already bold).
+    const filled = /^(true|yes|1|on)$/i.test(f.filled ?? "");
+    let cls: string;
+    if (CARD_GRADIENT.has(color)) {
+      cls = `md-card-grad md-card-${color}`;
+    } else {
+      const c = CARD_SOLID.has(color) ? color : "gray";
+      cls = `md-card-solid md-card-${c}${filled ? " md-card-filled" : ""}`;
+    }
+
+    const icon = f.icon
+      ? `<span class="md-card-icon">${esc(f.icon)}</span>`
+      : "";
+    const titleH = title
+      ? `<span class="md-card-title">${esc(title)}</span>`
+      : "";
+    const descH = desc ? `<span class="md-card-desc">${esc(desc)}</span>` : "";
+
+    let badge = "";
+    const ent = CARD_ENTITY.exec(link);
+    if (ent) {
+      badge = `<span class="md-card-badge">${ent[1]}</span>`;
+    } else if (/^https?:\/\//i.test(link)) {
+      let host = "";
+      try {
+        host = new URL(link).hostname.replace(/^www\./, "");
+      } catch {
+        /* ignore */
+      }
+      badge = `<span class="md-card-badge">${esc(host || "link")} ↗</span>`;
+    }
+
+    const inner = `${icon}${titleH}${descH}${badge}`;
+    cards.push(
+      link
+        ? `<a class="md-card ${cls}" href="${esc(link)}">${inner}</a>`
+        : `<div class="md-card ${cls}">${inner}</div>`,
+    );
+  }
+  if (cards.length === 0) return "";
+  return `<div class="md-cards">${cards.join("")}</div>`;
+}
 
 // Install a single, document-wide delegated click handler for copy buttons.
 // Delegation (vs. a per-button handler) survives the `{@html}` re-renders
