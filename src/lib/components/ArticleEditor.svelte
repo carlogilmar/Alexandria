@@ -478,9 +478,10 @@
     word-break: break-word;
   }
   .markdown-body :global(h1) {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin: 0.75rem 0 0.5rem;
+    font-size: 1.95rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 1rem 0 0.6rem;
   }
   .markdown-body :global(h2) {
     font-size: 1.25rem;
@@ -544,6 +545,21 @@
   :global(html.dark) .markdown-body :global(:not(pre) > code) {
     background: rgba(255, 255, 255, 0.08);
   }
+  .markdown-body :global(pre) {
+    white-space: pre-wrap;
+    overflow-x: auto;
+    background: rgba(0, 0, 0, 0.045);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 0.8rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.85em;
+    line-height: 1.5;
+    margin: 0.5rem 0;
+  }
+  :global(html.dark) .markdown-body :global(pre) {
+    background: rgba(255, 255, 255, 0.045);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
   .markdown-body :global(pre > code) {
     display: block;
     background: transparent;
@@ -578,24 +594,51 @@
   }
   .markdown-body :global(strong) { font-weight: 600; }
   .markdown-body :global(em) { font-style: italic; }
+  /* Rounded outer frame: separate borders + overflow:hidden clips the cell
+     corners to the radius (collapse would ignore border-radius). Cells carry
+     only bottom/right borders; the table supplies the top/left outer edge. */
   .markdown-body :global(table) {
     width: 100%;
     max-width: 100%;
-    border-collapse: collapse;
-    margin: 0.5rem 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 0.6rem 0;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 8px;
+    overflow: hidden;
   }
   .markdown-body :global(th),
   .markdown-body :global(td) {
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    padding: 0.3rem 0.55rem;
-    /* Floor each column so a short first column (e.g. a title) stays
-       readable instead of collapsing while a long description hogs width. */
+    padding: 0.4rem 0.6rem;
+    /* Floor each column so a short first column stays readable. */
     min-width: 7rem;
     text-align: left;
     vertical-align: top;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    border-right: 1px solid rgba(0, 0, 0, 0.08);
+  }
+  .markdown-body :global(th:last-child),
+  .markdown-body :global(td:last-child) {
+    border-right: 0;
+  }
+  .markdown-body :global(tr:last-child td) {
+    border-bottom: 0;
+  }
+  .markdown-body :global(tbody tr) {
+    transition: background 100ms;
+  }
+  .markdown-body :global(tbody tr:hover) {
+    background: rgba(37, 99, 235, 0.06);
+  }
+  :global(html.dark) .markdown-body :global(table) {
+    border-color: rgba(255, 255, 255, 0.14);
   }
   :global(html.dark) .markdown-body :global(th),
   :global(html.dark) .markdown-body :global(td) {
-    border-color: rgba(255, 255, 255, 0.12);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+    border-right-color: rgba(255, 255, 255, 0.1);
+  }
+  :global(html.dark) .markdown-body :global(tbody tr:hover) {
+    background: rgba(96, 165, 250, 0.12);
   }
 </style>

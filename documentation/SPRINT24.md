@@ -286,6 +286,26 @@ The task **Inspector** was a cramped right sidebar with a raw markdown textarea
 - Title is a prominent inline input (Enter/blur commits, Esc reverts —
   `stopPropagation` so Esc doesn't also close the modal); tags section kept.
 
+## 12. Markdown style polish (same sprint)
+
+Applied across every markdown surface (notes, articles, task descriptions).
+The base typography is duplicated in `MarkdownEditor` + `ArticleEditor` scoped
+styles (with a few global rules in `app.css`), so edits touch both plus
+app.css:
+
+- **Task checkboxes** (`app.css`): were vertically misaligned / wrapped text
+  slid under the box. Now the `input.md-task` is absolutely positioned in a
+  fixed left gutter with `padding-left` on the item → clean alignment + a
+  proper hanging indent.
+- **Tables** (both editors): rounded outer corners (`border-collapse:
+  separate` + `overflow:hidden` — `collapse` ignores `border-radius`; cells
+  carry only bottom/right borders, the table supplies the top/left edge),
+  accent-tinted header (`app.css` `thead th`, blue), and a **row hover** tint.
+- **h1** (both editors): bumped 1.5rem → 1.95rem, weight 700.
+- **Code blocks** (both editors): softer bg + 1px border + 8px radius + more
+  padding. Also *added* the `pre` rule to `ArticleEditor`, which was missing it
+  (article code blocks had no panel styling before).
+
 ## Deferred
 
 - Adding a title/description to an image card has no click affordance beyond
