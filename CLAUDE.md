@@ -345,7 +345,14 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 26 (Slash command menu — type `/` at line-start or
+Last updated: end of Sprint 27 (Blueprint diagram importer — an "Import" button
+on the blueprint canvas opens a textarea for a mermaid-like DSL: `Name: desc`
+lines become cards, `A -> B` lines become edges (undefined names auto-create).
+`parseImport` + `layoutImport` (longest-path/Kahn's top-down layering) +
+`doImport` in `BlueprintEditor.svelte` create real connected cards via the
+existing store actions (no backend change); placed right of existing content,
+bottom→top edge handles, viewport pans to the result. See
+documentation/SPRINT27.md. — earlier: Sprint 26) Slash command menu — type `/` at line-start or
 after a space in the note/article editors to open a Notion-style command popup
 AT THE CARET (Heading/list/checklist/quote/callout/code/table/diagram/cards/
 divider/link/image); filter by typing, ↑↓/Enter/Tab/Esc. `SlashMenu.svelte`

@@ -839,7 +839,175 @@
   }
 
   function onWindowKey(e: KeyboardEvent) {
+    if (e.key === "Escape" && importOpen) {
+      importOpen = false;
+      return;
+    }
     if (e.key === "Escape" && presenting) presenting = false;
+  }
+
+  // ----- import diagram (text → connected cards) -----
+  let importOpen = $state(false);
+  let importText = $state("");
+  let importing = $state(false);
+
+  type ParsedNode = { title: string; description: string };
+
+  // Parse the mini-DSL:
+  //   Name: description        → a card (title = Name)
+  //   A -> B  (or A -> B -> C) → edges (auto-creates undefined names)
+  // A line is a node def when the text before its first ":" has no arrow, so a
+  // description may itself contain "->".
+  function parseImport(text: string): {
+    nodes: Map<string, ParsedNode>;
+    edges: { from: string; to: string }[];
+  } {
+    const nodes = new Map<string, ParsedNode>();
+    const edges: { from: string; to: string }[] = [];
+    const ensure = (raw: string): string | null => {
+      const k = raw.trim();
+      if (!k) return null;
+      if (!nodes.has(k)) nodes.set(k, { title: k, description: "" });
+      return k;
+    };
+    const arrow = /-+>/;
+    for (const raw of text.split("\n")) {
+      const line = raw.trim();
+      if (!line) continue;
+      const ci = line.indexOf(":");
+      if (ci > 0 && !arrow.test(line.slice(0, ci))) {
+        const key = line.slice(0, ci).trim();
+        if (key) nodes.set(key, { title: key, description: line.slice(ci + 1).trim() });
+      } else if (arrow.test(line)) {
+        const parts = line.split(arrow).map((s) => s.trim()).filter(Boolean);
+        for (let i = 0; i < parts.length - 1; i++) {
+          const a = ensure(parts[i]);
+          const b = ensure(parts[i + 1]);
+          if (a && b) edges.push({ from: a, to: b });
+        }
+      } else {
+        ensure(line);
+      }
+    }
+    return { nodes, edges };
+  }
+
+  // Layered (top-down) auto-layout: longest-path layering (Kahn's), each layer
+  // a row, nodes centered within their row. Cycle nodes fall back to layer 0.
+  function layoutImport(
+    nodes: Map<string, ParsedNode>,
+    edges: { from: string; to: string }[],
+  ): Map<string, { x: number; y: number }> {
+    const keys = [...nodes.keys()];
+    const adj = new Map<string, string[]>(keys.map((k) => [k, []]));
+    const indeg = new Map<string, number>(keys.map((k) => [k, 0]));
+    for (const e of edges) {
+      if (!adj.has(e.from) || !adj.has(e.to) || e.from === e.to) continue;
+      adj.get(e.from)!.push(e.to);
+      indeg.set(e.to, indeg.get(e.to)! + 1);
+    }
+    const layer = new Map<string, number>(keys.map((k) => [k, 0]));
+    const q = keys.filter((k) => indeg.get(k) === 0);
+    const left = new Map(indeg);
+    while (q.length) {
+      const u = q.shift()!;
+      for (const v of adj.get(u)!) {
+        layer.set(v, Math.max(layer.get(v)!, layer.get(u)! + 1));
+        left.set(v, left.get(v)! - 1);
+        if (left.get(v) === 0) q.push(v);
+      }
+    }
+    const byLayer = new Map<number, string[]>();
+    for (const k of keys) {
+      const L = layer.get(k)!;
+      (byLayer.get(L) ?? byLayer.set(L, []).get(L)!).push(k);
+    }
+    const COL = 280;
+    const ROW = 170;
+    const pos = new Map<string, { x: number; y: number }>();
+    for (const [L, arr] of byLayer) {
+      arr.forEach((k, i) => {
+        pos.set(k, { x: (i - (arr.length - 1) / 2) * COL, y: L * ROW });
+      });
+    }
+    return pos;
+  }
+
+  async function doImport() {
+    if (importing) return;
+    const { nodes, edges } = parseImport(importText);
+    if (nodes.size === 0) {
+      app.setFlash("Nothing to import — add at least one box");
+      return;
+    }
+    importing = true;
+    try {
+      const pos = layoutImport(nodes, edges);
+      // Drop the diagram to the right of any existing content (else at the
+      // viewport centre) so it doesn't land on top of the current board.
+      let base = { x: 0, y: 0 };
+      if (flowNodes.length > 0) {
+        const b = getNodesBounds(flowNodes);
+        base = { x: b.x + b.width + 120, y: b.y };
+      } else if (svelteFlowEl) {
+        const r = svelteFlowEl.getBoundingClientRect();
+        const c = screenToFlow(r.left + r.width / 2, r.top + r.height / 2);
+        base = { x: c.x - 120, y: c.y - 80 };
+      }
+
+      const keyToId = new Map<string, number>();
+      for (const [key, node] of nodes) {
+        const p = pos.get(key) ?? { x: 0, y: 0 };
+        const created = await app.addBlueprintCard(
+          node.title,
+          base.x + p.x,
+          base.y + p.y,
+        );
+        if (!created) continue;
+        keyToId.set(key, created.id);
+        if (node.description) {
+          await app.updateBlueprintCard(created.id, null, node.description);
+        }
+      }
+
+      const madeEdge = new Set<string>();
+      for (const e of edges) {
+        const s = keyToId.get(e.from);
+        const t = keyToId.get(e.to);
+        if (!s || !t || s === t) continue;
+        const ek = `${s} ${t}`;
+        if (madeEdge.has(ek)) continue;
+        madeEdge.add(ek);
+        try {
+          await app.addBlueprintEdge(s, t, "b", "t");
+        } catch {
+          /* skip a rejected edge, keep importing */
+        }
+      }
+
+      importOpen = false;
+      importText = "";
+      app.setFlash(`Imported ${keyToId.size} node${keyToId.size === 1 ? "" : "s"}`);
+
+      // Pan to the imported diagram.
+      const xs = [...pos.values()];
+      if (xs.length) {
+        const minX = Math.min(...xs.map((p) => p.x));
+        const maxX = Math.max(...xs.map((p) => p.x));
+        const minY = Math.min(...xs.map((p) => p.y));
+        const maxY = Math.max(...xs.map((p) => p.y));
+        const cx = base.x + (minX + maxX) / 2 + 120;
+        const cy = base.y + (minY + maxY) / 2 + 40;
+        queueMicrotask(() => {
+          const zoom = flow.getViewport ? flow.getViewport().zoom : 1;
+          void flow.setCenter?.(cx, cy, { zoom, duration: 500 });
+        });
+      }
+    } catch (e) {
+      app.setFlash(`Import failed: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      importing = false;
+    }
   }
 
   // ----- blueprint title (rename from the top-left chip) -----
@@ -1080,6 +1248,72 @@
         </svg>
         Comment
       </button>
+      <span class="h-7 w-px self-center bg-neutral-200/80 dark:bg-neutral-700/80"></span>
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/70 bg-emerald-50/90 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm backdrop-blur hover:bg-emerald-100 dark:border-emerald-800/70 dark:bg-emerald-950/70 dark:text-emerald-200 dark:hover:bg-emerald-900"
+        onclick={() => {
+          importOpen = true;
+        }}
+        title="Import a diagram from text (boxes + connections)"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+          <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v6.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.414L9 10.586V4a1 1 0 011-1z" clip-rule="evenodd"/>
+          <path d="M4 14a1 1 0 011 1v1h10v-1a1 1 0 112 0v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1a1 1 0 011-1z"/>
+        </svg>
+        Import
+      </button>
+    </div>
+  {/if}
+
+  <!-- Import-diagram modal -->
+  {#if importOpen}
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Import diagram"
+      class="absolute inset-0 z-40 flex items-center justify-center bg-neutral-900/40 p-4 backdrop-blur-sm dark:bg-black/50"
+    >
+      <button
+        type="button"
+        class="absolute inset-0 cursor-default"
+        aria-label="Cancel"
+        onclick={() => (importOpen = false)}
+      ></button>
+      <div class="relative flex max-h-[85%] w-full max-w-lg flex-col rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-2xl dark:border-neutral-700/80 dark:bg-neutral-900">
+        <h2 class="mb-1 text-base font-semibold text-neutral-900 dark:text-neutral-100">
+          Import diagram
+        </h2>
+        <p class="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
+          One <code class="rounded bg-neutral-200/60 px-1 dark:bg-neutral-700/50">Name: description</code>
+          per line for each box, then
+          <code class="rounded bg-neutral-200/60 px-1 dark:bg-neutral-700/50">A -&gt; B</code>
+          lines to connect them. Undefined names become empty cards.
+        </p>
+        <textarea
+          bind:value={importText}
+          spellcheck="false"
+          placeholder={`Box1: This is the description of box 1.\nBox2: This is the description of box 2.\nBox3: This is the description of box 3.\nBox4: This is the description of box 4.\n\nBox1 -> Box2\nBox1 -> Box3\nBox1 -> Box4\nBox2 -> Box4`}
+          class="min-h-52 flex-1 resize-none rounded-md border border-neutral-300/70 bg-white px-3 py-2 font-mono text-[13px] leading-relaxed outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 dark:border-neutral-700/70 dark:bg-neutral-900/50 dark:text-neutral-100"
+        ></textarea>
+        <footer class="mt-4 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            class="rounded-md border border-neutral-300/70 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            onclick={() => (importOpen = false)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
+            disabled={importing}
+            onclick={doImport}
+          >
+            {importing ? "Importing…" : "Import"}
+          </button>
+        </footer>
+      </div>
     </div>
   {/if}
 
