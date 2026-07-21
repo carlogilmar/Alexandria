@@ -24,6 +24,7 @@
   import CommandPalette from "$lib/components/CommandPalette.svelte";
   import FormattingHelp from "$lib/components/FormattingHelp.svelte";
   import AddEntityModal from "$lib/components/AddEntityModal.svelte";
+  import FocusMode from "$lib/components/FocusMode.svelte";
 
   let sidebar: Sidebar | undefined = $state();
   let inspectorTodo = $derived(app.selectedTodo());
@@ -241,6 +242,10 @@
     </div>
   </div>
 </div>
+
+{#if app.focusMode}
+  <FocusMode />
+{/if}
 
 {#if app.paletteOpen}
   <CommandPalette />

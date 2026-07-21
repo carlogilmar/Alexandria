@@ -304,6 +304,14 @@ class AppStore {
   selectedTodoTags = $state<Tag[]>([]);
   allTags = $state<Tag[]>([]);
 
+  // Focus mode (Sprint 28): a full-screen aurora "screensaver" overlay that
+  // shows today's list. Its todo state is independent of `this.todos` so
+  // entering/exiting never disturbs whatever view is open behind the overlay.
+  focusMode = $state(false);
+  focusTodos = $state<Todo[]>([]);
+  focusListId = $state<number | null>(null);
+  focusListTitle = $state<string | null>(null);
+
   private flashToken = 0;
   setFlash(msg: string, ms = 2000) {
     this.flash = msg;
@@ -665,6 +673,60 @@ class AppStore {
     }
     const list = candidates.reduce((a, b) => (b.id < a.id ? b : a));
     await this.select(list.id);
+  }
+
+  // ---- Focus mode (Sprint 28) ----
+
+  // Resolve today's list (same detection as openTodayList / the sidebar) and
+  // load its todos into the independent focus state, then show the overlay.
+  // Never auto-creates a list (Sprint 11) — an absent list shows an empty
+  // state that offers createFocusToday().
+  async enterFocus() {
+    const today = todayIso();
+    const candidates = this.lists.filter(
+      (l) => l.date === today && !l.archived,
+    );
+    if (candidates.length === 0) {
+      this.focusListId = null;
+      this.focusListTitle = null;
+      this.focusTodos = [];
+    } else {
+      const list = candidates.reduce((a, b) => (b.id < a.id ? b : a));
+      this.focusListId = list.id;
+      this.focusListTitle = list.title;
+      this.focusTodos = await listTodos(list.id);
+    }
+    this.focusMode = true;
+  }
+
+  exitFocus() {
+    this.focusMode = false;
+  }
+
+  // Create today's list from within Focus and load it in place.
+  async createFocusToday() {
+    const created = await createList(
+      defaultListTitleForDate(todayIso()),
+      todayIso(),
+    );
+    this.focusListId = created.id;
+    this.focusListTitle = created.title;
+    this.focusTodos = await listTodos(created.id);
+    await this.refreshLists();
+  }
+
+  // Toggle a todo shown in Focus. Updates the independent focus state, and —
+  // if that same list is the one open behind the overlay — keeps this.todos
+  // in sync so the underlying view reflects the change on exit.
+  async toggleFocusTodo(todo: Todo) {
+    const updated = await toggleTodo(todo.id);
+    this.focusTodos = this.focusTodos.map((t) =>
+      t.id === updated.id ? updated : t,
+    );
+    if (this.selected && this.selected.id === updated.listId) {
+      this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t));
+    }
+    await this.refreshLists();
   }
 
   // Designate / clear the single "quick access" article.

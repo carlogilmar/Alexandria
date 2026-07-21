@@ -345,7 +345,20 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 27 (Blueprint diagram importer — an "Import" button
+Last updated: end of Sprint 28 (Focus mode — a full-screen aurora "screensaver"
+overlay showing today's list for distraction-free task focus. Entered via a
+sparkles icon in `TopNav` or the command palette's "Enter Focus mode"; exited
+with the ✕ or Esc. `FocusMode.svelte` renders the Sprint 23 aurora backdrop
+(colors from `theme.sidebarAurora`, else a default palette), a live clock +
+long date, and today's todos as big checkable rows (completed dim + strike);
+empty state offers "Create today's list". It's an overlay driven by
+`app.focusMode`, NOT a `view` — so it never disturbs the nav stack or the open
+entity. Focus keeps its own todo state (`focusTodos`/`focusListId`/
+`focusListTitle` + `enterFocus`/`exitFocus`/`toggleFocusTodo`/`createFocusToday`
+in the store) loaded via `listTodos`; toggling syncs `this.todos` only when the
+same list is open behind it, then `refreshLists()`. Today's-list only, no
+auto-create (Sprint 11), no new global shortcut (webview reserves too many). See
+documentation/SPRINT28.md. — earlier: Sprint 27) Blueprint diagram importer — an "Import" button
 on the blueprint canvas opens a textarea for a mermaid-like DSL: `Name: desc`
 lines become cards, `A -> B` lines become edges (undefined names auto-create).
 `parseImport` + `layoutImport` (longest-path/Kahn's top-down layering) +
