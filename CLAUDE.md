@@ -237,7 +237,7 @@ do I have?" and is the entry default (Sprint 11).
 
 ### Migrations
 
-Files in `src-tauri/migrations/0001_…sql` … `0017_…sql`, monotonically
+Files in `src-tauri/migrations/0001_…sql` … `0020_…sql`, monotonically
 numbered, applied at startup. To add one:
 
 1. Create `00NN_<short_name>.sql`.
@@ -251,7 +251,14 @@ numbered, applied at startup. To add one:
 
 ### Tables (high-level)
 
-- `lists` + `todos` + `tags` + `todo_tags`: daily todo plumbing.
+- `lists` + `todos` + `tags` + `todo_tags`: daily todo plumbing. A single
+  **backlog** (Sprint 29) is a sentinel list flagged `is_backlog = 1`
+  (migration `0020`, additive column; `date = ''`, get-or-created lazily by
+  `lists::backlog`) holding unscheduled tasks; it reuses all todo plumbing and
+  is excluded from the daily surfaces (`list_all` / `stats` / `daily_stats` all
+  filter `is_backlog = 0`). Tasks move between a daily list and the backlog via
+  `move_todo(id, targetListId)` — "Send to backlog" / "Pull to today" per-row
+  actions in `TodoRow`/`ListView`; the sidebar shows a pending-count entry.
 - `workflows` + `workflow_steps`: step chains with optional sublists.
 - `notes` / `articles`: markdown bodies, day-attached (notes) or
   free-form (articles), with `{{kind:id}}` embed tokens parsed
@@ -345,7 +352,30 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 28 (Focus mode — a full-screen aurora "screensaver"
+Last updated: end of Sprint 30 (Charts in markdown — a ```chart fence renders an
+inline bar / donut / line chart, rendered as SVG synchronously in
+`$lib/markdownit.ts`'s fence rule (like ```cards, unlike async ```mermaid — so
+it works in blueprint cards too, no dependency, CSP-safe). DSL mirrors ```cards:
+`type: bar|donut|line` + `title:` + `color:` config lines, then `Label: number`
+data lines (order preserved; negatives/non-numbers dropped). `renderChart` →
+`renderBarChart`/`renderDonutChart`/`renderLineChart`. Series colors are a fixed
+mid-tone palette baked into the SVG; structural ink (axis text, gridlines, donut
+center total) uses `currentColor` so it follows the theme. Styles under
+`.md-chart` in `app.css`. Slash menu gains "Bar chart"/"Donut chart"; a "Charts"
+section added to `FormattingHelp`. See documentation/SPRINT30.md. — earlier:
+Sprint 29) Backlog — a single durable list for unscheduled
+tasks, separate from the day-to-day carry-over flow. Stored as a sentinel list
+`is_backlog = 1` (migration `0020`, additive `ALTER`; `date = ''`, get-or-created
+by `lists::backlog`) so it reuses all todo plumbing; excluded from the daily
+surfaces (`list_all`/`stats`/`daily_stats` filter `is_backlog = 0`). New
+`move_todo(id, targetListId)` re-parents a todo (append to target order),
+powering manual "Send to backlog" (daily → backlog) and "Pull to today" (backlog
+→ today's list, created if needed — explicit action, cf. Sprint 11) per-row
+actions in `TodoRow`. Sidebar gets a "Backlog" entry with a pending-count badge
+(`backlogPending`); `ListView` branches on `app.selected.isBacklog` (title
+"Backlog", no date/pin/delete/export chrome); command palette adds "Backlog".
+No auto-sweep, one global backlog, not pinnable/archivable. See
+documentation/SPRINT29.md. — earlier: Sprint 28) Focus mode — a full-screen aurora "screensaver"
 overlay showing today's list for distraction-free task focus. Entered via a
 sparkles icon in `TopNav` or the command palette's "Enter Focus mode"; exited
 with the ✕ or Esc. `FocusMode.svelte` renders the Sprint 23 aurora backdrop

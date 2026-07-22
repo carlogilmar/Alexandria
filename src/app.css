@@ -497,3 +497,101 @@ html.dark .markdown-body .md-cards .md-card-filled.md-card-gray {
 .markdown-body .md-cards .md-card-candy {
   background: linear-gradient(135deg, #ec4899, #a855f7);
 }
+
+/* ------------------------------------------------------------------ */
+/* ```chart — inline SVG bar / donut / line charts (Sprint 30).        */
+/* Series colors are baked into the SVG; structural ink (axis text,    */
+/* gridlines, center total) uses currentColor so it follows the theme. */
+/* ------------------------------------------------------------------ */
+.markdown-body .md-chart {
+  margin: 1rem 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid hsl(220 13% 90%);
+  border-radius: 12px;
+  background: hsl(220 20% 99%);
+}
+html.dark .markdown-body .md-chart {
+  border-color: hsl(220 12% 26%);
+  background: hsl(220 14% 13%);
+}
+.markdown-body .md-chart-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.6rem;
+  color: inherit;
+}
+.markdown-body .md-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.markdown-body .md-chart-grid {
+  stroke: currentColor;
+  opacity: 0.12;
+  stroke-width: 1;
+}
+.markdown-body .md-chart-axis {
+  fill: currentColor;
+  opacity: 0.6;
+  font-size: 12px;
+}
+.markdown-body .md-chart-val {
+  fill: currentColor;
+  opacity: 0.85;
+  font-size: 11px;
+  font-weight: 600;
+}
+.markdown-body .md-chart-total {
+  fill: currentColor;
+  font-size: 22px;
+  font-weight: 700;
+}
+/* Donut: chart + legend side by side, wrapping on narrow surfaces. */
+.markdown-body .md-chart-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.4rem;
+}
+.markdown-body .md-chart-donut-svg {
+  width: 180px;
+  height: 180px;
+  flex: 0 0 auto;
+}
+.markdown-body .md-chart-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 180px;
+  min-width: 160px;
+}
+.markdown-body .md-chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  font-size: 0.85rem;
+}
+.markdown-body .md-chart-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+.markdown-body .md-chart-legend-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.markdown-body .md-chart-legend-val {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.markdown-body .md-chart-legend-pct {
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+  min-width: 2.6em;
+  text-align: right;
+}

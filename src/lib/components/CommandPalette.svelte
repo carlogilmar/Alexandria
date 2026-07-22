@@ -47,6 +47,7 @@
     { key: "new-card", group: "Create", label: "New flashcard", run: () => app.newEntity("flashcard", "") },
     { key: "new-board", group: "Create", label: "New feedback board", run: () => app.newFeedbackBoard("New board") },
     { key: "new-list", group: "Create", label: "Create today's list", run: () => app.newList() },
+    { key: "backlog", group: "Go to", label: "Backlog", sub: "Unscheduled tasks, not tied to a day", run: () => app.openBacklog() },
     { key: "focus", group: "Settings", label: "Enter Focus mode", sub: "Aurora screensaver of today's list", run: () => app.enterFocus() },
     { key: "theme", group: "Settings", label: "Toggle theme (light / dark / system)", run: () => theme.cycle() },
     { key: "sidebar", group: "Settings", label: "Toggle sidebar", hint: "⌘\\", run: () => app.toggleSidebar() },

@@ -53,13 +53,13 @@ pub(crate) async fn all_todos(pool: &SqlitePool) -> AppResult<Vec<TodoHit>> {
 
 pub(crate) async fn stats(pool: &SqlitePool) -> AppResult<Stats> {
     let total_lists: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM lists WHERE archived = 0")
+        sqlx::query_scalar("SELECT COUNT(*) FROM lists WHERE archived = 0 AND is_backlog = 0")
             .fetch_one(pool)
             .await?;
     let total_todos: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM todos t
            JOIN lists l ON l.id = t.list_id
-          WHERE l.archived = 0",
+          WHERE l.archived = 0 AND l.is_backlog = 0",
     )
     .fetch_one(pool)
     .await?;
@@ -70,7 +70,7 @@ pub(crate) async fn stats(pool: &SqlitePool) -> AppResult<Stats> {
             SELECT DISTINCT l.date
               FROM lists l
               JOIN todos t ON t.list_id = l.id
-             WHERE t.completed = 1 AND l.archived = 0
+             WHERE t.completed = 1 AND l.archived = 0 AND l.is_backlog = 0
           ),
           seed(d) AS (
             SELECT d FROM completion_days
@@ -111,7 +111,7 @@ pub(crate) async fn daily_stats(
                 COALESCE(SUM(t.completed), 0) AS done
            FROM lists l
            LEFT JOIN todos t ON t.list_id = l.id
-          WHERE l.archived = 0
+          WHERE l.archived = 0 AND l.is_backlog = 0
             AND (?1 IS NULL OR l.date >= ?1)
             AND (?2 IS NULL OR l.date <= ?2)
           GROUP BY l.date

@@ -9,6 +9,10 @@
     onDelete: () => void;
     onOpenDetails: () => void;
     onHandlePointerDown: (e: PointerEvent) => void;
+    // Optional "move this task" action (Sprint 29): "backlog" sends a daily
+    // task to the backlog; "today" pulls a backlog task into today's list.
+    onMove?: () => void;
+    moveDir?: "backlog" | "today";
   };
 
   let {
@@ -18,6 +22,8 @@
     onDelete,
     onOpenDetails,
     onHandlePointerDown,
+    onMove,
+    moveDir = "backlog",
   }: Props = $props();
 </script>
 
@@ -82,6 +88,40 @@
   <span class="shrink-0 opacity-0 transition-opacity group-hover:opacity-100">
     <IdChip kind="todo" id={todo.id} />
   </span>
+
+  {#if onMove}
+    <button
+      type="button"
+      class="rounded p-1 text-neutral-400 opacity-0 transition-opacity hover:bg-blue-50 hover:text-blue-600 group-hover:opacity-100 dark:hover:bg-blue-950/40 dark:hover:text-blue-400"
+      aria-label={moveDir === "today" ? "Pull to today" : "Send to backlog"}
+      title={moveDir === "today" ? "Pull to today" : "Send to backlog"}
+      onclick={(e) => {
+        e.stopPropagation();
+        onMove?.();
+      }}
+    >
+      {#if moveDir === "today"}
+        <!-- calendar-plus: pull into today -->
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+          <path
+            fill-rule="evenodd"
+            d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm5 8a1 1 0 10-2 0v1H8a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1v-1z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      {:else}
+        <!-- inbox / down-into-tray: send to backlog -->
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+          <path
+            d="M10 2a1 1 0 011 1v6.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.414L9 9.586V3a1 1 0 011-1z"
+          />
+          <path
+            d="M3 13a1 1 0 011 1v1a1 1 0 001 1h10a1 1 0 001-1v-1a1 1 0 112 0v1a3 3 0 01-3 3H5a3 3 0 01-3-3v-1a1 1 0 011-1z"
+          />
+        </svg>
+      {/if}
+    </button>
+  {/if}
 
   <button
     type="button"

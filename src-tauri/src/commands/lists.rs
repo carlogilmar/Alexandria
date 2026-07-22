@@ -22,6 +22,37 @@ pub(crate) async fn today(pool: &SqlitePool) -> AppResult<List> {
     create(pool, &today, &today).await
 }
 
+// The single durable backlog list — get-or-create. A sentinel list
+// (is_backlog = 1, date = '') that holds unscheduled tasks and reuses all the
+// normal todo plumbing. Excluded from the daily surfaces (all / stats).
+pub(crate) async fn backlog(pool: &SqlitePool) -> AppResult<List> {
+    if let Some(existing) =
+        sqlx::query_as::<_, List>("SELECT * FROM lists WHERE is_backlog = 1 LIMIT 1")
+            .fetch_optional(pool)
+            .await?
+    {
+        return Ok(existing);
+    }
+    sqlx::query_as::<_, List>(
+        "INSERT INTO lists (title, date, archived, is_backlog, created_at, updated_at)
+         VALUES ('Backlog', '', 0, 1, datetime('now'), datetime('now'))
+         RETURNING *",
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(Into::into)
+}
+
+// Count of incomplete todos in the backlog (for the sidebar badge).
+pub(crate) async fn backlog_pending(pool: &SqlitePool) -> AppResult<i64> {
+    let id = backlog(pool).await?.id;
+    sqlx::query_scalar("SELECT COUNT(*) FROM todos WHERE list_id = ?1 AND completed = 0")
+        .bind(id)
+        .fetch_one(pool)
+        .await
+        .map_err(Into::into)
+}
+
 pub(crate) async fn by_id(pool: &SqlitePool, id: i64) -> AppResult<List> {
     sqlx::query_as::<_, List>("SELECT * FROM lists WHERE id = ?1")
         .bind(id)
@@ -42,7 +73,8 @@ pub(crate) async fn all(
                 COALESCE(SUM(t.completed), 0) AS done
            FROM lists l
            LEFT JOIN todos t ON t.list_id = l.id
-          WHERE (?1 IS NULL OR l.date >= ?1)
+          WHERE l.is_backlog = 0
+            AND (?1 IS NULL OR l.date >= ?1)
             AND (?2 IS NULL OR l.date <= ?2)
             AND (?3 = 1 OR l.archived = 0)
           GROUP BY l.id
@@ -129,6 +161,16 @@ pub async fn list_today(state: State<'_, AppState>) -> AppResult<List> {
 #[tauri::command]
 pub async fn list_by_id(state: State<'_, AppState>, id: i64) -> AppResult<List> {
     by_id(&state.pool, id).await
+}
+
+#[tauri::command]
+pub async fn list_backlog(state: State<'_, AppState>) -> AppResult<List> {
+    backlog(&state.pool).await
+}
+
+#[tauri::command]
+pub async fn list_backlog_pending(state: State<'_, AppState>) -> AppResult<i64> {
+    backlog_pending(&state.pool).await
 }
 
 #[tauri::command]
@@ -248,6 +290,21 @@ mod tests {
         let l = create(&pool, "Old", "2026-05-01").await.unwrap();
         let renamed = rename(&pool, l.id, "New").await.unwrap();
         assert_eq!(renamed.title, "New");
+    }
+
+    #[tokio::test]
+    async fn backlog_is_singleton_and_hidden_from_all() {
+        let pool = test_pool().await;
+        let a = backlog(&pool).await.unwrap();
+        assert!(a.is_backlog);
+        // Get-or-create: a second call returns the same row.
+        let b = backlog(&pool).await.unwrap();
+        assert_eq!(a.id, b.id);
+        // Also create a normal list, then confirm `all` hides the backlog.
+        create(&pool, "Real day", "2026-05-10").await.unwrap();
+        let visible = all(&pool, None, None, true).await.unwrap();
+        assert!(visible.iter().all(|l| l.id != a.id));
+        assert_eq!(visible.len(), 1);
     }
 
     #[tokio::test]

@@ -88,6 +88,10 @@ export function createMarkdownIt(): MarkdownIt {
     if (info === "cards") {
       return renderCards(tokens[idx].content, md);
     }
+    // ```chart → an inline SVG bar / donut / line chart (synchronous, no dep).
+    if (info === "chart") {
+      return renderChart(tokens[idx].content, md);
+    }
     // Every other fenced block gets a GitHub-style copy button. The button is
     // static HTML (no per-instance handler survives `{@html}` re-renders); a
     // single delegated document listener — installCodeCopy — handles the click
@@ -220,6 +224,239 @@ function renderCards(source: string, md: MarkdownIt): string {
   }
   if (cards.length === 0) return "";
   return `<div class="md-cards">${cards.join("")}</div>`;
+}
+
+// ```chart renderer. Same `key: value` line shape as ```cards: `type` / `title`
+// / `color` configure the chart, every other `Label: number` line is a data
+// point (order preserved). Emits inline SVG synchronously — no dependency, no
+// async hydration, crisp at any zoom, and works inside blueprint cards.
+type ChartDatum = { label: string; value: number };
+
+// Mid-tone categorical palette — legible on both light and dark surfaces.
+const CHART_PALETTE = [
+  "#3b82f6",
+  "#f59e0b",
+  "#8b5cf6",
+  "#14b8a6",
+  "#ec4899",
+  "#22c55e",
+  "#f97316",
+  "#ef4444",
+  "#64748b",
+];
+const CHART_NAMED: Record<string, string> = {
+  blue: "#3b82f6",
+  green: "#22c55e",
+  violet: "#8b5cf6",
+  amber: "#f59e0b",
+  red: "#ef4444",
+  teal: "#14b8a6",
+  pink: "#ec4899",
+  orange: "#f97316",
+  gray: "#64748b",
+};
+
+// Round a positive number up to a "nice" 1/2/5×10ⁿ ceiling for the axis top.
+function niceCeil(v: number): number {
+  if (v <= 0) return 1;
+  const exp = Math.floor(Math.log10(v));
+  const base = Math.pow(10, exp);
+  const n = v / base;
+  const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+  return step * base;
+}
+
+// Compact number formatting: integers as-is, else up to 2 decimals.
+function fmtNum(n: number): string {
+  return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+}
+
+function renderChart(source: string, md: MarkdownIt): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  let type = "bar";
+  let title = "";
+  let color = "";
+  const data: ChartDatum[] = [];
+  for (const line of source.split("\n")) {
+    const m = /^\s*([^:]+?)\s*:\s*(.*)$/.exec(line);
+    if (!m) continue;
+    const key = m[1].trim();
+    const raw = m[2].trim();
+    const low = key.toLowerCase();
+    if (low === "type") {
+      type = raw.toLowerCase();
+    } else if (low === "title") {
+      title = raw;
+    } else if (low === "color") {
+      color = raw.toLowerCase();
+    } else {
+      const value = Number(raw.replace(/,/g, ""));
+      if (Number.isFinite(value) && value >= 0) data.push({ label: key, value });
+    }
+  }
+  if (data.length === 0) return "";
+
+  const accent = CHART_NAMED[color] ?? CHART_PALETTE[0];
+  const titleH = title
+    ? `<div class="md-chart-title">${esc(title)}</div>`
+    : "";
+
+  let body: string;
+  if (type === "donut" || type === "pie") {
+    body = renderDonutChart(data, esc);
+  } else if (type === "line") {
+    body = renderLineChart(data, accent, esc);
+  } else {
+    body = renderBarChart(data, accent, esc);
+  }
+  return `<div class="md-chart md-chart-${esc(type)}">${titleH}${body}</div>`;
+}
+
+function renderBarChart(
+  data: ChartDatum[],
+  accent: string,
+  esc: (s: string) => string,
+): string {
+  const W = 640;
+  const H = 300;
+  const padL = 44;
+  const padR = 16;
+  const padT = 18;
+  const padB = 46;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const max = niceCeil(Math.max(...data.map((d) => d.value)));
+  const n = data.length;
+  const band = plotW / n;
+  const barW = Math.min(band * 0.62, 64);
+
+  const parts: string[] = [];
+  // Horizontal gridlines + y-axis labels (0 → max in quarters).
+  for (let g = 0; g <= 4; g++) {
+    const val = (max * g) / 4;
+    const y = padT + plotH * (1 - g / 4);
+    parts.push(
+      `<line class="md-chart-grid" x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}"/>`,
+      `<text class="md-chart-axis" x="${padL - 6}" y="${y + 3}" text-anchor="end">${fmtNum(val)}</text>`,
+    );
+  }
+  // Bars + labels.
+  data.forEach((d, i) => {
+    const bx = padL + i * band + (band - barW) / 2;
+    const bh = plotH * (d.value / max);
+    const by = padT + plotH - bh;
+    const cx = padL + i * band + band / 2;
+    parts.push(
+      `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" rx="3" fill="${accent}"/>`,
+      `<text class="md-chart-val" x="${cx.toFixed(1)}" y="${(by - 5).toFixed(1)}" text-anchor="middle">${fmtNum(d.value)}</text>`,
+      `<text class="md-chart-axis" x="${cx.toFixed(1)}" y="${H - padB + 18}" text-anchor="middle">${esc(d.label)}</text>`,
+    );
+  });
+  return `<svg class="md-chart-svg" viewBox="0 0 ${W} ${H}" role="img" preserveAspectRatio="xMidYMid meet">${parts.join("")}</svg>`;
+}
+
+function renderLineChart(
+  data: ChartDatum[],
+  accent: string,
+  esc: (s: string) => string,
+): string {
+  const W = 640;
+  const H = 300;
+  const padL = 44;
+  const padR = 16;
+  const padT = 18;
+  const padB = 46;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const max = niceCeil(Math.max(...data.map((d) => d.value)));
+  const n = data.length;
+  const x = (i: number) => padL + (n === 1 ? plotW / 2 : (plotW * i) / (n - 1));
+  const y = (v: number) => padT + plotH * (1 - v / max);
+
+  const parts: string[] = [];
+  for (let g = 0; g <= 4; g++) {
+    const val = (max * g) / 4;
+    const gy = padT + plotH * (1 - g / 4);
+    parts.push(
+      `<line class="md-chart-grid" x1="${padL}" y1="${gy}" x2="${W - padR}" y2="${gy}"/>`,
+      `<text class="md-chart-axis" x="${padL - 6}" y="${gy + 3}" text-anchor="end">${fmtNum(val)}</text>`,
+    );
+  }
+  const pts = data.map((d, i) => `${x(i).toFixed(1)},${y(d.value).toFixed(1)}`);
+  if (data.length > 1) {
+    parts.push(
+      `<polyline fill="none" stroke="${accent}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="${pts.join(" ")}"/>`,
+    );
+  }
+  data.forEach((d, i) => {
+    parts.push(
+      `<circle cx="${x(i).toFixed(1)}" cy="${y(d.value).toFixed(1)}" r="3.5" fill="${accent}"/>`,
+      `<text class="md-chart-axis" x="${x(i).toFixed(1)}" y="${H - padB + 18}" text-anchor="middle">${esc(d.label)}</text>`,
+    );
+  });
+  return `<svg class="md-chart-svg" viewBox="0 0 ${W} ${H}" role="img" preserveAspectRatio="xMidYMid meet">${parts.join("")}</svg>`;
+}
+
+function renderDonutChart(
+  data: ChartDatum[],
+  esc: (s: string) => string,
+): string {
+  const slices = data.filter((d) => d.value > 0);
+  const total = slices.reduce((s, d) => s + d.value, 0);
+  if (total <= 0) return "";
+  const cx = 100;
+  const cy = 100;
+  const R = 92;
+  const r = 56;
+  const mid = (R + r) / 2;
+
+  const arcs: string[] = [];
+  if (slices.length === 1) {
+    // A full ring can't be drawn with a single arc — stroke a circle instead.
+    arcs.push(
+      `<circle cx="${cx}" cy="${cy}" r="${mid}" fill="none" stroke="${CHART_PALETTE[0]}" stroke-width="${R - r}"/>`,
+    );
+  } else {
+    let angle = -Math.PI / 2; // start at top
+    slices.forEach((d, i) => {
+      const frac = d.value / total;
+      const end = angle + frac * Math.PI * 2;
+      const large = frac > 0.5 ? 1 : 0;
+      const p = (rad: number, a: number) =>
+        `${(cx + rad * Math.cos(a)).toFixed(2)} ${(cy + rad * Math.sin(a)).toFixed(2)}`;
+      const path = [
+        `M ${p(R, angle)}`,
+        `A ${R} ${R} 0 ${large} 1 ${p(R, end)}`,
+        `L ${p(r, end)}`,
+        `A ${r} ${r} 0 ${large} 0 ${p(r, angle)}`,
+        "Z",
+      ].join(" ");
+      arcs.push(
+        `<path d="${path}" fill="${CHART_PALETTE[i % CHART_PALETTE.length]}"/>`,
+      );
+      angle = end;
+    });
+  }
+  const svg =
+    `<svg class="md-chart-donut-svg" viewBox="0 0 200 200" role="img" preserveAspectRatio="xMidYMid meet">` +
+    arcs.join("") +
+    `<text class="md-chart-total" x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central">${fmtNum(total)}</text>` +
+    `</svg>`;
+
+  const legend = slices
+    .map((d, i) => {
+      const pct = Math.round((d.value / total) * 100);
+      const c = CHART_PALETTE[i % CHART_PALETTE.length];
+      return (
+        `<li><span class="md-chart-swatch" style="background:${c}"></span>` +
+        `<span class="md-chart-legend-label">${esc(d.label)}</span>` +
+        `<span class="md-chart-legend-val">${fmtNum(d.value)}</span>` +
+        `<span class="md-chart-legend-pct">${pct}%</span></li>`
+      );
+    })
+    .join("");
+
+  return `<div class="md-chart-body">${svg}<ul class="md-chart-legend">${legend}</ul></div>`;
 }
 
 // Install a single, document-wide delegated click handler for copy buttons.

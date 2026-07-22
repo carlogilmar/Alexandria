@@ -37,6 +37,31 @@ pub(crate) async fn create(pool: &SqlitePool, list_id: i64, text: &str) -> AppRe
     .map_err(Into::into)
 }
 
+// Re-parent a todo to another list, appending it to the end of that list's
+// order. Powers "Send to backlog" and "Pull to today" (Sprint 29).
+pub(crate) async fn move_to_list(
+    pool: &SqlitePool,
+    id: i64,
+    target_list_id: i64,
+) -> AppResult<Todo> {
+    let next_pos: i64 =
+        sqlx::query_scalar("SELECT COALESCE(MAX(position) + 1, 0) FROM todos WHERE list_id = ?1")
+            .bind(target_list_id)
+            .fetch_one(pool)
+            .await?;
+    sqlx::query_as::<_, Todo>(
+        "UPDATE todos SET list_id = ?1, position = ?2, updated_at = datetime('now')
+           WHERE id = ?3
+       RETURNING *",
+    )
+    .bind(target_list_id)
+    .bind(next_pos)
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("todo {id}")))
+}
+
 pub(crate) async fn update(pool: &SqlitePool, id: i64, patch: &TodoPatch) -> AppResult<Todo> {
     if let Some(t) = &patch.text {
         if t.trim().is_empty() {
@@ -136,6 +161,15 @@ pub async fn toggle_todo(state: State<'_, AppState>, id: i64) -> AppResult<Todo>
 }
 
 #[tauri::command]
+pub async fn move_todo(
+    state: State<'_, AppState>,
+    id: i64,
+    target_list_id: i64,
+) -> AppResult<Todo> {
+    move_to_list(&state.pool, id, target_list_id).await
+}
+
+#[tauri::command]
 pub async fn delete_todo(state: State<'_, AppState>, id: i64) -> AppResult<()> {
     delete(&state.pool, id).await
 }
@@ -174,6 +208,24 @@ mod tests {
         assert_eq!(a.position, 0);
         assert_eq!(b.position, 1);
         assert_eq!(c.position, 2);
+    }
+
+    #[tokio::test]
+    async fn move_to_list_reparents_and_appends() {
+        let pool = test_pool().await;
+        let src = fresh_list(&pool).await;
+        let dst = lists::create(&pool, "dest", "2026-05-11").await.unwrap().id;
+        // Seed the destination so the moved item must land at the end.
+        create(&pool, dst, "existing").await.unwrap();
+        let t = create(&pool, src, "to move").await.unwrap();
+
+        let moved = move_to_list(&pool, t.id, dst).await.unwrap();
+        assert_eq!(moved.list_id, dst);
+        assert_eq!(moved.position, 1, "appended after the existing todo");
+
+        // It left the source list.
+        let remaining = list_for(&pool, src).await.unwrap();
+        assert!(remaining.iter().all(|x| x.id != t.id));
     }
 
     #[tokio::test]

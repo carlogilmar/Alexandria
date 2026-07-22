@@ -21,6 +21,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::lists::list_today,
             commands::lists::list_by_id,
+            commands::lists::list_backlog,
+            commands::lists::list_backlog_pending,
             commands::lists::list_all,
             commands::lists::create_list,
             commands::lists::rename_list,
@@ -31,6 +33,7 @@ pub fn run() {
             commands::todos::create_todo,
             commands::todos::update_todo,
             commands::todos::toggle_todo,
+            commands::todos::move_todo,
             commands::todos::delete_todo,
             commands::todos::reorder_todos,
             commands::tags::list_tags,

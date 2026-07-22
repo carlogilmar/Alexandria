@@ -35,6 +35,7 @@
         { syntax: "```elixir … ```", does: "Code block with syntax highlighting (elixir, js, ts, python, rust, sql, bash, json, html, css, yaml)" },
         { syntax: "```mermaid … ```", does: "Renders a diagram inline" },
         { syntax: "```cards … ```", does: "Grid of link cards — build dashboards. See “Cards” below (or the Insert cards button)" },
+        { syntax: "```chart … ```", does: "Inline bar / donut / line chart — `type: bar|donut|line`, `title:`, then `Label: number` lines. See “Charts” below." },
         { syntax: "--- ", does: "A divider line" },
       ],
     },
@@ -56,6 +57,16 @@
         { syntax: "color: blue", does: "Tint: red · orange · amber · green · teal · blue · violet · pink · gray · black.  Gradients: sunset · ocean · forest · dusk · candy" },
         { syntax: "filled: true", does: "Bold, darker saturated background with white text (solid colors only)" },
         { syntax: "icon: 📊", does: "Any emoji, shown top-left" },
+      ],
+    },
+    {
+      title: "Charts",
+      rows: [
+        { syntax: "```chart … ```", does: "An inline chart from a few lines. Config lines + `Label: number` data lines. Use the Bar / Donut chart slash commands for a template." },
+        { syntax: "type: bar", does: "Chart kind: bar · donut (alias pie) · line. Default bar." },
+        { syntax: "title: Weekly commits", does: "Optional heading above the chart" },
+        { syntax: "color: blue", does: "Accent for bar / line (named palette). Donut colors each slice automatically." },
+        { syntax: "Mon: 5", does: "A data point — any `Label: number` line. Order is preserved; negatives / non-numbers are skipped." },
       ],
     },
   ];

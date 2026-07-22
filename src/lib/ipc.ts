@@ -6,6 +6,7 @@ export type List = {
   date: string;
   archived: boolean;
   pinned: boolean;
+  isBacklog: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -223,6 +224,8 @@ export type WeeklyActivity = {
 // Lists
 export const listToday = () => invoke<List>("list_today");
 export const listById = (id: number) => invoke<List>("list_by_id", { id });
+export const listBacklog = () => invoke<List>("list_backlog");
+export const listBacklogPending = () => invoke<number>("list_backlog_pending");
 export const listAll = (opts?: {
   from?: string;
   to?: string;
@@ -245,6 +248,8 @@ export const createTodo = (listId: number, text: string) =>
 export const updateTodo = (id: number, patch: TodoPatch) =>
   invoke<Todo>("update_todo", { id, patch });
 export const toggleTodo = (id: number) => invoke<Todo>("toggle_todo", { id });
+export const moveTodo = (id: number, targetListId: number) =>
+  invoke<Todo>("move_todo", { id, targetListId });
 export const deleteTodo = (id: number) => invoke<void>("delete_todo", { id });
 export const reorderTodos = (listId: number, orderedIds: number[]) =>
   invoke<void>("reorder_todos", { listId, orderedIds });

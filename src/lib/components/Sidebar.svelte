@@ -277,6 +277,44 @@
         </button>
       {/if}
 
+      <!-- Backlog: durable holding pen for unscheduled tasks (Sprint 29) -->
+      <button
+        type="button"
+        class="mb-3 flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm font-medium transition-colors"
+        class:border-blue-500={app.view === "list" && app.selected?.isBacklog}
+        class:bg-blue-50={app.view === "list" && app.selected?.isBacklog}
+        class:dark:border-blue-500={app.view === "list" && app.selected?.isBacklog}
+        class:dark:bg-blue-950={app.view === "list" && app.selected?.isBacklog}
+        class:border-neutral-200={!(app.view === "list" && app.selected?.isBacklog)}
+        class:bg-white={!(app.view === "list" && app.selected?.isBacklog)}
+        class:hover:bg-neutral-100={!(app.view === "list" && app.selected?.isBacklog)}
+        class:dark:border-neutral-700={!(app.view === "list" && app.selected?.isBacklog)}
+        class:dark:bg-neutral-900={!(app.view === "list" && app.selected?.isBacklog)}
+        class:dark:hover:bg-neutral-800={!(app.view === "list" && app.selected?.isBacklog)}
+        onclick={() => app.openBacklog()}
+        title="Backlog — unscheduled tasks"
+      >
+        <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
+            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-1 1H4a1 1 0 01-1-1V4z" />
+            <path fill-rule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zm4 2a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z" clip-rule="evenodd" />
+          </svg>
+        </span>
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-xs text-neutral-500 dark:text-neutral-400">Backlog</p>
+          <p class="truncate text-xs text-neutral-700 dark:text-neutral-200">
+            {app.backlogPending > 0
+              ? `${app.backlogPending} pending`
+              : "empty"}
+          </p>
+        </div>
+        {#if app.backlogPending > 0}
+          <span class="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-semibold text-violet-700 dark:bg-violet-900 dark:text-violet-200">
+            {app.backlogPending}
+          </span>
+        {/if}
+      </button>
+
       <!-- Single + Add button (opens modal for kind picker) -->
       <button
         type="button"

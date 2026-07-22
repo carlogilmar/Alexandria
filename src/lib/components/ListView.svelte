@@ -10,6 +10,7 @@
   let qaInput: HTMLInputElement | undefined = $state();
   let exportMenuOpen = $state(false);
 
+  let isBacklog = $derived(app.selected?.isBacklog ?? false);
   let total = $derived(app.todos.length);
   let done = $derived(app.todos.filter((t) => t.completed).length);
   let progressPct = $derived(total === 0 ? 0 : Math.round((done / total) * 100));
@@ -124,7 +125,14 @@
   <main class="mx-auto flex min-h-full w-full max-w-2xl flex-col px-8 py-10">
     <header class="mb-6 flex items-end justify-between">
       <div class="min-w-0 flex-1">
-        {#if editingTitle}
+        {#if isBacklog}
+          <h1 class="truncate text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
+            Backlog
+          </h1>
+          <p class="mt-1 text-xs uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+            Unscheduled tasks
+          </p>
+        {:else if editingTitle}
           <input
             bind:this={titleInput}
             bind:value={titleDraft}
@@ -140,11 +148,11 @@
           >
             {app.selected.title}
           </button>
+          <p class="mt-1 flex flex-wrap items-center gap-2 text-xs uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+            <span>{prettyDate} · {app.selected.date}</span>
+            <IdChip kind="list" id={app.selected.id} />
+          </p>
         {/if}
-        <p class="mt-1 flex flex-wrap items-center gap-2 text-xs uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
-          <span>{prettyDate} · {app.selected.date}</span>
-          <IdChip kind="list" id={app.selected.id} />
-        </p>
       </div>
       <div class="ml-4 flex shrink-0 items-center gap-3">
         {#if total > 0}
@@ -158,6 +166,7 @@
             {done} / {total}
           </p>
         {/if}
+        {#if !isBacklog}
         <button
           type="button"
           class="rounded-md p-1.5 transition-colors"
@@ -264,6 +273,7 @@
             </div>
           {/if}
         </div>
+        {/if}
       </div>
     </header>
 
@@ -285,7 +295,7 @@
         bind:this={qaInput}
         type="text"
         bind:value={quickAddText}
-        placeholder="What needs doing?"
+        placeholder={isBacklog ? "Add to backlog…" : "What needs doing?"}
         class="w-full rounded-xl border border-neutral-200 bg-white/70 px-4 py-3 text-[15px] shadow-sm outline-none transition-shadow placeholder:text-neutral-400 focus:border-blue-300 focus:shadow focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500"
       />
     </form>
@@ -312,6 +322,11 @@
               onDelete={() => app.removeTodo(todo)}
               onOpenDetails={() => app.selectTodo(todo.id)}
               onHandlePointerDown={(e) => handlePointerDown(todo.id, e)}
+              moveDir={isBacklog ? "today" : "backlog"}
+              onMove={() =>
+                isBacklog
+                  ? app.pullTodoToToday(todo)
+                  : app.sendTodoToBacklog(todo)}
             />
           </li>
         {/each}

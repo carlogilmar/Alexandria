@@ -36,6 +36,12 @@
     "---\n" +
     "title: A blueprint\ndesc: Bold filled card\nlink: blueprint:1\ncolor: violet\nfilled: true\n" +
     "```\n";
+  const BAR_CHART =
+    "\n```chart\ntype: bar\ntitle: Weekly commits\ncolor: blue\n" +
+    "Mon: 5\nTue: 8\nWed: 3\nThu: 6\nFri: 9\n```\n";
+  const DONUT_CHART =
+    "\n```chart\ntype: donut\ntitle: Time split\n" +
+    "Coding: 8\nMeetings: 3\nReview: 4\nOther: 2\n```\n";
 
   const COMMANDS: Cmd[] = [
     { id: "h1", label: "Heading 1", icon: "H₁", hint: "# ", keywords: "title heading", snippet: "# " },
@@ -50,6 +56,8 @@
     { id: "table", label: "Table", icon: "▦", keywords: "grid rows columns", snippet: TABLE },
     { id: "diagram", label: "Diagram", icon: "📈", keywords: "mermaid flowchart graph", snippet: MERMAID },
     { id: "cards", label: "Cards", icon: "▤", keywords: "dashboard links tiles", snippet: CARDS },
+    { id: "bar-chart", label: "Bar chart", icon: "▊", keywords: "chart graph bar data viz", snippet: BAR_CHART },
+    { id: "donut-chart", label: "Donut chart", icon: "◑", keywords: "chart pie donut data viz", snippet: DONUT_CHART },
     { id: "divider", label: "Divider", icon: "—", keywords: "hr rule separator", snippet: "\n---\n" },
     { id: "link", label: "Link", icon: "🔗", keywords: "url entity href", action: "link" },
     { id: "image", label: "Image", icon: "🖼", keywords: "picture photo", action: "image" },

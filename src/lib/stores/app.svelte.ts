@@ -3,8 +3,11 @@ import {
   listToday,
   listAll,
   listById,
+  listBacklog,
+  listBacklogPending,
   listTodos,
   createList,
+  moveTodo,
   renameList as renameListIpc,
   archiveList,
   restoreList,
@@ -312,6 +315,11 @@ class AppStore {
   focusListId = $state<number | null>(null);
   focusListTitle = $state<string | null>(null);
 
+  // Backlog (Sprint 29): a single durable list for unscheduled tasks. `backlogId`
+  // is cached once resolved; `backlogPending` drives the sidebar badge.
+  backlogId = $state<number | null>(null);
+  backlogPending = $state(0);
+
   private flashToken = 0;
   setFlash(msg: string, ms = 2000) {
     this.flash = msg;
@@ -337,6 +345,7 @@ class AppStore {
       this.lists = await listAll();
       this.stats = await getStats();
       this.dailyStats = await getDailyStats(null, null);
+      this.backlogPending = await listBacklogPending();
       this.allTags = await listTags();
       this.workflows = await listWorkflows();
       this.notes = await listNotes();
@@ -1546,6 +1555,48 @@ class AppStore {
     this.lists = await listAll();
     this.stats = await getStats();
     this.dailyStats = await getDailyStats(null, null);
+    this.backlogPending = await listBacklogPending();
+  }
+
+  // ---- Backlog (Sprint 29) ----
+
+  // Resolve (and cache) the id of the single backlog list, creating it on the
+  // backend if it doesn't exist yet.
+  async ensureBacklog(): Promise<number> {
+    if (this.backlogId !== null) return this.backlogId;
+    const bl = await listBacklog();
+    this.backlogId = bl.id;
+    return bl.id;
+  }
+
+  async openBacklog() {
+    const id = await this.ensureBacklog();
+    await this.select(id);
+  }
+
+  // Move a task off a daily list into the backlog.
+  async sendTodoToBacklog(todo: Todo) {
+    const backlogId = await this.ensureBacklog();
+    await moveTodo(todo.id, backlogId);
+    // Drop it from whatever list is currently loaded (it left that list).
+    this.todos = this.todos.filter((t) => t.id !== todo.id);
+    if (this.selectedTodoId === todo.id) this.selectedTodoId = null;
+    await this.refreshLists();
+    this.setFlash("Moved to backlog");
+  }
+
+  // Pull a backlog task into today's list — creating today's list if needed
+  // (an explicit user action, unlike init(); cf. Sprint 11).
+  async pullTodoToToday(todo: Todo) {
+    const today = await createList(
+      defaultListTitleForDate(todayIso()),
+      todayIso(),
+    );
+    await moveTodo(todo.id, today.id);
+    this.todos = this.todos.filter((t) => t.id !== todo.id);
+    if (this.selectedTodoId === todo.id) this.selectedTodoId = null;
+    await this.refreshLists();
+    this.setFlash("Pulled to today");
   }
 
   // ---- Search ----

@@ -9,6 +9,8 @@ pub struct List {
     pub date: String,
     pub archived: bool,
     pub pinned: bool,
+    #[serde(default)]
+    pub is_backlog: bool,
     pub created_at: String,
     pub updated_at: String,
 }
