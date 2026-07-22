@@ -13,6 +13,34 @@
   const commitDate = __APP_COMMIT_DATE__;
   let commitOpen = $state(false);
 
+  // Editable app-brand label (Sprint 31).
+  let editingBrand = $state(false);
+  let brandDraft = $state("");
+  let brandInput: HTMLInputElement | undefined = $state();
+
+  function startBrandEdit() {
+    brandDraft = theme.brandLabel;
+    editingBrand = true;
+    queueMicrotask(() => {
+      brandInput?.focus();
+      brandInput?.select();
+    });
+  }
+  function commitBrandEdit() {
+    if (!editingBrand) return;
+    editingBrand = false;
+    theme.setBrandLabel(brandDraft);
+  }
+  function onBrandKey(e: KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commitBrandEdit();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      editingBrand = false;
+    }
+  }
+
   let commitDatePretty = $derived(
     commitDate
       ? new Date(commitDate).toLocaleString(undefined, {
@@ -517,18 +545,34 @@
   <div
     class="mt-2 border-t border-neutral-300/40 px-2 pt-2 text-[11px] text-neutral-400 dark:border-neutral-700/40 dark:text-neutral-500"
   >
-    <div class="flex justify-between">
-      <span>Lists</span><span>{app.stats.totalLists}</span>
-    </div>
-    <div class="flex justify-between">
-      <span>Todos</span><span>{app.stats.totalTodos}</span>
-    </div>
-    <div class="flex justify-between">
-      <span>Streak</span>
-      <span>
-        {app.stats.streak}
-        {app.stats.streak === 1 ? "day" : "days"}
-      </span>
+    <!-- App brand mark (Oswald, uppercase). Click the pencil to customize. -->
+    <div class="group relative mb-2 flex items-center justify-center">
+      {#if editingBrand}
+        <input
+          bind:this={brandInput}
+          bind:value={brandDraft}
+          onblur={commitBrandEdit}
+          onkeydown={onBrandKey}
+          maxlength="60"
+          class="brand-label w-full rounded border-none bg-transparent px-0.5 py-0 text-center uppercase text-neutral-400 outline-none ring-1 ring-blue-500/40 focus:ring-blue-500 dark:text-neutral-500"
+          aria-label="App name"
+        />
+      {:else}
+        <span class="brand-label uppercase text-center text-neutral-400 dark:text-neutral-500">
+          {theme.brandLabel}
+        </span>
+        <button
+          type="button"
+          class="absolute right-0 top-1/2 -translate-y-1/2 shrink-0 rounded p-0.5 text-neutral-300 opacity-0 transition-opacity hover:bg-neutral-200/60 hover:text-neutral-600 group-hover:opacity-100 focus:opacity-100 dark:text-neutral-600 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-300"
+          title="Rename this app"
+          aria-label="Rename this app"
+          onclick={startBrandEdit}
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3">
+            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+          </svg>
+        </button>
+      {/if}
     </div>
     <button
       type="button"
@@ -587,6 +631,16 @@
 </aside>
 
 <style>
+  /* App-brand mark: Oswald, condensed uppercase, generous tracking. Inherits
+     its color from the footer (adapts to tint + dark mode). */
+  .brand-label {
+    font-family: "Oswald", var(--font-sans);
+    font-weight: 600;
+    font-size: 15px;
+    line-height: 1.15;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
   .aurora {
     position: absolute;
     inset: 0;

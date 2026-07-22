@@ -352,7 +352,20 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 30 (Charts in markdown — a ```chart fence renders an
+Last updated: end of Sprint 31 (Sidebar app-brand mark — retired the stale
+Lists/Todos/Streak counters from the sidebar footer (the app outgrew daily-todo
+metrics; `getStats` still powers Home) and replaced them with an editable
+**app-brand label**: Oswald, uppercase, `0.14em` tracking, default "Alert Media
+Engineering Toolbox". A hover pencil does inline edit (Enter/blur save, Esc
+cancel, blank resets). Lives in the theme store (`brandLabel` / `setBrandLabel`
+/ `DEFAULT_BRAND`, persisted to `localStorage` `brandLabel`), so it sits next to
+`sidebarTint`; the label inherits the footer color so it adapts to every tint +
+dark mode. Oswald is **bundled offline** (no CDN in the Tauri webview):
+`static/fonts/oswald-{latin,latin-ext}.woff2` (variable woff2 subsets, one file
+per subset covers all weights) + two `@font-face` blocks at the top of
+`app.css`; `adapter-static` copies them to `build/fonts/`. Shortcuts + build
+popover unchanged. See documentation/SPRINT31.md. — earlier:
+Sprint 30) Charts in markdown — a ```chart fence renders an
 inline bar / donut / line chart, rendered as SVG synchronously in
 `$lib/markdownit.ts`'s fence rule (like ```cards, unlike async ```mermaid — so
 it works in blueprint cards too, no dependency, CSP-safe). DSL mirrors ```cards:

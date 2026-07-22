@@ -2,6 +2,10 @@ export type Theme = "light" | "dark" | "system";
 
 const STORAGE_KEY = "theme";
 const TINT_KEY = "sidebarTint";
+const BRAND_KEY = "brandLabel";
+
+// Default sidebar app-brand label (Sprint 31). Editable + persisted.
+export const DEFAULT_BRAND = "Alert Media Engineering Toolbox";
 
 // Selectable sidebar tints. `hue` null = neutral grey. `dark: true` = a solid
 // dark surface (the sidebar flips to light text — see ThemeStore.isSidebarDark
@@ -179,17 +183,26 @@ function readStored(): Theme {
   return v === "light" || v === "dark" || v === "system" ? v : "system";
 }
 
+function readStoredBrand(): string {
+  if (typeof localStorage === "undefined") return DEFAULT_BRAND;
+  const v = localStorage.getItem(BRAND_KEY);
+  return v !== null ? v : DEFAULT_BRAND;
+}
+
 class ThemeStore {
   preference = $state<Theme>("system");
   // Resolved (effective) theme — what's actually applied right now.
   resolved = $state<"light" | "dark">("light");
   // Selectable sidebar background tint (see SIDEBAR_TINTS).
   sidebarTint = $state<string>("neutral");
+  // Editable sidebar app-brand label (Sprint 31).
+  brandLabel = $state<string>(DEFAULT_BRAND);
 
   init() {
     if (typeof document === "undefined") return;
     this.preference = readStored();
     this.sidebarTint = readStoredTint();
+    this.brandLabel = readStoredBrand();
     this.apply();
 
     // Re-apply when the system preference flips, but only if we're following
@@ -220,6 +233,15 @@ class ThemeStore {
       localStorage.setItem(TINT_KEY, name);
     }
     this.applyTint();
+  }
+
+  // Set the app-brand label; empty/blank resets to the default. Persisted.
+  setBrandLabel(text: string) {
+    const next = text.trim() || DEFAULT_BRAND;
+    this.brandLabel = next;
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(BRAND_KEY, next);
+    }
   }
 
   private apply() {
