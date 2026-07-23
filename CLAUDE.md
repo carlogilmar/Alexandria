@@ -352,7 +352,19 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 33 (Progress bars in markdown — a ```progress fence
+Last updated: end of Sprint 34 (Interactive progress counter — a ```progress
+fraction bar `n/d` renders −/+ steppers that rewrite the numerator in the
+markdown source and save, exactly like task checkboxes (`toggleTaskInSource`).
+New exports `stepProgressInSource(src,index,delta)` (finds the Nth integer-frac
+line inside a ```progress fence, clamps 0..d, preserves label/den/trailing
+color) + `countProgressStepsInSource`. Steppers render only when the fence is
+rendered with `env.progressInteractive` — set by `MarkdownEditor` (notes) and
+`ArticleEditor` (articles); read-only surfaces (blueprint cards, flash cards)
+show a static bar. Per-render stepper index lives on `env.progressSteps`
+(document-ordered); `ArticleEditor` offsets per-segment via
+`countProgressStepsInSource` like it does task indices. Percent/bare bars stay
+static. See documentation/SPRINT34.md. — earlier:
+Sprint 33) Progress bars in markdown — a ```progress fence
 renders one labeled bar per `Label: value` line; value as `4/10` (→ its %),
 `60%`, or a bare `0–100`, with an optional trailing color word (reuses
 `MARQUEE_COLORS`, default blue). CSS-only/synchronous like the other custom

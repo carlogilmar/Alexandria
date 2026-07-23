@@ -208,6 +208,13 @@ Launch checklist: 10/10
 word to recolor a bar. A bar at 100% turns solid green and shows
 **COMPLETE**.)
 
+**Live counter** — a fraction bar shows −/+ buttons in notes & articles;
+click to step it and it saves automatically:
+
+```progress
+Tasks: 0/8
+```
+
 ---
 
 ## Divider

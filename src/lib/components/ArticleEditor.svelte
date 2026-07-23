@@ -10,6 +10,8 @@
     countWords,
     toggleTaskInSource,
     countTasksInSource,
+    stepProgressInSource,
+    countProgressStepsInSource,
   } from "$lib/markdownit";
   import EmbedBlock from "$lib/components/EmbedBlock.svelte";
   import EntityLinkPicker from "$lib/components/EntityLinkPicker.svelte";
@@ -157,6 +159,23 @@
       void toggleTask(offset + local);
       return;
     }
+    // Progress steppers: same per-segment index offset as task checkboxes.
+    const step = target.closest<HTMLElement>(".md-progress-step");
+    if (step) {
+      e.preventDefault();
+      const local = Number(step.dataset.progress);
+      const delta = step.dataset.dir === "inc" ? 1 : -1;
+      const segEl = target.closest<HTMLElement>("[data-seg]");
+      const segIdx = segEl ? Number(segEl.dataset.seg) : NaN;
+      if (!Number.isFinite(local) || !Number.isFinite(segIdx)) return;
+      let offset = 0;
+      for (let j = 0; j < segIdx; j++) {
+        const s = segments[j];
+        if (s.type === "md") offset += countProgressStepsInSource(s.text);
+      }
+      void stepProgress(offset + local, delta);
+      return;
+    }
     const anchor = target.closest("a");
     if (anchor) {
       e.preventDefault();
@@ -184,6 +203,13 @@
   async function toggleTask(idx: number) {
     // Preview implies !editing, so draft mirrors the committed value.
     const next = toggleTaskInSource(draft, idx);
+    if (next === null) return;
+    draft = next;
+    await onCommit(next);
+  }
+
+  async function stepProgress(idx: number, delta: number) {
+    const next = stepProgressInSource(draft, idx, delta);
     if (next === null) return;
     draft = next;
     await onCommit(next);
@@ -476,7 +502,7 @@
       {#each segments as seg, i (i)}
         {#if seg.type === "md"}
           <div data-seg={i}>
-            {@html md.render(seg.text)}
+            {@html md.render(seg.text, { progressInteractive: true })}
           </div>
         {:else}
           <EmbedBlock kind={seg.kind} id={seg.id} />

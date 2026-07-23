@@ -9,6 +9,7 @@
     hydrateMermaidBlocks,
     countWords,
     toggleTaskInSource,
+    stepProgressInSource,
   } from "$lib/markdownit";
   import EntityLinkPicker from "$lib/components/EntityLinkPicker.svelte";
   import SlashMenu from "$lib/components/SlashMenu.svelte";
@@ -53,7 +54,9 @@
     if (!editing) draft = value;
   });
 
-  let rendered = $derived(draft.trim() ? md.render(draft) : "");
+  let rendered = $derived(
+    draft.trim() ? md.render(draft, { progressInteractive: true }) : "",
+  );
   let wc = $derived(countWords(draft));
 
   // Outline: headings pulled from the source (fences skipped), in the same
@@ -144,6 +147,15 @@
       if (Number.isFinite(idx)) void toggleTask(idx);
       return;
     }
+    // Progress steppers: step the matching `n/d` bar in the source and persist.
+    const step = target.closest<HTMLElement>(".md-progress-step");
+    if (step) {
+      e.preventDefault();
+      const idx = Number(step.dataset.progress);
+      const delta = step.dataset.dir === "inc" ? 1 : -1;
+      if (Number.isFinite(idx)) void stepProgress(idx, delta);
+      return;
+    }
     const anchor = target.closest("a");
     if (anchor) {
       e.preventDefault();
@@ -178,6 +190,13 @@
   async function toggleTask(idx: number) {
     // Preview implies !editing, so draft mirrors the committed value.
     const next = toggleTaskInSource(draft, idx);
+    if (next === null) return;
+    draft = next;
+    await onCommit(next);
+  }
+
+  async function stepProgress(idx: number, delta: number) {
+    const next = stepProgressInSource(draft, idx, delta);
     if (next === null) return;
     draft = next;
     await onCommit(next);

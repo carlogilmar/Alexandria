@@ -100,7 +100,7 @@ export function createMarkdownIt(): MarkdownIt {
     // ```progress → labeled progress bars. One `Label: value` per line, value
     // as 4/10, 60%, or a bare 0–100 number (optional trailing color word).
     if (info === "progress" || info.startsWith("progress ")) {
-      return renderProgress(tokens[idx].content, md);
+      return renderProgress(tokens[idx].content, md, env);
     }
     // Every other fenced block gets a GitHub-style copy button. The button is
     // static HTML (no per-instance handler survives `{@html}` re-renders); a
@@ -523,8 +523,19 @@ function renderMarquee(
 // ```progress renderer. One labeled bar per `Label: value` line. Value forms:
 // `4/10` (fraction → its %), `60%`, or a bare `0–100`. An optional trailing
 // named color word (see MARQUEE_COLORS) sets the fill. CSS-only, no hydration.
-function renderProgress(source: string, md: MarkdownIt): string {
+//
+// When rendered with `env.progressInteractive` (the note/article editors), an
+// integer-fraction bar `n/d` also gets −/+ stepper buttons that rewrite the
+// source (see stepProgressInSource) — a live counter. Its `data-progress`
+// index is assigned per-render via a counter on `env`, matching the source
+// scan order (cf. task checkboxes).
+function renderProgress(
+  source: string,
+  md: MarkdownIt,
+  env?: Record<string, unknown>,
+): string {
   const esc = (s: string) => md.utils.escapeHtml(s);
+  const interactive = env?.progressInteractive === true;
   const rows: string[] = [];
   for (const line of source.split("\n")) {
     const m = /^\s*([^:]+?)\s*:\s*(.*)$/.exec(line);
@@ -543,6 +554,8 @@ function renderProgress(source: string, md: MarkdownIt): string {
 
     let pct: number | null = null;
     let display = valTok;
+    // A bar is "steppable" only when it's an integer fraction n/d.
+    const steppable = /^\d+\/\d+$/.test(valTok);
     let frac: RegExpExecArray | null;
     if ((frac = /^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/.exec(valTok))) {
       const den = Number(frac[2]);
@@ -560,11 +573,25 @@ function renderProgress(source: string, md: MarkdownIt): string {
     const done = pct >= 100;
     const barColor = done ? MARQUEE_COLORS.green : fill;
 
+    // Steppers (interactive fraction bars only). The per-render index lives on
+    // env so it's document-ordered across every ```progress fence.
+    let valBlock = `<span class="md-progress-val">${esc(display)}</span>`;
+    if (interactive && steppable) {
+      const i = (env!.progressSteps as number) ?? 0;
+      env!.progressSteps = i + 1;
+      valBlock =
+        `<span class="md-progress-ctrls">` +
+        `<button type="button" class="md-progress-step" data-progress="${i}" data-dir="dec" aria-label="Decrease ${esc(label)}">−</button>` +
+        `<span class="md-progress-val">${esc(display)}</span>` +
+        `<button type="button" class="md-progress-step" data-progress="${i}" data-dir="inc" aria-label="Increase ${esc(label)}">+</button>` +
+        `</span>`;
+    }
+
     rows.push(
       `<div class="md-progress-row${done ? " md-progress-done" : ""}">` +
         `<div class="md-progress-head">` +
         `<span class="md-progress-label">${esc(label)}</span>` +
-        `<span class="md-progress-val">${esc(display)}</span>` +
+        valBlock +
         `</div>` +
         `<div class="md-progress-track">` +
         `<div class="md-progress-fill" style="width:${pct.toFixed(1)}%;background-color:${barColor}">` +
@@ -576,6 +603,71 @@ function renderProgress(source: string, md: MarkdownIt): string {
   }
   if (rows.length === 0) return "";
   return `<div class="md-progress">${rows.join("")}</div>`;
+}
+
+// Scan for ```progress fences and adjust the numerator of the Nth integer
+// fraction line (`Label: n/d [color]`) by `delta`, clamped to 0..d. Returns the
+// new source, or null if that index wasn't found. Mirrors toggleTaskInSource.
+export function stepProgressInSource(
+  src: string,
+  index: number,
+  delta: number,
+): string | null {
+  const lines = src.split("\n");
+  let inFence = false;
+  let inProgress = false;
+  let n = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const fence = /^\s*(`{3,}|~{3,})(.*)$/.exec(lines[i]);
+    if (fence) {
+      if (!inFence) {
+        inFence = true;
+        const info = fence[2].trim().toLowerCase();
+        inProgress = info === "progress" || info.startsWith("progress ");
+      } else {
+        inFence = false;
+        inProgress = false;
+      }
+      continue;
+    }
+    if (!inProgress) continue;
+    const m = /^(\s*[^:]+?\s*:\s*)(\d+)(\s*\/\s*)(\d+)(.*)$/.exec(lines[i]);
+    if (!m) continue;
+    if (n === index) {
+      const den = Number(m[4]);
+      const num = Math.max(0, Math.min(den, Number(m[2]) + delta));
+      lines[i] = `${m[1]}${num}${m[3]}${m[4]}${m[5]}`;
+      return lines.join("\n");
+    }
+    n++;
+  }
+  return null;
+}
+
+// Count steppable (integer-fraction) ```progress lines in a source chunk — used
+// by ArticleEditor to offset per-segment stepper indices (cf. task checkboxes).
+export function countProgressStepsInSource(src: string): number {
+  const lines = src.split("\n");
+  let inFence = false;
+  let inProgress = false;
+  let n = 0;
+  for (const line of lines) {
+    const fence = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
+    if (fence) {
+      if (!inFence) {
+        inFence = true;
+        const info = fence[2].trim().toLowerCase();
+        inProgress = info === "progress" || info.startsWith("progress ");
+      } else {
+        inFence = false;
+        inProgress = false;
+      }
+      continue;
+    }
+    if (!inProgress) continue;
+    if (/^\s*[^:]+?\s*:\s*\d+\s*\/\s*\d+.*$/.test(line)) n++;
+  }
+  return n;
 }
 
 // Install a single, document-wide delegated click handler for copy buttons.

@@ -37,7 +37,7 @@
         { syntax: "```cards … ```", does: "Grid of link cards — build dashboards. See “Cards” below (or the Insert cards button)" },
         { syntax: "```chart … ```", does: "Inline bar / donut / line chart — `type: bar|donut|line`, `title:`, then `Label: number` lines. See “Charts” below." },
         { syntax: "```marquee blue fast … ```", does: "Scrolling colored banner — see “Marquee banner” below for all colors, gradients & speeds." },
-        { syntax: "```progress … ```", does: "Labeled progress bars. One `Label: value` per line — value as 4/10, 60%, or a bare 0–100. Optional trailing color word." },
+        { syntax: "```progress … ```", does: "Labeled progress bars. One `Label: value` per line — value as 4/10, 60%, or a bare 0–100. Optional trailing color word. A fraction bar (n/d) shows −/+ buttons in notes & articles to step it live; 100% turns green." },
         { syntax: "--- ", does: "A divider line" },
       ],
     },
