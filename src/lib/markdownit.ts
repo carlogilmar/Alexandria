@@ -92,6 +92,16 @@ export function createMarkdownIt(): MarkdownIt {
     if (info === "chart") {
       return renderChart(tokens[idx].content, md);
     }
+    // ```marquee [color] [speed] → a scrolling colored banner (CSS-only).
+    // Modifiers ride in the fence info string so the text can contain colons.
+    if (info === "marquee" || info.startsWith("marquee ")) {
+      return renderMarquee(tokens[idx].content, info.split(/\s+/).slice(1), md);
+    }
+    // ```progress → labeled progress bars. One `Label: value` per line, value
+    // as 4/10, 60%, or a bare 0–100 number (optional trailing color word).
+    if (info === "progress" || info.startsWith("progress ")) {
+      return renderProgress(tokens[idx].content, md);
+    }
     // Every other fenced block gets a GitHub-style copy button. The button is
     // static HTML (no per-instance handler survives `{@html}` re-renders); a
     // single delegated document listener — installCodeCopy — handles the click
@@ -457,6 +467,115 @@ function renderDonutChart(
     .join("");
 
   return `<div class="md-chart-body">${svg}<ul class="md-chart-legend">${legend}</ul></div>`;
+}
+
+// ```marquee renderer. A scrolling colored banner (right→left), for calling out
+// important notes or as a bold divider. CSS-only — the track holds the text
+// twice so translateX(-50%) loops seamlessly; hover pauses; reduced-motion
+// shows it static + centered (see app.css). Options (color + speed) come from
+// the fence info string so the banner text may contain any characters.
+const MARQUEE_COLORS: Record<string, string> = {
+  red: "#dc2626",
+  orange: "#ea580c",
+  amber: "#d97706",
+  green: "#16a34a",
+  teal: "#0d9488",
+  blue: "#2563eb",
+  violet: "#7c3aed",
+  pink: "#db2777",
+  gray: "#4b5563",
+  black: "#111318",
+};
+// Gradient presets — shared with the ```cards gradient look.
+const MARQUEE_GRADIENTS: Record<string, string> = {
+  sunset: "linear-gradient(135deg, #f97316, #ec4899)",
+  ocean: "linear-gradient(135deg, #0ea5e9, #14b8a6)",
+  forest: "linear-gradient(135deg, #22c55e, #14b8a6)",
+  dusk: "linear-gradient(135deg, #8b5cf6, #6366f1)",
+  candy: "linear-gradient(135deg, #ec4899, #a855f7)",
+};
+const MARQUEE_SPEEDS = new Set(["slow", "normal", "fast"]);
+
+function renderMarquee(
+  source: string,
+  mods: string[],
+  md: MarkdownIt,
+): string {
+  const text = source.trim().replace(/\s+/g, " ");
+  if (!text) return "";
+  let bg = MARQUEE_COLORS.blue;
+  let speed = "normal";
+  for (const m of mods) {
+    if (MARQUEE_COLORS[m]) bg = MARQUEE_COLORS[m];
+    else if (MARQUEE_GRADIENTS[m]) bg = MARQUEE_GRADIENTS[m];
+    else if (MARQUEE_SPEEDS.has(m)) speed = m;
+  }
+  const safe = md.utils.escapeHtml(text);
+  const item = `<span class="md-marquee-item">${safe}</span>`;
+  const itemDup = `<span class="md-marquee-item" aria-hidden="true">${safe}</span>`;
+  return (
+    `<div class="md-marquee md-marquee-${speed}" style="background:${bg}">` +
+    `<div class="md-marquee-track">${item}${itemDup}</div>` +
+    `</div>`
+  );
+}
+
+// ```progress renderer. One labeled bar per `Label: value` line. Value forms:
+// `4/10` (fraction → its %), `60%`, or a bare `0–100`. An optional trailing
+// named color word (see MARQUEE_COLORS) sets the fill. CSS-only, no hydration.
+function renderProgress(source: string, md: MarkdownIt): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  const rows: string[] = [];
+  for (const line of source.split("\n")) {
+    const m = /^\s*([^:]+?)\s*:\s*(.*)$/.exec(line);
+    if (!m) continue;
+    const label = m[1].trim();
+    const rest = m[2].trim();
+    if (!rest) continue;
+
+    // Split off an optional trailing color word; the rest is the value token.
+    let fill = MARQUEE_COLORS.blue;
+    let valTok = "";
+    for (const t of rest.split(/\s+/)) {
+      if (MARQUEE_COLORS[t.toLowerCase()]) fill = MARQUEE_COLORS[t.toLowerCase()];
+      else if (!valTok) valTok = t;
+    }
+
+    let pct: number | null = null;
+    let display = valTok;
+    let frac: RegExpExecArray | null;
+    if ((frac = /^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/.exec(valTok))) {
+      const den = Number(frac[2]);
+      pct = den > 0 ? (Number(frac[1]) / den) * 100 : 0;
+    } else if (/^(\d+(?:\.\d+)?)%$/.test(valTok)) {
+      pct = Number(valTok.slice(0, -1));
+    } else if (/^\d+(?:\.\d+)?$/.test(valTok)) {
+      pct = Number(valTok);
+      display = `${valTok}%`;
+    }
+    if (pct === null || !Number.isFinite(pct)) continue;
+    pct = Math.max(0, Math.min(100, pct));
+
+    // A completed bar always turns green (overrides the chosen color).
+    const done = pct >= 100;
+    const barColor = done ? MARQUEE_COLORS.green : fill;
+
+    rows.push(
+      `<div class="md-progress-row${done ? " md-progress-done" : ""}">` +
+        `<div class="md-progress-head">` +
+        `<span class="md-progress-label">${esc(label)}</span>` +
+        `<span class="md-progress-val">${esc(display)}</span>` +
+        `</div>` +
+        `<div class="md-progress-track">` +
+        `<div class="md-progress-fill" style="width:${pct.toFixed(1)}%;background-color:${barColor}">` +
+        (done ? `<span class="md-progress-flabel">Complete</span>` : "") +
+        `</div>` +
+        `</div>` +
+        `</div>`,
+    );
+  }
+  if (rows.length === 0) return "";
+  return `<div class="md-progress">${rows.join("")}</div>`;
 }
 
 // Install a single, document-wide delegated click handler for copy buttons.

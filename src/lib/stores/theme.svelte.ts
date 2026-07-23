@@ -235,6 +235,17 @@ class ThemeStore {
     this.applyTint();
   }
 
+  // Pick a random sidebar tint, different from the current one. Persisted via
+  // setSidebarTint.
+  randomSidebarTint() {
+    const names = SIDEBAR_TINTS.map((t) => t.name).filter(
+      (n) => n !== this.sidebarTint,
+    );
+    if (names.length === 0) return;
+    const pick = names[Math.floor(Math.random() * names.length)];
+    this.setSidebarTint(pick);
+  }
+
   // Set the app-brand label; empty/blank resets to the default. Persisted.
   setBrandLabel(text: string) {
     const next = text.trim() || DEFAULT_BRAND;

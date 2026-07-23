@@ -36,6 +36,8 @@
         { syntax: "```mermaid … ```", does: "Renders a diagram inline" },
         { syntax: "```cards … ```", does: "Grid of link cards — build dashboards. See “Cards” below (or the Insert cards button)" },
         { syntax: "```chart … ```", does: "Inline bar / donut / line chart — `type: bar|donut|line`, `title:`, then `Label: number` lines. See “Charts” below." },
+        { syntax: "```marquee blue fast … ```", does: "Scrolling colored banner — see “Marquee banner” below for all colors, gradients & speeds." },
+        { syntax: "```progress … ```", does: "Labeled progress bars. One `Label: value` per line — value as 4/10, 60%, or a bare 0–100. Optional trailing color word." },
         { syntax: "--- ", does: "A divider line" },
       ],
     },
@@ -67,6 +69,16 @@
         { syntax: "title: Weekly commits", does: "Optional heading above the chart" },
         { syntax: "color: blue", does: "Accent for bar / line (named palette). Donut colors each slice automatically." },
         { syntax: "Mon: 5", does: "A data point — any `Label: number` line. Order is preserved; negatives / non-numbers are skipped." },
+      ],
+    },
+    {
+      title: "Marquee banner",
+      rows: [
+        { syntax: "```marquee <color> <speed> … ```", does: "A scrolling colored banner (right→left). Put the options after `marquee`; the fence body is the text. Both options are optional." },
+        { syntax: "colors", does: "red · orange · amber · green · teal · blue · violet · pink · gray · black (solid). Default blue." },
+        { syntax: "gradients", does: "sunset · ocean · forest · dusk · candy (use in place of a color)." },
+        { syntax: "speeds", does: "slow · normal · fast. Default normal." },
+        { syntax: "```marquee candy fast … ```", does: "Example — a candy gradient scrolling fast. Hover to pause." },
       ],
     },
   ];

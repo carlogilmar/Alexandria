@@ -619,3 +619,147 @@ html.dark .markdown-body .md-chart {
   min-width: 2.6em;
   text-align: right;
 }
+
+/* ------------------------------------------------------------------ */
+/* ```marquee — a scrolling colored banner (Sprint 32). CSS-only: the  */
+/* track carries the text twice so translateX(-50%) loops seamlessly.  */
+/* ------------------------------------------------------------------ */
+.markdown-body .md-marquee {
+  overflow: hidden;
+  border-radius: 8px;
+  margin: 1rem 0;
+  padding: 0.45rem 0;
+  color: #fff;
+}
+.markdown-body .md-marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  animation: md-marquee-scroll linear infinite;
+}
+.markdown-body .md-marquee-item {
+  padding: 0 1.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.markdown-body .md-marquee-slow .md-marquee-track {
+  animation-duration: 26s;
+}
+.markdown-body .md-marquee-normal .md-marquee-track {
+  animation-duration: 16s;
+}
+.markdown-body .md-marquee-fast .md-marquee-track {
+  animation-duration: 9s;
+}
+.markdown-body .md-marquee:hover .md-marquee-track {
+  animation-play-state: paused;
+}
+@keyframes md-marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+/* Reduced motion: no scroll — show a single centered label instead. */
+@media (prefers-reduced-motion: reduce) {
+  .markdown-body .md-marquee {
+    text-align: center;
+  }
+  .markdown-body .md-marquee-track {
+    animation: none;
+    display: block;
+  }
+  .markdown-body .md-marquee-item[aria-hidden="true"] {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* ```progress — labeled progress bars (Sprint 33). CSS-only.          */
+/* ------------------------------------------------------------------ */
+.markdown-body .md-progress {
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.markdown-body .md-progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.85rem;
+}
+.markdown-body .md-progress-label {
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.markdown-body .md-progress-val {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+.markdown-body .md-progress-track {
+  height: 32px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  overflow: hidden;
+}
+.markdown-body .md-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Animated barber-pole stripes over the solid fill (set inline). */
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.22) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.22) 50%,
+    rgba(255, 255, 255, 0.22) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 1.25rem 1.25rem;
+  animation: md-progress-stripes 0.9s linear infinite;
+}
+@keyframes md-progress-stripes {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 1.25rem 0;
+  }
+}
+/* Completed bar: solid green, no stripes / motion; readout goes green too. */
+.markdown-body .md-progress-done .md-progress-fill {
+  background-image: none;
+  animation: none;
+}
+.markdown-body .md-progress-done .md-progress-val {
+  color: #16a34a;
+  opacity: 1;
+  font-weight: 600;
+}
+.markdown-body .md-progress-flabel {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .markdown-body .md-progress-fill {
+    animation: none;
+  }
+}

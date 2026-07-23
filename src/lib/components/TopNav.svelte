@@ -268,6 +268,21 @@
         ></button>
       {/each}
     </div>
+    <button
+      type="button"
+      class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-200/70 px-2 py-1.5 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-100 dark:border-neutral-700/70 dark:text-neutral-300 dark:hover:bg-neutral-800"
+      title="Pick a random sidebar color"
+      onclick={() => theme.randomSidebarTint()}
+    >
+      <svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
+        <path
+          fill-rule="evenodd"
+          d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm2.5 3a1 1 0 100 2 1 1 0 000-2zm7 0a1 1 0 100 2 1 1 0 000-2zM10 9a1 1 0 100 2 1 1 0 000-2zm-3.5 3a1 1 0 100 2 1 1 0 000-2zm7 0a1 1 0 100 2 1 1 0 000-2z"
+          clip-rule="evenodd"
+        />
+      </svg>
+      Surprise me
+    </button>
   </div>
 {/if}
 </div>

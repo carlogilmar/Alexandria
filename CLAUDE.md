@@ -352,7 +352,29 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 31 (Sidebar app-brand mark — retired the stale
+Last updated: end of Sprint 33 (Progress bars in markdown — a ```progress fence
+renders one labeled bar per `Label: value` line; value as `4/10` (→ its %),
+`60%`, or a bare `0–100`, with an optional trailing color word (reuses
+`MARQUEE_COLORS`, default blue). CSS-only/synchronous like the other custom
+fences: `renderProgress` in `$lib/markdownit.ts` emits a label+readout header and
+a track/fill bar (fill width+color inline; track uses `color-mix(currentColor
+12%)` so it's theme-safe). Chosen as the simple authored option over
+auto-from-checkboxes / a stored per-note % field. Slash command "Progress bars" +
+FormattingHelp row. See documentation/SPRINT33.md. — earlier:
+Sprint 32) Marquee banner — a ```marquee fence renders a
+right→left scrolling colored bar for flagging important notes or as a bold
+divider. CSS-only (no hydration): `renderMarquee` in `$lib/markdownit.ts` emits
+the text twice in a `.md-marquee-track` that animates `translateX(0→-50%)`
+infinitely for a seamless loop; options (`marquee <color> <speed>`) ride in the
+fence INFO STRING — not `key:value` lines — so the banner text can contain
+colons. Background = solid `MARQUEE_COLORS` (600-level, white text) OR a
+`MARQUEE_GRADIENTS` preset (sunset/ocean/forest/dusk/candy, shared with ```cards),
+inline `style` to dodge Tailwind purge; default blue; speeds slow/normal/fast
+(26/16/9s). `app.css` `.md-marquee*` has hover-pause + a reduced-motion fallback
+(single centered static label). Options are documented in-app in FormattingHelp's
+"Marquee banner" section; slash command "Marquee banner". See
+documentation/SPRINT32.md. — earlier:
+Sprint 31) Sidebar app-brand mark — retired the stale
 Lists/Todos/Streak counters from the sidebar footer (the app outgrew daily-todo
 metrics; `getStats` still powers Home) and replaced them with an editable
 **app-brand label**: Oswald, uppercase, `0.14em` tracking, default "Alert Media

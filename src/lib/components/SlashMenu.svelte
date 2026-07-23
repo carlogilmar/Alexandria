@@ -42,6 +42,9 @@
   const DONUT_CHART =
     "\n```chart\ntype: donut\ntitle: Time split\n" +
     "Coding: 8\nMeetings: 3\nReview: 4\nOther: 2\n```\n";
+  const MARQUEE = "\n```marquee blue normal\n🚀 Important — announce it here\n```\n";
+  const PROGRESS =
+    "\n```progress\nTasks: 4/10\nReading: 60%\nSavings goal: 45 green\n```\n";
 
   const COMMANDS: Cmd[] = [
     { id: "h1", label: "Heading 1", icon: "H₁", hint: "# ", keywords: "title heading", snippet: "# " },
@@ -58,6 +61,8 @@
     { id: "cards", label: "Cards", icon: "▤", keywords: "dashboard links tiles", snippet: CARDS },
     { id: "bar-chart", label: "Bar chart", icon: "▊", keywords: "chart graph bar data viz", snippet: BAR_CHART },
     { id: "donut-chart", label: "Donut chart", icon: "◑", keywords: "chart pie donut data viz", snippet: DONUT_CHART },
+    { id: "marquee", label: "Marquee banner", icon: "🎞", keywords: "marquee scroll banner ticker announcement", snippet: MARQUEE },
+    { id: "progress", label: "Progress bars", icon: "▰", keywords: "progress bar percent goal tracker", snippet: PROGRESS },
     { id: "divider", label: "Divider", icon: "—", keywords: "hr rule separator", snippet: "\n---\n" },
     { id: "link", label: "Link", icon: "🔗", keywords: "url entity href", action: "link" },
     { id: "image", label: "Image", icon: "🖼", keywords: "picture photo", action: "image" },
