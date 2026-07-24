@@ -39,6 +39,7 @@
         { syntax: "```marquee blue fast … ```", does: "Scrolling colored banner — see “Marquee banner” (speeds) and “Colors & gradients” below." },
         { syntax: "```progress … ```", does: "Labeled progress bars, with live −/+ counters — see “Progress bars” below." },
         { syntax: "```treemap … ```", does: "Squares sized by value — see “Treemap” below." },
+        { syntax: "```lettering blue … ```", does: "Big, centered display-type title (Oswald) for announcements. Optional color/gradient (a gradient becomes gradient text). Each line is centered." },
         { syntax: "--- ", does: "A divider line" },
       ],
     },

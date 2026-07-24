@@ -107,6 +107,10 @@ export function createMarkdownIt(): MarkdownIt {
     if (info === "treemap" || info.startsWith("treemap ")) {
       return renderTreemap(tokens[idx].content, info.split(/\s+/).slice(1), md);
     }
+    // ```lettering [color] → a big, centered display-type announcement.
+    if (info === "lettering" || info.startsWith("lettering ")) {
+      return renderLettering(tokens[idx].content, info.split(/\s+/).slice(1), md);
+    }
     // Every other fenced block gets a GitHub-style copy button. The button is
     // static HTML (no per-instance handler survives `{@html}` re-renders); a
     // single delegated document listener — installCodeCopy — handles the click
@@ -549,6 +553,40 @@ function renderMarquee(
     `<div class="md-marquee-track">${item}${itemDup}</div>` +
     `</div>`
   );
+}
+
+// ```lettering renderer. A big, centered display-type banner (Oswald) for
+// announcements / memorable titles — distinct from headings by being centered
+// and large. Each non-empty line becomes a centered line. An optional color or
+// gradient (shared vocabulary) tints the text; a gradient becomes gradient text
+// via background-clip. CSS-only, synchronous.
+function renderLettering(
+  source: string,
+  mods: string[],
+  md: MarkdownIt,
+): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  const lines = source
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return "";
+  const html = lines.map((l) => esc(l)).join("<br>");
+
+  let colorTok = "";
+  for (const m of mods) {
+    const lm = m.toLowerCase();
+    if (isNamedFill(lm)) colorTok = lm;
+  }
+  let cls = "md-lettering";
+  let style = "";
+  if (colorTok && NAMED_GRADIENTS[colorTok]) {
+    cls += " md-lettering-grad";
+    style = ` style="background:${namedBackground(colorTok)}"`;
+  } else if (colorTok && NAMED_COLORS[colorTok]) {
+    style = ` style="color:${NAMED_COLORS[colorTok]}"`;
+  }
+  return `<div class="${cls}"${style}>${html}</div>`;
 }
 
 // ```progress renderer. One labeled bar per `Label: value` line. Value forms:

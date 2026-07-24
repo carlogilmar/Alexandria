@@ -174,6 +174,21 @@ May: 70
 
 ---
 
+## Lettering (big announcements)
+
+Centered, oversized display type (Oswald) — for titles you want to
+remember. Optional color/gradient (a gradient becomes gradient text).
+
+```lettering violet
+Remember the deadline
+```
+
+```lettering sunset
+Ship it 🚀
+```
+
+---
+
 ## Treemap
 
 Square area is proportional to the value — one flat color, with an

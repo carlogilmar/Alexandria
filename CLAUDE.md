@@ -352,7 +352,15 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 37 (Per-cell treemap colors — each ```treemap
+Last updated: end of Sprint 38 (Lettering — a ```lettering fence renders a big,
+centered, uppercase display-type banner (bundled Oswald) for announcements,
+distinct from headings. `renderLettering` in `$lib/markdownit.ts` joins non-empty
+lines with `<br>`; optional color/gradient from the shared vocabulary tints the
+text — a gradient becomes gradient text via `.md-lettering-grad`
+(`background-clip:text`). `.md-lettering` = Oswald 700, centered, uppercase,
+`clamp(2rem,6vw,3.4rem)`. CSS-only/synchronous. Slash command "Lettering (big
+title)" + FormattingHelp row + showcase. See documentation/SPRINT38.md. — earlier:
+Sprint 37) Per-cell treemap colors — each ```treemap
 `Label: value` line can now carry, after the value: a color/gradient name
 (recolors that square, per-cell gradients get their own `<defs>`), `highlight`/
 `accent` (AUTO distinct color from `TM_AUTO_ORDER`, cycling + skipping the base

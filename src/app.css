@@ -739,6 +739,28 @@ html.dark .markdown-body .md-chart {
 }
 
 /* ------------------------------------------------------------------ */
+/* ```lettering — big centered display-type announcement (Sprint 38).  */
+/* ------------------------------------------------------------------ */
+.markdown-body .md-lettering {
+  font-family: "Oswald", var(--font-sans);
+  font-weight: 700;
+  text-align: center;
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  line-height: 1.08;
+  letter-spacing: 0.015em;
+  text-transform: uppercase;
+  margin: 1.5rem 0;
+  text-wrap: balance;
+}
+/* Gradient text (when a gradient name is used). */
+.markdown-body .md-lettering-grad {
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ------------------------------------------------------------------ */
 /* ```treemap — single-color squarified treemap (Sprint 35), Oswald    */
 /* labels like xray. Animated cells pulse a white outline.             */
 /* ------------------------------------------------------------------ */
