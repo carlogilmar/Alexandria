@@ -45,6 +45,8 @@
   const MARQUEE = "\n```marquee blue normal\n🚀 Important — announce it here\n```\n";
   const PROGRESS =
     "\n```progress\nTasks: 4/10\nReading: 60%\nSavings goal: 45 green\n```\n";
+  const TREEMAP =
+    "\n```treemap blue\nFrontend: 42 - highlight\nBackend: 28\nDocs: 12\nTests: 18\nConfig: 5 - animated\n```\n";
 
   const COMMANDS: Cmd[] = [
     { id: "h1", label: "Heading 1", icon: "H₁", hint: "# ", keywords: "title heading", snippet: "# " },
@@ -63,6 +65,7 @@
     { id: "donut-chart", label: "Donut chart", icon: "◑", keywords: "chart pie donut data viz", snippet: DONUT_CHART },
     { id: "marquee", label: "Marquee banner", icon: "🎞", keywords: "marquee scroll banner ticker announcement", snippet: MARQUEE },
     { id: "progress", label: "Progress bars", icon: "▰", keywords: "progress bar percent goal tracker", snippet: PROGRESS },
+    { id: "treemap", label: "Treemap", icon: "▧", keywords: "treemap tree map squares proportion size area", snippet: TREEMAP },
     { id: "divider", label: "Divider", icon: "—", keywords: "hr rule separator", snippet: "\n---\n" },
     { id: "link", label: "Link", icon: "🔗", keywords: "url entity href", action: "link" },
     { id: "image", label: "Image", icon: "🖼", keywords: "picture photo", action: "image" },

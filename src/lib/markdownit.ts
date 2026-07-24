@@ -4,6 +4,7 @@
 // into each editor.
 
 import MarkdownIt from "markdown-it";
+import { hierarchy, treemap, treemapSquarify } from "d3-hierarchy";
 import { renderMermaid } from "$lib/mermaid";
 import hljs from "highlight.js/lib/core";
 import elixir from "highlight.js/lib/languages/elixir";
@@ -101,6 +102,10 @@ export function createMarkdownIt(): MarkdownIt {
     // as 4/10, 60%, or a bare 0–100 number (optional trailing color word).
     if (info === "progress" || info.startsWith("progress ")) {
       return renderProgress(tokens[idx].content, md, env);
+    }
+    // ```treemap [color] [animated] → a single-color squarified treemap.
+    if (info === "treemap" || info.startsWith("treemap ")) {
+      return renderTreemap(tokens[idx].content, info.split(/\s+/).slice(1), md);
     }
     // Every other fenced block gets a GitHub-style copy button. The button is
     // static HTML (no per-instance handler survives `{@html}` re-renders); a
@@ -242,7 +247,8 @@ function renderCards(source: string, md: MarkdownIt): string {
 // async hydration, crisp at any zoom, and works inside blueprint cards.
 type ChartDatum = { label: string; value: number };
 
-// Mid-tone categorical palette — legible on both light and dark surfaces.
+// Mid-tone categorical palette for donut SLICES (auto-assigned, not a user
+// color choice — that vocabulary is NAMED_COLORS / NAMED_GRADIENTS below).
 const CHART_PALETTE = [
   "#3b82f6",
   "#f59e0b",
@@ -254,17 +260,6 @@ const CHART_PALETTE = [
   "#ef4444",
   "#64748b",
 ];
-const CHART_NAMED: Record<string, string> = {
-  blue: "#3b82f6",
-  green: "#22c55e",
-  violet: "#8b5cf6",
-  amber: "#f59e0b",
-  red: "#ef4444",
-  teal: "#14b8a6",
-  pink: "#ec4899",
-  orange: "#f97316",
-  gray: "#64748b",
-};
 
 // Round a positive number up to a "nice" 1/2/5×10ⁿ ceiling for the axis top.
 function niceCeil(v: number): number {
@@ -306,7 +301,9 @@ function renderChart(source: string, md: MarkdownIt): string {
   }
   if (data.length === 0) return "";
 
-  const accent = CHART_NAMED[color] ?? CHART_PALETTE[0];
+  // Bar/line accent: a solid color OR a gradient (needs an SVG def). Donut
+  // keeps its own categorical palette.
+  const { fill: accent, def: accentDef } = namedSvgFill(color || "blue");
   const titleH = title
     ? `<div class="md-chart-title">${esc(title)}</div>`
     : "";
@@ -315,9 +312,9 @@ function renderChart(source: string, md: MarkdownIt): string {
   if (type === "donut" || type === "pie") {
     body = renderDonutChart(data, esc);
   } else if (type === "line") {
-    body = renderLineChart(data, accent, esc);
+    body = renderLineChart(data, accent, accentDef, esc);
   } else {
-    body = renderBarChart(data, accent, esc);
+    body = renderBarChart(data, accent, accentDef, esc);
   }
   return `<div class="md-chart md-chart-${esc(type)}">${titleH}${body}</div>`;
 }
@@ -325,6 +322,7 @@ function renderChart(source: string, md: MarkdownIt): string {
 function renderBarChart(
   data: ChartDatum[],
   accent: string,
+  accentDef: string,
   esc: (s: string) => string,
 ): string {
   const W = 640;
@@ -362,12 +360,13 @@ function renderBarChart(
       `<text class="md-chart-axis" x="${cx.toFixed(1)}" y="${H - padB + 18}" text-anchor="middle">${esc(d.label)}</text>`,
     );
   });
-  return `<svg class="md-chart-svg" viewBox="0 0 ${W} ${H}" role="img" preserveAspectRatio="xMidYMid meet">${parts.join("")}</svg>`;
+  return `<svg class="md-chart-svg" viewBox="0 0 ${W} ${H}" role="img" preserveAspectRatio="xMidYMid meet">${accentDef}${parts.join("")}</svg>`;
 }
 
 function renderLineChart(
   data: ChartDatum[],
   accent: string,
+  accentDef: string,
   esc: (s: string) => string,
 ): string {
   const W = 640;
@@ -404,7 +403,7 @@ function renderLineChart(
       `<text class="md-chart-axis" x="${x(i).toFixed(1)}" y="${H - padB + 18}" text-anchor="middle">${esc(d.label)}</text>`,
     );
   });
-  return `<svg class="md-chart-svg" viewBox="0 0 ${W} ${H}" role="img" preserveAspectRatio="xMidYMid meet">${parts.join("")}</svg>`;
+  return `<svg class="md-chart-svg" viewBox="0 0 ${W} ${H}" role="img" preserveAspectRatio="xMidYMid meet">${accentDef}${parts.join("")}</svg>`;
 }
 
 function renderDonutChart(
@@ -474,7 +473,11 @@ function renderDonutChart(
 // twice so translateX(-50%) loops seamlessly; hover pauses; reduced-motion
 // shows it static + centered (see app.css). Options (color + speed) come from
 // the fence info string so the banner text may contain any characters.
-const MARQUEE_COLORS: Record<string, string> = {
+// ── Shared color vocabulary for every customizable markdown element ──────────
+// The SAME solid names + gradient names work across charts, marquee, progress,
+// treemap (and, via CSS classes, ```cards). Solids are 600-level so white text
+// reads on them; gradients match the ```cards gradient presets.
+const NAMED_COLORS: Record<string, string> = {
   red: "#dc2626",
   orange: "#ea580c",
   amber: "#d97706",
@@ -486,14 +489,42 @@ const MARQUEE_COLORS: Record<string, string> = {
   gray: "#4b5563",
   black: "#111318",
 };
-// Gradient presets — shared with the ```cards gradient look.
-const MARQUEE_GRADIENTS: Record<string, string> = {
-  sunset: "linear-gradient(135deg, #f97316, #ec4899)",
-  ocean: "linear-gradient(135deg, #0ea5e9, #14b8a6)",
-  forest: "linear-gradient(135deg, #22c55e, #14b8a6)",
-  dusk: "linear-gradient(135deg, #8b5cf6, #6366f1)",
-  candy: "linear-gradient(135deg, #ec4899, #a855f7)",
+const NAMED_GRADIENTS: Record<string, [string, string]> = {
+  sunset: ["#f97316", "#ec4899"],
+  ocean: ["#0ea5e9", "#14b8a6"],
+  forest: ["#22c55e", "#14b8a6"],
+  dusk: ["#8b5cf6", "#6366f1"],
+  candy: ["#ec4899", "#a855f7"],
 };
+// True if a token is any recognized color/gradient name.
+function isNamedFill(token: string): boolean {
+  const t = token.toLowerCase();
+  return t in NAMED_COLORS || t in NAMED_GRADIENTS;
+}
+// A CSS `background` value for HTML elements (marquee, progress).
+function namedBackground(token: string, fallback = NAMED_COLORS.blue): string {
+  const t = token.toLowerCase();
+  if (NAMED_COLORS[t]) return NAMED_COLORS[t];
+  const g = NAMED_GRADIENTS[t];
+  if (g) return `linear-gradient(135deg, ${g[0]}, ${g[1]})`;
+  return fallback;
+}
+// A fill for SVG elements (chart, treemap): a solid color, or a `url(#id)`
+// paired with a <linearGradient> def to prepend into the SVG. Gradients can't
+// be an SVG `fill` value directly, so each needs its own def.
+let svgGradSeq = 0;
+function namedSvgFill(token: string): { fill: string; def: string } {
+  const t = token.toLowerCase();
+  const g = NAMED_GRADIENTS[t];
+  if (g) {
+    const id = `mdgrad-${svgGradSeq++}`;
+    return {
+      fill: `url(#${id})`,
+      def: `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${g[0]}"/><stop offset="100%" stop-color="${g[1]}"/></linearGradient></defs>`,
+    };
+  }
+  return { fill: NAMED_COLORS[t] ?? NAMED_COLORS.blue, def: "" };
+}
 const MARQUEE_SPEEDS = new Set(["slow", "normal", "fast"]);
 
 function renderMarquee(
@@ -503,12 +534,12 @@ function renderMarquee(
 ): string {
   const text = source.trim().replace(/\s+/g, " ");
   if (!text) return "";
-  let bg = MARQUEE_COLORS.blue;
+  let bg = NAMED_COLORS.blue;
   let speed = "normal";
   for (const m of mods) {
-    if (MARQUEE_COLORS[m]) bg = MARQUEE_COLORS[m];
-    else if (MARQUEE_GRADIENTS[m]) bg = MARQUEE_GRADIENTS[m];
-    else if (MARQUEE_SPEEDS.has(m)) speed = m;
+    const lm = m.toLowerCase();
+    if (isNamedFill(lm)) bg = namedBackground(lm);
+    else if (MARQUEE_SPEEDS.has(lm)) speed = lm;
   }
   const safe = md.utils.escapeHtml(text);
   const item = `<span class="md-marquee-item">${safe}</span>`;
@@ -522,7 +553,7 @@ function renderMarquee(
 
 // ```progress renderer. One labeled bar per `Label: value` line. Value forms:
 // `4/10` (fraction → its %), `60%`, or a bare `0–100`. An optional trailing
-// named color word (see MARQUEE_COLORS) sets the fill. CSS-only, no hydration.
+// named color/gradient word (see NAMED_COLORS/NAMED_GRADIENTS) sets the fill.
 //
 // When rendered with `env.progressInteractive` (the note/article editors), an
 // integer-fraction bar `n/d` also gets −/+ stepper buttons that rewrite the
@@ -544,11 +575,11 @@ function renderProgress(
     const rest = m[2].trim();
     if (!rest) continue;
 
-    // Split off an optional trailing color word; the rest is the value token.
-    let fill = MARQUEE_COLORS.blue;
+    // Split off an optional trailing color/gradient word; the rest is the value.
+    let fill = NAMED_COLORS.blue;
     let valTok = "";
     for (const t of rest.split(/\s+/)) {
-      if (MARQUEE_COLORS[t.toLowerCase()]) fill = MARQUEE_COLORS[t.toLowerCase()];
+      if (isNamedFill(t)) fill = namedBackground(t);
       else if (!valTok) valTok = t;
     }
 
@@ -571,7 +602,7 @@ function renderProgress(
 
     // A completed bar always turns green (overrides the chosen color).
     const done = pct >= 100;
-    const barColor = done ? MARQUEE_COLORS.green : fill;
+    const barColor = done ? NAMED_COLORS.green : fill;
 
     // Steppers (interactive fraction bars only). The per-render index lives on
     // env so it's document-ordered across every ```progress fence.
@@ -594,7 +625,7 @@ function renderProgress(
         valBlock +
         `</div>` +
         `<div class="md-progress-track">` +
-        `<div class="md-progress-fill" style="width:${pct.toFixed(1)}%;background-color:${barColor}">` +
+        `<div class="md-progress-fill" style="width:${pct.toFixed(1)}%;background:${barColor}">` +
         (done ? `<span class="md-progress-flabel">Complete</span>` : "") +
         `</div>` +
         `</div>` +
@@ -668,6 +699,153 @@ export function countProgressStepsInSource(src: string): number {
     if (/^\s*[^:]+?\s*:\s*\d+\s*\/\s*\d+.*$/.test(line)) n++;
   }
   return n;
+}
+
+// ```treemap renderer. A single-color squarified treemap — area ∝ value — for
+// showing relative sizes inline (inspired by xray's LOC treemap, simplified to
+// one flat color). One `Label: value` per line; area from the value. Options in
+// the fence info string: a named color/gradient (default blue) + `animated`
+// (pulse all cells). Per line, after the value: a named color/gradient recolors
+// just that cell, `highlight` (or `accent`) gives it an AUTO distinct color, and
+// `animated` pulses it. CSS-only, synchronous.
+type TMData = {
+  label?: string;
+  value?: number;
+  animated?: boolean;
+  fill?: string; // resolved per-cell SVG fill (overrides the base color)
+  children?: TMData[];
+};
+
+// Rotation of solid colors used to auto-assign distinct accents to `highlight`
+// cells (skipping the treemap's base color so highlights always stand out).
+const TM_AUTO_ORDER = [
+  "amber",
+  "red",
+  "violet",
+  "teal",
+  "pink",
+  "orange",
+  "green",
+  "blue",
+  "gray",
+];
+
+function renderTreemap(
+  source: string,
+  mods: string[],
+  md: MarkdownIt,
+): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  let colorTok = "blue";
+  let animateAll = false;
+  for (const m of mods) {
+    const lm = m.toLowerCase();
+    if (isNamedFill(lm)) colorTok = lm;
+    else if (lm === "animated") animateAll = true;
+  }
+  // A solid color or a gradient (via an SVG <defs>), shared with every element.
+  // `defs` collects the base gradient def plus any per-cell gradient defs.
+  const base = namedSvgFill(colorTok);
+  const defs: string[] = base.def ? [base.def] : [];
+
+  // Auto-accent cursor for `highlight` cells (skips the base color name).
+  let autoIdx = 0;
+  const nextAuto = (): string => {
+    for (let k = 0; k < TM_AUTO_ORDER.length * 2; k++) {
+      const name = TM_AUTO_ORDER[autoIdx++ % TM_AUTO_ORDER.length];
+      if (name !== colorTok) return name;
+    }
+    return "amber";
+  };
+
+  const data: TMData[] = [];
+  for (const line of source.split("\n")) {
+    const m = /^\s*(.+?)\s*:\s*(.+?)\s*$/.exec(line);
+    if (!m) continue;
+    const rest = m[2];
+    const num = /(-?\d+(?:\.\d+)?)/.exec(rest);
+    if (!num) continue;
+    const value = Number(num[1]);
+    if (!Number.isFinite(value) || value <= 0) continue;
+
+    // Per-cell flags after the value: an explicit color/gradient name, or a
+    // `highlight`/`accent` flag (auto distinct color), and/or `animated`.
+    let explicit: string | null = null;
+    let highlight = false;
+    let animated = animateAll;
+    for (const t of rest.split(/\s+/)) {
+      const lt = t.toLowerCase();
+      if (isNamedFill(lt)) explicit = lt;
+      else if (lt === "highlight" || lt === "accent") highlight = true;
+      else if (lt === "animated") animated = true;
+    }
+    let cellFill = base.fill;
+    const token = explicit ?? (highlight ? nextAuto() : null);
+    if (token) {
+      const r = namedSvgFill(token);
+      cellFill = r.fill;
+      if (r.def) defs.push(r.def);
+    }
+
+    data.push({ label: m[1].trim(), value, animated, fill: cellFill });
+  }
+  if (data.length === 0) return "";
+
+  const W = 1000;
+  const H = 600;
+  const root = hierarchy<TMData>({ children: data })
+    .sum((d) => d.value ?? 0)
+    .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+  const rootRect = treemap<TMData>()
+    .tile(treemapSquarify)
+    .size([W, H])
+    .paddingInner(6)
+    .round(true)(root);
+
+  const parts: string[] = [];
+  for (const leaf of rootRect.leaves()) {
+    const d = leaf.data;
+    const x = leaf.x0;
+    const y = leaf.y0;
+    const bw = leaf.x1 - leaf.x0;
+    const bh = leaf.y1 - leaf.y0;
+    const label = d.label ?? "";
+
+    parts.push(
+      `<rect class="md-treemap-cell${d.animated ? " md-treemap-cell-anim" : ""}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="7" ry="7" fill="${d.fill ?? base.fill}"/>`,
+    );
+
+    // Fit the label to the cell (Oswald ≈ 0.55·fs per char); hide on tiny cells.
+    let fs = Math.min(34, (bw - 16) / (Math.max(label.length, 1) * 0.55), bh * 0.42);
+    if (bw > 40 && bh > 24 && fs >= 9) {
+      const cx = x + bw / 2;
+      const cy = y + bh / 2;
+      const maxChars = Math.floor((bw - 12) / (fs * 0.55));
+      const text =
+        label.length > maxChars
+          ? label.slice(0, Math.max(1, maxChars - 1)) + "…"
+          : label;
+      const subFs = Math.max(8, fs * 0.5);
+      const showVal = bh > fs + subFs + 12 && bw > 46;
+      if (showVal) {
+        parts.push(
+          `<text class="md-treemap-label" x="${cx.toFixed(1)}" y="${(cy - subFs * 0.3).toFixed(1)}" text-anchor="middle" font-size="${fs.toFixed(1)}" fill="#fff">${esc(text)}</text>`,
+          `<text class="md-treemap-val" x="${cx.toFixed(1)}" y="${(cy + fs * 0.75).toFixed(1)}" text-anchor="middle" font-size="${subFs.toFixed(1)}" fill="rgba(255,255,255,0.82)">${esc(fmtNum(d.value ?? 0))}</text>`,
+        );
+      } else {
+        parts.push(
+          `<text class="md-treemap-label" x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" text-anchor="middle" dominant-baseline="central" font-size="${fs.toFixed(1)}" fill="#fff">${esc(text)}</text>`,
+        );
+      }
+    }
+
+    if (d.animated) {
+      parts.push(
+        `<rect class="md-treemap-pulse" x="${(x + 1.5).toFixed(1)}" y="${(y + 1.5).toFixed(1)}" width="${(bw - 3).toFixed(1)}" height="${(bh - 3).toFixed(1)}" rx="6" ry="6"/>`,
+      );
+    }
+  }
+  return `<div class="md-treemap"><svg viewBox="0 0 ${W} ${H}" role="img" preserveAspectRatio="xMidYMid meet">${defs.join("")}${parts.join("")}</svg></div>`;
 }
 
 // Install a single, document-wide delegated click handler for copy buttons.

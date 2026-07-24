@@ -737,6 +737,73 @@ html.dark .markdown-body .md-chart {
   background: color-mix(in srgb, currentColor 14%, transparent);
   border-color: color-mix(in srgb, currentColor 34%, transparent);
 }
+
+/* ------------------------------------------------------------------ */
+/* ```treemap — single-color squarified treemap (Sprint 35), Oswald    */
+/* labels like xray. Animated cells pulse a white outline.             */
+/* ------------------------------------------------------------------ */
+.markdown-body .md-treemap {
+  margin: 1rem 0;
+}
+.markdown-body .md-treemap svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+.markdown-body .md-treemap-label {
+  font-family: "Oswald", var(--font-sans);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.markdown-body .md-treemap-val {
+  font-family: "Oswald", var(--font-sans);
+  font-weight: 500;
+  pointer-events: none;
+}
+/* Animated cell: the square itself pulses brighter (very visible) … */
+.markdown-body .md-treemap-cell-anim {
+  animation: md-tm-glow 1.6s ease-in-out infinite;
+}
+@keyframes md-tm-glow {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.7) saturate(1.15);
+  }
+}
+/* … plus a bright, thick pulsing outline on top. */
+.markdown-body .md-treemap-pulse {
+  fill: none;
+  stroke: #ffffff;
+  pointer-events: none;
+  animation: md-tm-pulse 1.6s ease-in-out infinite;
+}
+@keyframes md-tm-pulse {
+  0%,
+  100% {
+    stroke-opacity: 0.5;
+    stroke-width: 3;
+  }
+  50% {
+    stroke-opacity: 1;
+    stroke-width: 7;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .markdown-body .md-treemap-cell-anim {
+    animation: none;
+    filter: brightness(1.3);
+  }
+  .markdown-body .md-treemap-pulse {
+    animation: none;
+    stroke-opacity: 0.85;
+  }
+}
 .markdown-body .md-progress-track {
   height: 32px;
   border-radius: 999px;
@@ -744,13 +811,24 @@ html.dark .markdown-body .md-chart {
   overflow: hidden;
 }
 .markdown-body .md-progress-fill {
+  position: relative;
   height: 100%;
   border-radius: 999px;
   transition: width 0.4s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Animated barber-pole stripes over the solid fill (set inline). */
+  overflow: hidden;
+  /* base fill (solid color OR gradient) is set inline via `background:` */
+}
+/* Animated barber-pole stripes as an overlay so they compose with any base
+   fill (solid or gradient) — the inline `background` can't hold both. */
+.markdown-body .md-progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
   background-image: linear-gradient(
     45deg,
     rgba(255, 255, 255, 0.22) 25%,
@@ -764,6 +842,10 @@ html.dark .markdown-body .md-chart {
   background-size: 1.25rem 1.25rem;
   animation: md-progress-stripes 0.9s linear infinite;
 }
+.markdown-body .md-progress-flabel {
+  position: relative;
+  z-index: 1;
+}
 @keyframes md-progress-stripes {
   from {
     background-position: 0 0;
@@ -773,9 +855,13 @@ html.dark .markdown-body .md-chart {
   }
 }
 /* Completed bar: solid green, no stripes / motion; readout goes green too. */
-.markdown-body .md-progress-done .md-progress-fill {
-  background-image: none;
-  animation: none;
+.markdown-body .md-progress-done .md-progress-fill::after {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .markdown-body .md-progress-fill::after {
+    animation: none;
+  }
 }
 .markdown-body .md-progress-done .md-progress-val {
   color: #16a34a;

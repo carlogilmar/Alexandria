@@ -352,7 +352,40 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 34 (Interactive progress counter — a ```progress
+Last updated: end of Sprint 37 (Per-cell treemap colors — each ```treemap
+`Label: value` line can now carry, after the value: a color/gradient name
+(recolors that square, per-cell gradients get their own `<defs>`), `highlight`/
+`accent` (AUTO distinct color from `TM_AUTO_ORDER`, cycling + skipping the base
+color), and/or `animated`. `renderTreemap` resolves each cell's fill via
+`namedSvgFill`, collects all defs into `defs[]`, and `TMData` gained a resolved
+`fill?`. Explicit name > highlight > base color. Slash snippet + FormattingHelp +
+showcase updated. See documentation/SPRINT37.md. — earlier:
+Sprint 36) Unified color + gradient vocabulary — one shared
+palette across every customizable markdown element. `$lib/markdownit.ts` defines
+`NAMED_COLORS` (red/orange/amber/green/teal/blue/violet/pink/gray/black, 600-level)
++ `NAMED_GRADIENTS` (sunset/ocean/forest/dusk/candy, matches ```cards) once, with
+resolvers `isNamedFill`, `namedBackground` (CSS bg for HTML: marquee/progress) and
+`namedSvgFill` (→ `{fill,def}` for SVG: chart/treemap — gradients need a
+`<linearGradient>` def since SVG `fill` can't take `linear-gradient()`; unique ids
+via `svgGradSeq`). Now charts (bar/line accent) and treemap and progress ALL accept
+the full solid+gradient set (charts gained black+gradients); donut keeps its own
+auto categorical `CHART_PALETTE`. Progress fill switched to the `background`
+shorthand so its barber-pole stripes moved to a `::after` overlay. Removed
+`CHART_NAMED`/`MARQUEE_COLORS`/`MARQUEE_GRADIENTS`. FormattingHelp gains a shared
+"Colors & gradients" section. See documentation/SPRINT36.md. — earlier:
+Sprint 35) Treemaps in markdown — a ```treemap fence
+renders a single-color squarified treemap (area ∝ value), inspired by the xray
+LOC treemap but simplified to one flat color. `renderTreemap` in
+`$lib/markdownit.ts` uses `d3-hierarchy` (new dep: `hierarchy`/`treemap`/
+`treemapSquarify`) over a fixed 1000×600 viewBox (SVG scales responsively);
+Oswald labels (the bundled face) auto-fit per cell + optional value sub-label.
+One `Label: value` per line; fence info options `treemap [color] [animated]`
+(color reuses `MARQUEE_COLORS`, default blue; `animated` pulses all cells), and a
+per-line `- animated` suffix pulses just that cell (`.md-treemap-pulse` /
+`@keyframes md-tm-pulse`, reduced-motion safe). White cell text. CSS-only/
+synchronous like the other fences. Slash command "Treemap" + FormattingHelp row.
+See documentation/SPRINT35.md. — earlier:
+Sprint 34) Interactive progress counter — a ```progress
 fraction bar `n/d` renders −/+ steppers that rewrite the numerator in the
 markdown source and save, exactly like task checkboxes (`toggleTaskInSource`).
 New exports `stepProgressInSource(src,index,delta)` (finds the Nth integer-frac

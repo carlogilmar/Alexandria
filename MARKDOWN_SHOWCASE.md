@@ -174,6 +174,24 @@ May: 70
 
 ---
 
+## Treemap
+
+Square area is proportional to the value — one flat color, with an
+optional pulsing cell. Options after `treemap`: a color + `animated`.
+
+Mark individual squares: add a color/gradient name, `highlight` (auto
+distinct color), or `animated` after a line's value.
+
+```treemap blue
+Frontend: 42 - highlight
+Backend: 28
+Tests: 18 - amber
+Docs: 12
+Config: 5 - animated
+```
+
+---
+
 ## Marquee banners
 
 ```marquee blue normal
