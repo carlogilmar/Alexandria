@@ -659,3 +659,26 @@ export const moveFlashcard = (id: number, targetPosition: number) =>
   invoke<Flashcard>("move_flashcard", { id, targetPosition });
 export const deleteFlashcard = (id: number) =>
   invoke<void>("delete_flashcard", { id });
+
+// Passwords vault (Sprint 41)
+export type VaultStatus = { initialized: boolean; unlocked: boolean };
+export type SecretMeta = { id: number; title: string };
+
+export const vaultStatus = () => invoke<VaultStatus>("vault_status");
+export const vaultSetup = (password: string) =>
+  invoke<void>("vault_setup", { password });
+export const vaultUnlock = (password: string) =>
+  invoke<boolean>("vault_unlock", { password });
+export const vaultLock = () => invoke<void>("vault_lock");
+export const listSecrets = () => invoke<SecretMeta[]>("list_secrets");
+export const addSecret = (title: string, password: string) =>
+  invoke<SecretMeta>("add_secret", { title, password });
+export const updateSecret = (
+  id: number,
+  title: string | null,
+  password: string | null,
+) => invoke<SecretMeta>("update_secret", { id, title, password });
+export const revealSecret = (id: number) =>
+  invoke<string>("reveal_secret", { id });
+export const deleteSecret = (id: number) =>
+  invoke<void>("delete_secret", { id });

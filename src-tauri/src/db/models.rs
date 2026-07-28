@@ -82,6 +82,22 @@ pub struct DayStats {
     pub done: i64,
 }
 
+// Passwords vault (Sprint 41). `SecretMeta` is the safe listing shape — id +
+// plaintext title only, never the password. `VaultStatus` drives the UI gate.
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct SecretMeta {
+    pub id: i64,
+    pub title: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultStatus {
+    pub initialized: bool,
+    pub unlocked: bool,
+}
+
 // Combined per-day activity for the contribution graph: completed todos +
 // notes / articles / blueprints created that day.
 #[derive(Debug, Clone, Serialize, FromRow)]

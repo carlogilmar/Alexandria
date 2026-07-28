@@ -87,6 +87,15 @@
       go: () => app.openFlashDeck(),
       active: (v) => v === "flashdeck",
     },
+    {
+      key: "passwords",
+      title: "Passwords",
+      sc: "⌘8",
+      hue: 45,
+      d: "M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm2-2v2h6V7a3 3 0 00-6 0zm3 5a1 1 0 00-1 1v2a1 1 0 102 0v-2a1 1 0 00-1-1z",
+      go: () => app.openPasswords(),
+      active: (v) => v === "passwords",
+    },
   ];
 
   const btn =

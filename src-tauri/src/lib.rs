@@ -15,7 +15,10 @@ pub fn run() {
         .setup(|app| {
             let path = db::default_db_path()?;
             let pool = tauri::async_runtime::block_on(db::open_pool(&path))?;
-            app.manage(AppState { pool });
+            app.manage(AppState {
+                pool,
+                vault_key: tokio::sync::Mutex::new(None),
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -83,6 +86,15 @@ pub fn run() {
             commands::articles::delete_article,
             commands::articles::set_article_pinned,
             commands::articles::set_article_archived,
+            commands::secrets::vault_status,
+            commands::secrets::vault_setup,
+            commands::secrets::vault_unlock,
+            commands::secrets::vault_lock,
+            commands::secrets::list_secrets,
+            commands::secrets::add_secret,
+            commands::secrets::update_secret,
+            commands::secrets::reveal_secret,
+            commands::secrets::delete_secret,
             commands::feedback::list_feedback_boards,
             commands::feedback::create_feedback_board,
             commands::feedback::rename_feedback_board,

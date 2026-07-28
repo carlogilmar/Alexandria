@@ -24,6 +24,16 @@ import {
   getStats,
   getDailyStats,
   getActivityStats,
+  vaultStatus,
+  vaultSetup,
+  vaultUnlock,
+  vaultLock,
+  listSecrets,
+  addSecret as addSecretIpc,
+  updateSecret as updateSecretIpc,
+  revealSecret as revealSecretIpc,
+  deleteSecret as deleteSecretIpc,
+  type SecretMeta,
   tagsForTodo,
   listTags,
   addTagToTodo,
@@ -205,7 +215,8 @@ type NavLoc =
         | "feedback"
         | "activity"
         | "flashdeck"
-        | "blueprints";
+        | "blueprints"
+        | "passwords";
     };
 
 class AppStore {
@@ -223,6 +234,7 @@ class AppStore {
     | "flashdeck"
     | "blueprints"
     | "blueprint"
+    | "passwords"
   >("home");
   // Back-navigation history — locations we can pop back to. $state so the
   // back button's enabled state stays reactive.
@@ -301,6 +313,14 @@ class AppStore {
   // is cached once resolved; `backlogPending` drives the sidebar badge.
   backlogId = $state<number | null>(null);
   backlogPending = $state(0);
+
+  // Passwords vault (Sprint 41). Only metadata (id + title) lives here; the key
+  // and plaintext passwords stay in the Rust backend.
+  vaultInitialized = $state(false);
+  vaultUnlocked = $state(false);
+  secrets = $state<SecretMeta[]>([]);
+  private vaultIdleTimer: ReturnType<typeof setTimeout> | null = null;
+  private static VAULT_IDLE_MS = 5 * 60 * 1000;
 
   private flashToken = 0;
   setFlash(msg: string, ms = 2000) {
@@ -479,6 +499,7 @@ class AppStore {
       case "activity":
       case "flashdeck":
       case "blueprints":
+      case "passwords":
         return { view: this.view };
       default:
         return null;
@@ -552,6 +573,9 @@ class AppStore {
           break;
         case "blueprint":
           await this.openBlueprint(loc.id);
+          break;
+        case "passwords":
+          await this.openPasswords();
           break;
       }
     } finally {
@@ -809,6 +833,135 @@ class AppStore {
   }
 
   // ---- Master Map ----
+
+  // ---- Passwords vault (Sprint 41) ----
+
+  async openPasswords() {
+    this.recordNav();
+    this.view = "passwords";
+    this.selected = null;
+    this.todos = [];
+    this.selectedTodoId = null;
+    this.selectedTodoTags = [];
+    this.selectedWorkflow = null;
+    this.workflowSteps = [];
+    this.selectedNote = null;
+    this.selectedArticle = null;
+    await this.refreshVault();
+  }
+
+  async refreshVault() {
+    try {
+      const s = await vaultStatus();
+      this.vaultInitialized = s.initialized;
+      this.vaultUnlocked = s.unlocked;
+      this.secrets = await listSecrets();
+      if (s.unlocked) this.armVaultIdle();
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async setupVault(password: string): Promise<boolean> {
+    try {
+      await vaultSetup(password);
+      await this.refreshVault();
+      return true;
+    } catch (e) {
+      this.setFlash(String(e));
+      return false;
+    }
+  }
+
+  // Returns true on success, false on a wrong master password.
+  async unlockVault(password: string): Promise<boolean> {
+    try {
+      const ok = await vaultUnlock(password);
+      if (ok) {
+        this.vaultUnlocked = true;
+        this.armVaultIdle();
+      }
+      return ok;
+    } catch (e) {
+      this.setFlash(String(e));
+      return false;
+    }
+  }
+
+  async lockVault() {
+    if (this.vaultIdleTimer) {
+      clearTimeout(this.vaultIdleTimer);
+      this.vaultIdleTimer = null;
+    }
+    try {
+      await vaultLock();
+    } catch {
+      /* best effort */
+    }
+    this.vaultUnlocked = false;
+  }
+
+  async addSecret(title: string, password: string): Promise<boolean> {
+    try {
+      await addSecretIpc(title, password);
+      this.secrets = await listSecrets();
+      this.touchVault();
+      return true;
+    } catch (e) {
+      this.setFlash(String(e));
+      return false;
+    }
+  }
+
+  async updateSecret(
+    id: number,
+    title: string | null,
+    password: string | null,
+  ): Promise<boolean> {
+    try {
+      await updateSecretIpc(id, title, password);
+      this.secrets = await listSecrets();
+      this.touchVault();
+      return true;
+    } catch (e) {
+      this.setFlash(String(e));
+      return false;
+    }
+  }
+
+  // Returns the plaintext password (the only place it crosses IPC) or null.
+  async revealSecret(id: number): Promise<string | null> {
+    try {
+      const pw = await revealSecretIpc(id);
+      this.touchVault();
+      return pw;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+
+  async deleteSecret(id: number) {
+    try {
+      await deleteSecretIpc(id);
+      this.secrets = await listSecrets();
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  // Auto-lock: reset the idle timer on activity; fire → lock. Called from a
+  // global listener in +page.svelte and after each vault action.
+  touchVault() {
+    if (this.vaultUnlocked) this.armVaultIdle();
+  }
+  private armVaultIdle() {
+    if (this.vaultIdleTimer) clearTimeout(this.vaultIdleTimer);
+    this.vaultIdleTimer = setTimeout(() => {
+      void this.lockVault();
+      this.setFlash("Vault locked (idle)");
+    }, AppStore.VAULT_IDLE_MS);
+  }
 
   // ---- Blueprints (Sprint 22) ----
 

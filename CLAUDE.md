@@ -119,7 +119,7 @@ sidebar button.
 
 Current view values: `home · list · workflow · note · index · article ·
 garden · feedback · feedback-board · activity · flashdeck ·
-blueprints · blueprint`.
+blueprints · blueprint · passwords`.
 
 UI labels diverge from internal names where renames happened — the
 internal name stays to avoid touching every callsite. The six primary
@@ -136,6 +136,7 @@ unchanged:
 | feedback | Feedback             | ⌘5       |
 | activity | Activity             | ⌘6       |
 | flashdeck| Flash Deck           | ⌘7       |
+| passwords| Passwords            | ⌘8 (Sprint 41 — encrypted site-password vault) |
 
 `TopNav.svelte` also hosts the **back** button (`app.back()`, ⌘[) —
 backed by `app.navStack`, a history stack each `select*`/`open*`/`goHome`
@@ -244,7 +245,7 @@ do I have?" and is the entry default (Sprint 11).
 
 ### Migrations
 
-Files in `src-tauri/migrations/0001_…sql` … `0021_…sql`, monotonically
+Files in `src-tauri/migrations/0001_…sql` … `0022_…sql`, monotonically
 numbered, applied at startup. To add one:
 
 1. Create `00NN_<short_name>.sql`.
@@ -312,6 +313,14 @@ numbered, applied at startup. To add one:
   SVG via `$lib/mermaid.ts` (`renderMermaid`, dynamic-imports mermaid).
 - All entity tables have `pinned` (sidebar visibility) and `archived`
   (Summary's archive tab) booleans.
+- `vault_meta` + `secrets`: the **Passwords vault** (Sprint 41, migration
+  `0022`). `vault_meta` (single row `id=1`) holds the Argon2id `salt` + a
+  `verifier` blob (a constant encrypted with the derived key) — the master
+  password is NEVER stored. `secrets(id, title, password_enc, …)` keeps the
+  title **plaintext** (list browsable while locked) and the password
+  encrypted as `nonce‖ciphertext` (XChaCha20-Poly1305). The derived key
+  lives only in `AppState.vault_key` (backend memory, zeroized on lock);
+  see `commands/secrets.rs`. No entity-table conventions apply here.
 
 ### Tauri command conventions
 
@@ -363,7 +372,22 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 40 (Removed the Alexandria canvas — the original
+Last updated: end of Sprint 41 (Passwords vault — a tiny encrypted site-password
+keeper at ⌘8. Entry = {title, password}; titles plaintext (browsable while
+locked), password encrypted. Master password → Argon2id key (crates: `argon2`,
+`chacha20poly1305` XChaCha20-Poly1305, `zeroize`); key lives ONLY in
+`AppState.vault_key` (`tokio::sync::Mutex<Option<[u8;32]>>`, zeroized on lock),
+never crosses IPC except a plaintext password via `reveal_secret`. Master
+password never stored — `vault_meta` keeps salt + a verifier blob; `secrets`
+holds `password_enc` = nonce‖ct. Migration `0022`; backend `commands/secrets.rs`
+(vault_status/setup/unlock/lock, list/add/update/reveal/delete_secret, +4 crypto
+tests). `PasswordsView.svelte` (setup/locked/unlocked states, generator, reveal/
+copy-with-20s-clipboard-clear/delete); store `vaultInitialized/vaultUnlocked/
+secrets` + `touchVault` idle-lock (~5min, wired to global key/pointer listeners)
++ lock on quit (process death drops the key). TopNav icon + palette + HelpModal.
+Honest scope: protects data at rest, not a live-unlocked compromised machine. See
+documentation/SPRINT41.md. — earlier:
+Sprint 40) Removed the Alexandria canvas — the original
 single shared `map` view. Blueprints (standalone design canvases) superseded it
 and is the daily driver, so it's gone: deleted `MapView`/`MapEditor`/
 `MapNodeCard`/`MapCustomNode`/`AddToMapPalette`, the whole map store slice +

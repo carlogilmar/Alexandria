@@ -24,6 +24,7 @@
   import FormattingHelp from "$lib/components/FormattingHelp.svelte";
   import AddEntityModal from "$lib/components/AddEntityModal.svelte";
   import FocusMode from "$lib/components/FocusMode.svelte";
+  import PasswordsView from "$lib/components/PasswordsView.svelte";
 
   let sidebar: Sidebar | undefined = $state();
   let inspectorTodo = $derived(app.selectedTodo());
@@ -44,6 +45,7 @@
     flashdeck: "Flash Deck",
     blueprints: "Blueprints",
     blueprint: "Blueprints",
+    passwords: "Passwords",
   };
   let viewLabel = $derived(VIEW_LABELS[app.view] ?? "");
 
@@ -60,6 +62,7 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
+    app.touchVault(); // reset the vault idle-lock timer on any activity
     const mod = e.metaKey || e.ctrlKey;
     if (mod && (e.key === "k" || e.key === "K")) {
       e.preventDefault();
@@ -148,11 +151,14 @@
     } else if (e.key === "7") {
       e.preventDefault();
       app.openFlashDeck();
+    } else if (e.key === "8") {
+      e.preventDefault();
+      app.openPasswords();
     }
   }
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} onpointerdown={() => app.touchVault()} />
 
 <div class="flex h-screen overflow-hidden">
   {#if !app.sidebarCollapsed}
@@ -225,6 +231,8 @@
       <ActivityView />
     {:else if app.view === "flashdeck"}
       <FlashDeckView />
+    {:else if app.view === "passwords"}
+      <PasswordsView />
     {:else if app.view === "blueprints"}
       <BlueprintsView />
     {:else if app.view === "blueprint"}

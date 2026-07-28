@@ -7,12 +7,17 @@ pub mod images;
 pub mod lists;
 pub mod notes;
 pub mod search;
+pub mod secrets;
 pub mod tags;
 pub mod todos;
 pub mod workflows;
 
 use sqlx::SqlitePool;
+use tokio::sync::Mutex;
 
 pub struct AppState {
     pub pool: SqlitePool,
+    // Passwords vault (Sprint 41): the Argon2id-derived key lives ONLY here in
+    // backend memory while unlocked; None = locked. Zeroized on lock.
+    pub vault_key: Mutex<Option<[u8; 32]>>,
 }

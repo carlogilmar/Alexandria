@@ -37,6 +37,7 @@
     { key: "go-activity", group: "Go to", label: "Activity", sub: "When you've been working", hint: "⌘6", run: () => app.openActivity() },
     { key: "go-deck", group: "Go to", label: "Flash Deck", sub: "Your flashcards", hint: "⌘7", run: () => app.openFlashDeck() },
     { key: "go-blueprints", group: "Go to", label: "Blueprints", sub: "Design canvases for planning software", hint: "⌘2", run: () => app.openBlueprints() },
+    { key: "go-passwords", group: "Go to", label: "Passwords", sub: "Encrypted on-device site passwords", hint: "⌘8", run: () => app.openPasswords() },
   ];
 
   const actions: Item[] = [
@@ -48,6 +49,7 @@
     { key: "new-list", group: "Create", label: "Create today's list", run: () => app.newList() },
     { key: "backlog", group: "Go to", label: "Backlog", sub: "Unscheduled tasks, not tied to a day", run: () => app.openBacklog() },
     { key: "focus", group: "Settings", label: "Enter Focus mode", sub: "Aurora screensaver of today's list", run: () => app.enterFocus() },
+    { key: "lock-vault", group: "Settings", label: "Lock passwords vault", run: () => app.lockVault() },
     { key: "theme", group: "Settings", label: "Toggle theme (light / dark / system)", run: () => theme.cycle() },
     { key: "sidebar", group: "Settings", label: "Toggle sidebar", hint: "⌘\\", run: () => app.toggleSidebar() },
     { key: "fmt", group: "Help", label: "Formatting reference", run: () => (app.formattingHelpOpen = true) },

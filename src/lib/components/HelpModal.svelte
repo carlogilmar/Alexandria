@@ -15,6 +15,7 @@
         { keys: "⌘ 5", label: "Feedback — kanban boards" },
         { keys: "⌘ 6", label: "Activity — when you've worked" },
         { keys: "⌘ 7", label: "Flash Deck — flashcards" },
+        { keys: "⌘ 8", label: "Passwords — encrypted vault" },
         { keys: "⌘ [", label: "Back to the previous view" },
         { keys: "⌘ \\", label: "Collapse / show the sidebar" },
       ],
