@@ -281,7 +281,7 @@
         <li class="flex items-center gap-2"><kbd class="rounded border border-neutral-300/70 px-1.5 py-0.5 font-mono text-[11px] dark:border-neutral-600/70">?</kbd> see all shortcuts and the formatting reference.</li>
       </ul>
       <p class="mt-3 text-xs text-neutral-500 dark:text-neutral-500">
-        The icons top-right are your sections: <strong>Alexandria</strong> (canvas), <strong>Summary</strong>, <strong>Visualization</strong>, <strong>Feedback</strong>, <strong>Activity</strong>, <strong>Flash Deck</strong> — hover any for its name &amp; shortcut.
+        The icons top-right are your sections: <strong>Blueprints</strong> (design canvases), <strong>Summary</strong>, <strong>Visualization</strong>, <strong>Feedback</strong>, <strong>Activity</strong>, <strong>Flash Deck</strong> — hover any for its name &amp; shortcut.
       </p>
     </section>
   {/if}

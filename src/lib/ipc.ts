@@ -139,35 +139,6 @@ export type ArticleSummary = {
   updatedAt: string;
 };
 
-export type MapEntityKind = "note" | "article" | "workflow" | "feedback_board";
-export type MapNodeKind = MapEntityKind | "text" | "comment" | "custom" | "title";
-
-export type MapNode = {
-  id: number;
-  kind: MapNodeKind;
-  entityId: number;
-  x: number;
-  y: number;
-  width: number | null;
-  height: number | null;
-  content: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type MapEdge = {
-  id: number;
-  sourceId: number;
-  targetId: number;
-  label: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type MapState = {
-  nodes: MapNode[];
-  edges: MapEdge[];
-};
 
 export type FeedbackBoard = {
   id: number;
@@ -364,40 +335,6 @@ export const setArticleArchived = (id: number, archived: boolean) =>
 export const getIndexDoc = () => invoke<IndexDoc>("get_index_doc");
 export const updateIndexDoc = (body: string) =>
   invoke<IndexDoc>("update_index_doc", { body });
-
-// Master map
-export const getMap = () => invoke<MapState>("get_map");
-export const addMapNode = (
-  kind: MapEntityKind,
-  entityId: number,
-  x: number,
-  y: number,
-) => invoke<MapNode>("add_map_node", { kind, entityId, x, y });
-export const addMapText = (content: string, x: number, y: number) =>
-  invoke<MapNode>("add_map_text", { content, x, y });
-export const addMapComment = (content: string, x: number, y: number) =>
-  invoke<MapNode>("add_map_comment", { content, x, y });
-export const addMapCustom = (content: string, x: number, y: number) =>
-  invoke<MapNode>("add_map_custom", { content, x, y });
-export const addMapTitle = (content: string, x: number, y: number) =>
-  invoke<MapNode>("add_map_title", { content, x, y });
-export const resizeMapNode = (id: number, width: number, height: number) =>
-  invoke<MapNode>("resize_map_node", { id, width, height });
-export const updateMapNodeContent = (id: number, content: string) =>
-  invoke<MapNode>("update_map_node_content", { id, content });
-export const moveMapNode = (id: number, x: number, y: number) =>
-  invoke<MapNode>("move_map_node", { id, x, y });
-export const removeMapNode = (id: number) =>
-  invoke<void>("remove_map_node", { id });
-export const addMapEdge = (
-  sourceId: number,
-  targetId: number,
-  label: string | null = null,
-) => invoke<MapEdge>("add_map_edge", { sourceId, targetId, label });
-export const updateMapEdgeLabel = (id: number, label: string | null) =>
-  invoke<MapEdge>("update_map_edge_label", { id, label });
-export const removeMapEdge = (id: number) =>
-  invoke<void>("remove_map_edge", { id });
 
 // Feedback kanban
 export const listFeedbackBoards = (includeArchived = false) =>

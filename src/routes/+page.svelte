@@ -13,7 +13,6 @@
   import SummaryView from "$lib/components/SummaryView.svelte";
   import ArticleView from "$lib/components/ArticleView.svelte";
   import GardenView from "$lib/components/GardenView.svelte";
-  import MapView from "$lib/components/MapView.svelte";
   import FeedbackBoardsView from "$lib/components/FeedbackBoardsView.svelte";
   import FeedbackBoardView from "$lib/components/FeedbackBoardView.svelte";
   import ActivityView from "$lib/components/ActivityView.svelte";
@@ -37,7 +36,6 @@
     note: "Note",
     article: "Article",
     workflow: "Workflow",
-    map: "Alexandria",
     index: "Summary",
     garden: "Visualization",
     feedback: "Feedback",
@@ -134,7 +132,7 @@
       app.goHome(true);
     } else if (e.key === "2") {
       e.preventDefault();
-      app.openMap();
+      app.openBlueprints();
     } else if (e.key === "3") {
       e.preventDefault();
       app.openIndex();
@@ -150,9 +148,6 @@
     } else if (e.key === "7") {
       e.preventDefault();
       app.openFlashDeck();
-    } else if (e.key === "8") {
-      e.preventDefault();
-      app.openBlueprints();
     }
   }
 </script>
@@ -222,8 +217,6 @@
       <ArticleView />
     {:else if app.view === "garden"}
       <GardenView />
-    {:else if app.view === "map"}
-      <MapView />
     {:else if app.view === "feedback"}
       <FeedbackBoardsView />
     {:else if app.view === "feedback-board"}

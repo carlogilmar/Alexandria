@@ -31,13 +31,12 @@
   // Destinations — double as the nav legend (label + what-it-is + shortcut).
   const destinations: Item[] = [
     { key: "go-home", group: "Go to", label: "Home", sub: "Today & your activity over time", hint: "⌘1", run: () => app.goHome(true) },
-    { key: "go-map", group: "Go to", label: "Alexandria", sub: "Your canvas — place & connect entities", hint: "⌘2", run: () => app.openMap() },
     { key: "go-index", group: "Go to", label: "Summary", sub: "A catalog of everything you've made", hint: "⌘3", run: () => app.openIndex() },
     { key: "go-garden", group: "Go to", label: "Visualization", sub: "A graph of your notes, articles & links", hint: "⌘4", run: () => app.openGarden() },
     { key: "go-feedback", group: "Go to", label: "Feedback", sub: "Kanban boards", hint: "⌘5", run: () => app.openFeedback() },
     { key: "go-activity", group: "Go to", label: "Activity", sub: "When you've been working", hint: "⌘6", run: () => app.openActivity() },
     { key: "go-deck", group: "Go to", label: "Flash Deck", sub: "Your flashcards", hint: "⌘7", run: () => app.openFlashDeck() },
-    { key: "go-blueprints", group: "Go to", label: "Blueprints", sub: "Design canvases for planning software", hint: "⌘8", run: () => app.openBlueprints() },
+    { key: "go-blueprints", group: "Go to", label: "Blueprints", sub: "Design canvases for planning software", hint: "⌘2", run: () => app.openBlueprints() },
   ];
 
   const actions: Item[] = [

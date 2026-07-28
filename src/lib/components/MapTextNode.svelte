@@ -1,12 +1,11 @@
 <script lang="ts">
   import { NodeResizer, useSvelteFlow } from "@xyflow/svelte";
-  import { app } from "$lib/stores/app.svelte";
 
   type TextData = {
     mapNodeId: number;
     content: string;
-    // Optional persistence overrides so other canvases (Blueprints) can
-    // reuse this node. Defaults target the Alexandria map store actions.
+    // Persistence callbacks supplied by the host canvas (Blueprints). This node
+    // component is shared; it doesn't own a store. Defaults are no-ops.
     onCommitContent?: (nodeId: number, content: string) => Promise<void> | void;
     onResizeEnd?: (nodeId: number, width: number, height: number) => Promise<void> | void;
   };
@@ -39,7 +38,7 @@
     editing = false;
     const next = draft;
     if (next === data.content) return;
-    await (data.onCommitContent ?? app.updateMapNodeContent.bind(app))(
+    await (data.onCommitContent ?? (() => {}))(
       data.mapNodeId,
       next,
     );
@@ -74,7 +73,7 @@
     handleClass="text-note-resize-handle"
     onResizeEnd={(_e, params) => {
       // Persist the new dimensions so they survive reloads / view switches.
-      void (data.onResizeEnd ?? app.resizeMapNode.bind(app))(
+      void (data.onResizeEnd ?? (() => {}))(
         data.mapNodeId,
         params.width,
         params.height,

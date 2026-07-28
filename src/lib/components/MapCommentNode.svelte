@@ -1,6 +1,5 @@
 <script lang="ts">
   import { useSvelteFlow } from "@xyflow/svelte";
-  import { app } from "$lib/stores/app.svelte";
 
   type CommentData = {
     mapNodeId: number;
@@ -35,7 +34,7 @@
   async function commit() {
     editing = false;
     if (draft === data.content) return;
-    await (data.onCommitContent ?? app.updateMapNodeContent.bind(app))(
+    await (data.onCommitContent ?? (() => {}))(
       data.mapNodeId,
       draft,
     );

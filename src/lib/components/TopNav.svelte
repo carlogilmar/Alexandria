@@ -43,13 +43,13 @@
 
   const NAV: NavItem[] = [
     {
-      key: "map",
-      title: "Alexandria",
+      key: "blueprints",
+      title: "Blueprints",
       sc: "⌘2",
       hue: 265,
-      d: "M3 5a2 2 0 012-2h2.5a2 2 0 011.6.8L10 5h5a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm4 4a1 1 0 100 2h6a1 1 0 100-2H7zm0 4a1 1 0 100 2h4a1 1 0 100-2H7z",
-      go: () => app.openMap(),
-      active: (v) => v === "map",
+      d: "M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm1 3a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H6a1 1 0 01-1-1V6zm8 0a1 1 0 011-1h0a1 1 0 011 1v8a1 1 0 01-1 1h0a1 1 0 01-1-1V6zM6 13a1 1 0 100 2h4a1 1 0 100-2H6z",
+      go: () => app.openBlueprints(),
+      active: (v) => v === "blueprints" || v === "blueprint",
     },
     {
       key: "garden",
@@ -87,9 +87,6 @@
       go: () => app.openFlashDeck(),
       active: (v) => v === "flashdeck",
     },
-    // Blueprints deliberately has NO toolbar icon: the list lives in
-    // Summary's "Blueprints" tab, creation in the sidebar "+ Add" modal.
-    // ⌘8 and the command palette still jump to the index view.
   ];
 
   const btn =

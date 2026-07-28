@@ -1,9 +1,10 @@
 # Alexandria
 
 A single-user desktop personal knowledge system: daily lists, notes,
-articles, workflows, a curated canvas ("Alexandria"), a kanban for
+articles, workflows, design canvases ("Blueprints"), a kanban for
 feedback planning, and two visualizations of activity. All data lives
-on-device.
+on-device. (The original single shared canvas — the "Alexandria" map —
+was removed in Sprint 40; Blueprints superseded it.)
 
 > The product is named **Alexandria** (after its centerpiece canvas).
 > The macOS bundle identifier is still `com.alertmedia.bigpicture` — it
@@ -61,10 +62,9 @@ src/
       ListView/NoteView/ArticleView/WorkflowView.svelte
       SummaryView.svelte             # formerly IndexView — tabbed list
       GardenView.svelte              # "Visualization" — d3-force layouts
-      MapView.svelte                 # SvelteFlowProvider wrapper
-      MapEditor.svelte               # the Alexandria canvas
-      MapNodeCard / MapTextNode / MapCommentNode / MapCustomNode / MapTitleNode
-      AddToMapPalette.svelte         # entity drop palette on the canvas
+      MapTextNode / MapCommentNode / MapTitleNode  # decorative canvas nodes,
+                                     #   now used ONLY by Blueprints (the
+                                     #   Alexandria map was removed, Sprint 40)
       BlueprintsView.svelte          # blueprints index (Sprint 22)
       BlueprintView / BlueprintEditor / BlueprintCardNode
       FeedbackBoardsView.svelte      # kanban index
@@ -118,7 +118,7 @@ destination, add a string to the union, add a `route` case, add a
 sidebar button.
 
 Current view values: `home · list · workflow · note · index · article ·
-garden · map · feedback · feedback-board · activity · flashdeck ·
+garden · feedback · feedback-board · activity · flashdeck ·
 blueprints · blueprint`.
 
 UI labels diverge from internal names where renames happened — the
@@ -130,13 +130,12 @@ unchanged:
 | Internal | UI label             | Shortcut |
 |----------|----------------------|----------|
 | home     | Home (also logo)     | ⌘1       |
-| map      | Alexandria           | ⌘2       |
+| blueprints| Blueprints          | ⌘2 (Sprint 40 — promoted into the freed slot; has a toolbar icon + active on `blueprints`/`blueprint`) |
 | index    | Summary              | ⌘3       |
 | garden   | Visualization        | ⌘4       |
 | feedback | Feedback             | ⌘5       |
 | activity | Activity             | ⌘6       |
 | flashdeck| Flash Deck           | ⌘7       |
-| blueprints| Blueprints          | ⌘8 — no toolbar icon; reached via ⌘8, the palette, or Summary's tab |
 
 `TopNav.svelte` also hosts the **back** button (`app.back()`, ⌘[) —
 backed by `app.navStack`, a history stack each `select*`/`open*`/`goHome`
@@ -166,9 +165,17 @@ shows a dismissible "Start here" card on Home (Sprint 21).
   renders a full-screen overlay-button + a dialog (see
   `AddEntityModal.svelte`, `FeedbackCardPanel.svelte`).
 
-## Subtle / non-obvious patterns (READ BEFORE EDITING THE CANVAS)
+## Subtle / non-obvious patterns (READ BEFORE EDITING A CANVAS)
 
-### `MapEditor.svelte` reactive sync is a SINGLE effect
+> NOTE (Sprint 40): the Alexandria `MapEditor` was removed. The canvas
+> patterns below now live in **`BlueprintEditor.svelte`**, which was
+> originally copied from MapEditor and carries the same subtleties (single
+> combined `$effect`, `$state.raw`, identity caches, `markerEnd`, the
+> decorative-endpoint `onConnect` rule). Read them as applying to
+> BlueprintEditor; the `MapNodeCard` SVG note is historical (Blueprint
+> cards are HTML `BlueprintCardNode`).
+
+### The canvas reactive sync is a SINGLE effect
 
 There's exactly one `$effect` that reassigns BOTH `flowNodes` AND
 `flowEdges`. Having two separate effects caused xyflow to drop edges on
@@ -237,7 +244,7 @@ do I have?" and is the entry default (Sprint 11).
 
 ### Migrations
 
-Files in `src-tauri/migrations/0001_…sql` … `0020_…sql`, monotonically
+Files in `src-tauri/migrations/0001_…sql` … `0021_…sql`, monotonically
 numbered, applied at startup. To add one:
 
 1. Create `00NN_<short_name>.sql`.
@@ -265,7 +272,9 @@ numbered, applied at startup. To add one:
   client-side in articles.
 - `index_doc`: legacy single-row markdown summary, preserved for data
   safety but unused in UI.
-- `map_nodes` + `map_edges`: the Alexandria canvas. `kind` is one of
+- `map_nodes` + `map_edges`: **REMOVED in Sprint 40** (migration `0021`
+  drops both). The Alexandria master-map canvas is gone; Blueprints
+  replaced it. Historical description of what they held: `kind` was one of
   `note · article · workflow · feedback_board · text · comment · custom ·
   title`. The first four reference an existing entity via `entity_id`;
   the last four are decorative (entity_id = 0, content holds text). A
@@ -324,6 +333,8 @@ numbered, applied at startup. To add one:
   …bigpicture_app/…` referencing a stale build cache path. `cargo
   clean` inside `src-tauri/` fixes it. The bug is in the cached Tauri
   build script, not in our code.
+- **`map_nodes` / `map_edges` were dropped in Sprint 40** (migration
+  `0021`); the paragraph below is historical (those tables no longer exist).
 - **Migrations 0006 / 0008 / 0010** recreate `map_nodes` (and
   `map_edges` to refresh the FK). If you alter `map_nodes`'s CHECK
   again, follow the same pattern.
@@ -347,12 +358,25 @@ numbered, applied at startup. To add one:
 1. Read this file (you're doing it).
 2. Skim `documentation/SPRINT*.md` in order; bias toward 9–12 for
    anything canvas / kanban / activity-related.
-3. Open `src/lib/stores/app.svelte.ts` and `MapEditor.svelte`. These
+3. Open `src/lib/stores/app.svelte.ts` and `BlueprintEditor.svelte`. These
    two files encode most of the architectural choices.
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 39 (Contribution graph in Focus mode — a GitHub-style
+Last updated: end of Sprint 40 (Removed the Alexandria canvas — the original
+single shared `map` view. Blueprints (standalone design canvases) superseded it
+and is the daily driver, so it's gone: deleted `MapView`/`MapEditor`/
+`MapNodeCard`/`MapCustomNode`/`AddToMapPalette`, the whole map store slice +
+`*Map*` actions, the ipc map types/wrappers, `commands/map.rs` (+ handler regs +
+`MapNode/MapEdge/MapState` models), and the `map` view/label/keybinding.
+Migration `0021_drop_master_map.sql` DROPs `map_edges`+`map_nodes` (data
+intentionally discarded). **Blueprints promoted**: now owns ⌘2 + a TopNav toolbar
+icon (was ⌘8/no icon; ⌘8 now unbound). KEPT `MapTextNode`/`MapCommentNode`/
+`MapTitleNode` — still used by `BlueprintEditor` — with their `app.*` store
+fallbacks changed to no-ops (Blueprints always passes its own
+`onCommitContent`/`onResizeEnd`). App name/bundle id unchanged. 96 cargo tests +
+svelte-check + build all pass. See documentation/SPRINT40.md. — earlier:
+Sprint 39) Contribution graph in Focus mode — a GitHub-style
 52-week activity heatmap below the today's-list block on the aurora screensaver.
 Counts a COMBINED per-day activity: completed todos (by list date) + notes/
 articles/blueprints CREATED that day (by `created_at`), archived+backlog excluded.
