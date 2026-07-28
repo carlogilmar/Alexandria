@@ -352,7 +352,26 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 38 (Lettering — a ```lettering fence renders a big,
+Last updated: end of Sprint 39 (Contribution graph in Focus mode — a GitHub-style
+52-week activity heatmap below the today's-list block on the aurora screensaver.
+Counts a COMBINED per-day activity: completed todos (by list date) + notes/
+articles/blueprints CREATED that day (by `created_at`), archived+backlog excluded.
+Backend `get_activity_stats` (`commands/search.rs`, model `ActivityDay{date,count}`)
+UNION ALLs four per-day GROUP BYs and sums (test:
+`activity_stats_combines_todos_and_entities`); store `activityStats` loaded in
+init/refreshLists + refreshed in `enterFocus`. `FocusMode.svelte` `contrib`
+(`$derived.by`) builds Sun→Sat week columns from a `date→count` map, keyed off
+`todayKey`=`isoLocal(now)` (a string) so it rebuilds only at midnight, not every
+clock tick. 5-level green scale (`.cg-l0…4`, `levelFor` 0/1-2/3-4/5-6/7+), today
+outlined, future cells hidden, "Less→More" legend + "N contributions in the last
+year" caption. Todo completions update live via refreshLists. The Home
+(`Welcome.svelte`) calendar — already a GitHub-style weekly grid — now colors
+PAST/today cells by the SAME combined `activityStats` count on the SAME 5-level
+green scale (`levelFor`), so Home and Focus read identically; future cells keep
+their planning role (clickable future-empty/future-planned), plus today ring +
+month labels. Legend became a Less→More green ramp. See documentation/SPRINT39.md.
+— earlier:
+Sprint 38) Lettering — a ```lettering fence renders a big,
 centered, uppercase display-type banner (bundled Oswald) for announcements,
 distinct from headings. `renderLettering` in `$lib/markdownit.ts` joins non-empty
 lines with `<br>`; optional color/gradient from the shared vocabulary tints the

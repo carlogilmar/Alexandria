@@ -23,6 +23,7 @@ import {
   searchTodos,
   getStats,
   getDailyStats,
+  getActivityStats,
   tagsForTodo,
   listTags,
   addTagToTodo,
@@ -132,6 +133,7 @@ import {
   type Article,
   type ArticleSummary,
   type DayStats,
+  type ActivityDay,
   type FeedbackBoardSummary,
   type FeedbackCardComment,
   type FeedbackCardSummary,
@@ -302,6 +304,9 @@ class AppStore {
   searchResults = $state<TodoHit[]>([]);
   stats = $state<Stats>({ totalLists: 0, totalTodos: 0, streak: 0 });
   dailyStats = $state<DayStats[]>([]);
+  // Combined per-day activity (todos done + notes/articles/blueprints created)
+  // for the Focus-mode contribution graph.
+  activityStats = $state<ActivityDay[]>([]);
 
   selectedTodoId = $state<number | null>(null);
   selectedTodoTags = $state<Tag[]>([]);
@@ -345,6 +350,7 @@ class AppStore {
       this.lists = await listAll();
       this.stats = await getStats();
       this.dailyStats = await getDailyStats(null, null);
+      this.activityStats = await getActivityStats();
       this.backlogPending = await listBacklogPending();
       this.allTags = await listTags();
       this.workflows = await listWorkflows();
@@ -705,6 +711,9 @@ class AppStore {
       this.focusListTitle = list.title;
       this.focusTodos = await listTodos(list.id);
     }
+    // Refresh the contribution graph data so it reflects everything created
+    // since the app loaded (notes/articles/blueprints as well as todos).
+    this.activityStats = await getActivityStats();
     this.focusMode = true;
   }
 
@@ -1555,6 +1564,7 @@ class AppStore {
     this.lists = await listAll();
     this.stats = await getStats();
     this.dailyStats = await getDailyStats(null, null);
+    this.activityStats = await getActivityStats();
     this.backlogPending = await listBacklogPending();
   }
 

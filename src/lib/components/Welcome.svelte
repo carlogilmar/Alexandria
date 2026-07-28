@@ -60,34 +60,54 @@
 
   type Cell = {
     date: string;
-    state: "future-empty" | "future-planned" | "empty" | "partial" | "done";
+    state: "future-empty" | "future-planned" | "past";
     total: number;
     done: number;
+    activity: number; // combined activity count (matches the Focus graph)
+    level: number; // 0–4 green intensity for past cells
   };
 
   function isoDate(d: Date): string {
     return d.toLocaleDateString("en-CA");
   }
 
-  function classifyForDate(today: Date, d: Date, s: DayStats | undefined): Cell {
+  // Same intensity buckets as the Focus-mode contribution graph.
+  function levelFor(count: number): number {
+    if (count <= 0) return 0;
+    if (count <= 2) return 1;
+    if (count <= 4) return 2;
+    if (count <= 6) return 3;
+    return 4;
+  }
+
+  // Past/today cells are colored by combined activity (todos done + notes/
+  // articles/blueprints created), so this grid matches the screensaver graph.
+  // Future cells stay planning-focused (a list scheduled for that day).
+  function classifyForDate(
+    today: Date,
+    d: Date,
+    s: DayStats | undefined,
+    activity: number,
+  ): Cell {
     const iso = isoDate(d);
-    const hasData = !!s && s.total > 0;
     if (d > today) {
+      const hasList = !!s && s.total > 0;
       return {
         date: iso,
-        state: hasData ? "future-planned" : "future-empty",
+        state: hasList ? "future-planned" : "future-empty",
         total: s?.total ?? 0,
         done: s?.done ?? 0,
+        activity: 0,
+        level: 0,
       };
-    }
-    if (!hasData) {
-      return { date: iso, state: "empty", total: 0, done: 0 };
     }
     return {
       date: iso,
-      state: s!.done === s!.total ? "done" : "partial",
-      total: s!.total,
-      done: s!.done,
+      state: "past",
+      total: s?.total ?? 0,
+      done: s?.done ?? 0,
+      activity,
+      level: levelFor(activity),
     };
   }
 
@@ -103,6 +123,9 @@
     const byDate = new Map<string, DayStats>(
       app.dailyStats.map((s) => [s.date, s]),
     );
+    const byActivity = new Map<string, number>(
+      app.activityStats.map((a) => [a.date, a.count]),
+    );
 
     const cells: Cell[] = [];
     const months: { col: number; label: string }[] = [];
@@ -110,7 +133,13 @@
 
     const cursor = new Date(startSunday);
     for (let i = 0; i < TOTAL_WEEKS * 7; i++) {
-      const cell = classifyForDate(today, cursor, byDate.get(isoDate(cursor)));
+      const iso = isoDate(cursor);
+      const cell = classifyForDate(
+        today,
+        cursor,
+        byDate.get(iso),
+        byActivity.get(iso) ?? 0,
+      );
       cells.push(cell);
       if (cursor.getDay() === 0 && cursor.getMonth() !== lastMonth) {
         lastMonth = cursor.getMonth();
@@ -183,6 +212,20 @@
     // Future days are selectable too — picking one opens the day panel so you
     // can plan a list/note for it.
     selectedDate = cell.date;
+  }
+
+  // Human-readable summary of a cell — used for the hover tooltip + aria-label.
+  function cellLabel(cell: Cell): string {
+    if (cell.state === "future-empty") return "Plan a list";
+    if (cell.state === "future-planned") return "Planned";
+    return `${cell.activity} ${cell.activity === 1 ? "contribution" : "contributions"}`;
+  }
+
+  // Custom hover tooltip (instant + styled, unlike the native `title` delay).
+  let tip = $state<{ x: number; y: number; text: string } | null>(null);
+  function showTip(e: Event, cell: Cell) {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    tip = { x: r.left + r.width / 2, y: r.top - 6, text: cellLabel(cell) };
   }
 
   async function createForSelectedDay() {
@@ -413,16 +456,13 @@
         class="flex items-center gap-3 text-[11px] text-neutral-400 dark:text-neutral-500"
       >
         <span class="inline-flex items-center gap-1">
-          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-neutral-300 dark:bg-neutral-700"
-          ></span> empty
-        </span>
-        <span class="inline-flex items-center gap-1">
-          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-rose-400"></span>
-          partial
-        </span>
-        <span class="inline-flex items-center gap-1">
-          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500"
-          ></span> all done
+          Less
+          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-neutral-200 dark:bg-neutral-800"></span>
+          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-200 dark:bg-emerald-900"></span>
+          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-300 dark:bg-emerald-700"></span>
+          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500 dark:bg-emerald-600"></span>
+          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-600 dark:bg-emerald-400"></span>
+          More
         </span>
         <span class="inline-flex items-center gap-1">
           <span class="inline-block h-2.5 w-2.5 rounded-sm bg-indigo-300 dark:bg-indigo-500/70"
@@ -456,10 +496,8 @@
           {#each grid.cells as cell (cell.date)}
             <button
               type="button"
-              aria-label={`${cell.date} — ${cell.state}`}
+              aria-label={cellLabel(cell)}
               class="h-3 w-3 rounded-sm transition-transform hover:scale-125"
-              class:bg-neutral-300={cell.state === "empty"}
-              class:dark:bg-neutral-700={cell.state === "empty"}
               class:bg-transparent={cell.state === "future-empty"}
               class:ring-1={cell.state === "future-empty"}
               class:ring-inset={cell.state === "future-empty"}
@@ -467,8 +505,16 @@
               class:dark:ring-neutral-600={cell.state === "future-empty"}
               class:bg-indigo-300={cell.state === "future-planned"}
               class:dark:bg-indigo-500={cell.state === "future-planned"}
-              class:bg-rose-400={cell.state === "partial"}
-              class:bg-emerald-500={cell.state === "done"}
+              class:bg-neutral-200={cell.state === "past" && cell.level === 0}
+              class:dark:bg-neutral-800={cell.state === "past" && cell.level === 0}
+              class:bg-emerald-200={cell.state === "past" && cell.level === 1}
+              class:dark:bg-emerald-900={cell.state === "past" && cell.level === 1}
+              class:bg-emerald-300={cell.state === "past" && cell.level === 2}
+              class:dark:bg-emerald-700={cell.state === "past" && cell.level === 2}
+              class:bg-emerald-500={cell.state === "past" && cell.level === 3}
+              class:dark:bg-emerald-600={cell.state === "past" && cell.level === 3}
+              class:bg-emerald-600={cell.state === "past" && cell.level === 4}
+              class:dark:bg-emerald-400={cell.state === "past" && cell.level === 4}
               class:ring-2={cell.date === today}
               class:ring-blue-500={cell.date === today}
               class:dark:ring-blue-400={cell.date === today}
@@ -476,15 +522,10 @@
               class:outline={selectedDate === cell.date}
               class:outline-neutral-900={selectedDate === cell.date}
               class:dark:outline-neutral-100={selectedDate === cell.date}
-              title={cell.date === today
-                ? `Today (${cell.date}) — ${cell.state === "done" ? "all done" : cell.state === "partial" ? `${cell.done}/${cell.total}` : "no todos yet"}`
-                : cell.state === "future-empty"
-                  ? `${cell.date} — plan a list`
-                  : cell.state === "future-planned"
-                    ? `${cell.date} — planned (${cell.done}/${cell.total})`
-                    : cell.state === "empty"
-                      ? `${cell.date} — no list`
-                      : `${cell.date} — ${cell.done}/${cell.total}`}
+              onmouseenter={(e) => showTip(e, cell)}
+              onmouseleave={() => (tip = null)}
+              onfocus={(e) => showTip(e, cell)}
+              onblur={() => (tip = null)}
               onclick={() => pickCell(cell)}
             ></button>
           {/each}
@@ -492,6 +533,15 @@
       </div>
     </div>
   </section>
+
+  {#if tip}
+    <div
+      class="pointer-events-none fixed z-[60] -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium text-white shadow-lg dark:bg-neutral-100 dark:text-neutral-900"
+      style="left: {tip.x}px; top: {tip.y}px;"
+    >
+      {tip.text}
+    </div>
+  {/if}
 
   {#if selectedDate}
     <section

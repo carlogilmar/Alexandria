@@ -64,6 +64,11 @@ export type DayStats = {
   done: number;
 };
 
+export type ActivityDay = {
+  date: string; // YYYY-MM-DD
+  count: number; // completed todos + notes/articles/blueprints created that day
+};
+
 export type Workflow = {
   id: number;
   title: string;
@@ -270,6 +275,8 @@ export const listAllTodos = () => invoke<TodoHit[]>("list_all_todos");
 export const getStats = () => invoke<Stats>("get_stats");
 export const getDailyStats = (from: string | null, to: string | null) =>
   invoke<DayStats[]>("get_daily_stats", { from, to });
+export const getActivityStats = () =>
+  invoke<ActivityDay[]>("get_activity_stats");
 
 // Workflows
 export const listWorkflows = () =>

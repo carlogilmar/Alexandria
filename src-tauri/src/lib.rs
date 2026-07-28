@@ -49,6 +49,7 @@ pub fn run() {
             commands::search::list_all_todos,
             commands::search::get_stats,
             commands::search::get_daily_stats,
+            commands::search::get_activity_stats,
             commands::search::get_weekly_activity,
             commands::workflows::list_workflows,
             commands::workflows::workflow_by_id,

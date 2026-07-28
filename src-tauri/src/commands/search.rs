@@ -1,5 +1,5 @@
 use crate::commands::AppState;
-use crate::db::models::{DayStats, Stats, TodoHit, WeeklyActivity};
+use crate::db::models::{ActivityDay, DayStats, Stats, TodoHit, WeeklyActivity};
 use crate::error::AppResult;
 use sqlx::SqlitePool;
 use tauri::State;
@@ -205,6 +205,40 @@ pub async fn get_daily_stats(
     daily_stats(&state.pool, from.as_deref(), to.as_deref()).await
 }
 
+// Combined per-day activity for the contribution graph: completed todos (by
+// list date) + notes / articles / blueprints created (by created_at). Archived
+// and backlog items are excluded, matching the daily surfaces.
+pub(crate) async fn activity_stats(pool: &SqlitePool) -> AppResult<Vec<ActivityDay>> {
+    sqlx::query_as::<_, ActivityDay>(
+        "SELECT d AS date, CAST(SUM(c) AS INTEGER) AS count FROM (
+             SELECT l.date AS d, SUM(t.completed) AS c
+               FROM todos t JOIN lists l ON l.id = t.list_id
+              WHERE l.archived = 0 AND l.is_backlog = 0
+              GROUP BY l.date
+             UNION ALL
+             SELECT date(created_at) AS d, COUNT(*) AS c
+               FROM notes WHERE archived = 0 GROUP BY d
+             UNION ALL
+             SELECT date(created_at) AS d, COUNT(*) AS c
+               FROM articles WHERE archived = 0 GROUP BY d
+             UNION ALL
+             SELECT date(created_at) AS d, COUNT(*) AS c
+               FROM blueprints WHERE archived = 0 GROUP BY d
+         )
+         WHERE d IS NOT NULL AND d <> ''
+         GROUP BY d
+         ORDER BY d ASC",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn get_activity_stats(state: State<'_, AppState>) -> AppResult<Vec<ActivityDay>> {
+    activity_stats(&state.pool).await
+}
+
 #[tauri::command]
 pub async fn get_weekly_activity(
     state: State<'_, AppState>,
@@ -242,6 +276,49 @@ mod tests {
             .fetch_one(pool)
             .await
             .unwrap()
+    }
+
+    #[tokio::test]
+    async fn activity_stats_combines_todos_and_entities() {
+        let pool = test_pool().await;
+        // Two todos on a list dated 2026-05-10; complete one.
+        let l = lists::create(&pool, "L", "2026-05-10").await.unwrap();
+        let t = todos::create(&pool, l.id, "done one").await.unwrap();
+        todos::create(&pool, l.id, "still open").await.unwrap();
+        todos::toggle(&pool, t.id).await.unwrap();
+        // A note + article + blueprint all created "now" (same day).
+        sqlx::query(
+            "INSERT INTO notes (title, body, date, created_at, updated_at)
+             VALUES ('n', '', date('now','localtime'), datetime('now'), datetime('now'))",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO articles (title, body, created_at, updated_at)
+             VALUES ('a', '', datetime('now'), datetime('now'))",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO blueprints (title, created_at, updated_at)
+             VALUES ('b', datetime('now'), datetime('now'))",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let rows = activity_stats(&pool).await.unwrap();
+        let today: String = sqlx::query_scalar("SELECT date('now','localtime')")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        // 1 completed todo (on 2026-05-10) + 3 entities created today.
+        let for_may10 = rows.iter().find(|r| r.date == "2026-05-10");
+        assert_eq!(for_may10.map(|r| r.count), Some(1));
+        let for_today = rows.iter().find(|r| r.date == today).map(|r| r.count);
+        assert_eq!(for_today, Some(3));
     }
 
     #[tokio::test]

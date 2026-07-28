@@ -82,6 +82,15 @@ pub struct DayStats {
     pub done: i64,
 }
 
+// Combined per-day activity for the contribution graph: completed todos +
+// notes / articles / blueprints created that day.
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityDay {
+    pub date: String,
+    pub count: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct Workflow {

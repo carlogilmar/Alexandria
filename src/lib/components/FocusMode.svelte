@@ -35,6 +35,63 @@
   let doneCount = $derived(app.focusTodos.filter((t) => t.completed).length);
   let total = $derived(app.focusTodos.length);
 
+  // ── Contribution graph: a GitHub-style heatmap of todos completed per day ──
+  const CG_WEEKS = 52; // ~1 year
+  function isoLocal(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+  function levelFor(done: number): number {
+    if (done <= 0) return 0;
+    if (done <= 2) return 1;
+    if (done <= 4) return 2;
+    if (done <= 6) return 3;
+    return 4;
+  }
+  // Day-granularity key so the grid only rebuilds at midnight, not every tick.
+  let todayKey = $derived(isoLocal(now));
+  let contrib = $derived.by(() => {
+    const map = new Map(app.activityStats.map((d) => [d.date, d.count] as const));
+    const [y, mo, dd] = todayKey.split("-").map(Number);
+    const today = new Date(y, mo - 1, dd);
+    // Grid starts on the Sunday CG_WEEKS-1 weeks before this week's Sunday.
+    const start = new Date(today);
+    start.setDate(today.getDate() - today.getDay() - (CG_WEEKS - 1) * 7);
+    const cur = new Date(start);
+    const weeks: {
+      date: string;
+      count: number;
+      level: number;
+      future: boolean;
+      isToday: boolean;
+    }[][] = [];
+    for (let w = 0; w < CG_WEEKS; w++) {
+      const col = [];
+      for (let i = 0; i < 7; i++) {
+        const ds = isoLocal(cur);
+        const count = map.get(ds) ?? 0;
+        col.push({
+          date: ds,
+          count,
+          level: levelFor(count),
+          future: cur > today,
+          isToday: ds === todayKey,
+        });
+        cur.setDate(cur.getDate() + 1);
+      }
+      weeks.push(col);
+    }
+    return weeks;
+  });
+  let contribTotal = $derived(
+    contrib.reduce(
+      (s, wk) => s + wk.reduce((a, d) => a + (d.future ? 0 : d.count), 0),
+      0,
+    ),
+  );
+
   function onKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") {
       e.preventDefault();
@@ -150,6 +207,38 @@
         {/if}
       {/if}
     </div>
+
+    <!-- Contribution graph: todos completed per day over the last year. -->
+    <div class="mt-12 w-full max-w-3xl">
+      <div class="mb-2 text-center text-[11px] uppercase tracking-widest text-white/40">
+        {contribTotal} contributions in the last year
+      </div>
+      <div class="overflow-x-auto pb-1">
+        <div class="mx-auto flex w-max gap-[3px]">
+          {#each contrib as week, wi (wi)}
+            <div class="flex flex-col gap-[3px]">
+              {#each week as day (day.date)}
+                <span
+                  class="cg-cell cg-l{day.level}"
+                  class:cg-today={day.isToday}
+                  class:cg-future={day.future}
+                  title="{day.count} on {day.date}"
+                ></span>
+              {/each}
+            </div>
+          {/each}
+        </div>
+      </div>
+      <div class="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-white/40">
+        <span>Less</span>
+        <span class="cg-cell cg-l0"></span>
+        <span class="cg-cell cg-l1"></span>
+        <span class="cg-cell cg-l2"></span>
+        <span class="cg-cell cg-l3"></span>
+        <span class="cg-cell cg-l4"></span>
+        <span>More</span>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -214,6 +303,37 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     opacity: 0.06;
     mix-blend-mode: overlay;
+  }
+
+  /* Contribution graph cells (GitHub-style green scale on the dark stage). */
+  .cg-cell {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    display: inline-block;
+    flex: 0 0 auto;
+  }
+  .cg-l0 {
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .cg-l1 {
+    background: #0e4429;
+  }
+  .cg-l2 {
+    background: #006d32;
+  }
+  .cg-l3 {
+    background: #26a641;
+  }
+  .cg-l4 {
+    background: #39d353;
+  }
+  .cg-future {
+    visibility: hidden;
+  }
+  .cg-today {
+    outline: 1.5px solid rgba(255, 255, 255, 0.85);
+    outline-offset: 1px;
   }
 
   /* Completed row: dim + strike, and fill the check circle. */
