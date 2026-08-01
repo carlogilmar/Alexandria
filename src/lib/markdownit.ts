@@ -183,7 +183,8 @@ const CARD_SOLID = new Set([
   "black",
 ]);
 const CARD_GRADIENT = new Set(["sunset", "ocean", "forest", "dusk", "candy"]);
-const CARD_ENTITY = /^(note|list|workflow|article|flashcard|blueprint):(\d+)$/;
+const CARD_ENTITY =
+  /^(note|list|workflow|article|flashcard|blueprint|storyboard):(\d+)$/;
 
 function renderCards(source: string, md: MarkdownIt): string {
   const esc = (s: string) => md.utils.escapeHtml(s);

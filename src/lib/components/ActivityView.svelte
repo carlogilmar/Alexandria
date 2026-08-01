@@ -1,10 +1,33 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { app } from "$lib/stores/app.svelte";
-  import type { WeeklyActivity } from "$lib/ipc";
+  import { theme } from "$lib/stores/theme.svelte";
+  import { checkinSrc, type WeeklyActivity } from "$lib/ipc";
+  import CheckinLightbox from "$lib/components/CheckinLightbox.svelte";
+
+  let lightboxIndex = $state<number | null>(null);
 
   type Granularity = "year" | "halfyear" | "ytd";
   let granularity = $state<Granularity>("year");
+
+  // Two tabs: the Kandinsky activity grid, and the camera check-in gallery.
+  type Tab = "activity" | "checkins";
+  let tab = $state<Tab>("activity");
+  $effect(() => {
+    if (tab === "checkins") void app.refreshCheckins();
+  });
+
+  function fmtCheckin(iso: string): string {
+    // Backend stores UTC "YYYY-MM-DD HH:MM:SS"; render in local locale.
+    const d = new Date(iso.replace(" ", "T") + "Z");
+    return d.toLocaleString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
 
   // Cell size for the SVG inside each grid cell. The OUTER layout is now a
   // CSS grid that auto-wraps to fit the container width — vertical scroll
@@ -173,33 +196,124 @@
         Activity
       </h1>
       <p class="text-xs text-neutral-500 dark:text-neutral-400">
-        Each cell is one week. Four figures = notes · articles · workflows · lists.
+        {tab === "activity"
+          ? "Each cell is one week. Four figures = notes · articles · workflows · lists."
+          : "Camera check-ins captured when you create a today's list."}
       </p>
     </div>
-    <div class="overflow-hidden rounded-md border border-neutral-300/70 bg-white/85 text-xs shadow-sm backdrop-blur dark:border-neutral-700/70 dark:bg-neutral-900/80">
-      {#each [
-        { v: "year" as Granularity, label: "52 weeks" },
-        { v: "halfyear" as Granularity, label: "6 months" },
-        { v: "ytd" as Granularity, label: "YTD" },
-      ] as g}
-        <button
-          type="button"
-          class="px-2.5 py-1 transition-colors"
-          class:bg-blue-600={granularity === g.v}
-          class:text-white={granularity === g.v}
-          class:hover:bg-blue-700={granularity === g.v}
-          class:text-neutral-600={granularity !== g.v}
-          class:hover:bg-neutral-100={granularity !== g.v}
-          class:dark:text-neutral-300={granularity !== g.v}
-          class:dark:hover:bg-neutral-800={granularity !== g.v}
-          onclick={() => (granularity = g.v)}
-        >
-          {g.label}
-        </button>
-      {/each}
+    <div class="flex items-center gap-2">
+      <!-- Tab switch -->
+      <div class="overflow-hidden rounded-md border border-neutral-300/70 bg-white/85 text-xs shadow-sm backdrop-blur dark:border-neutral-700/70 dark:bg-neutral-900/80">
+        {#each [
+          { v: "activity" as Tab, label: "Grid" },
+          { v: "checkins" as Tab, label: "Check-ins" },
+        ] as t}
+          <button
+            type="button"
+            class="px-2.5 py-1 transition-colors"
+            class:bg-blue-600={tab === t.v}
+            class:text-white={tab === t.v}
+            class:text-neutral-600={tab !== t.v}
+            class:hover:bg-neutral-100={tab !== t.v}
+            class:dark:text-neutral-300={tab !== t.v}
+            class:dark:hover:bg-neutral-800={tab !== t.v}
+            onclick={() => (tab = t.v)}
+          >
+            {t.label}
+          </button>
+        {/each}
+      </div>
+      {#if tab === "activity"}
+        <div class="overflow-hidden rounded-md border border-neutral-300/70 bg-white/85 text-xs shadow-sm backdrop-blur dark:border-neutral-700/70 dark:bg-neutral-900/80">
+          {#each [
+            { v: "year" as Granularity, label: "52 weeks" },
+            { v: "halfyear" as Granularity, label: "6 months" },
+            { v: "ytd" as Granularity, label: "YTD" },
+          ] as g}
+            <button
+              type="button"
+              class="px-2.5 py-1 transition-colors"
+              class:bg-blue-600={granularity === g.v}
+              class:text-white={granularity === g.v}
+              class:hover:bg-blue-700={granularity === g.v}
+              class:text-neutral-600={granularity !== g.v}
+              class:hover:bg-neutral-100={granularity !== g.v}
+              class:dark:text-neutral-300={granularity !== g.v}
+              class:dark:hover:bg-neutral-800={granularity !== g.v}
+              onclick={() => (granularity = g.v)}
+            >
+              {g.label}
+            </button>
+          {/each}
+        </div>
+      {/if}
     </div>
   </header>
 
+  {#if tab === "checkins"}
+    <div class="flex-1 overflow-y-auto p-6">
+      <!-- Opt-in toggle + privacy note -->
+      <div class="mb-6 flex items-start justify-between gap-4 rounded-xl border border-neutral-200/70 bg-white/60 p-4 dark:border-neutral-700/60 dark:bg-neutral-900/40">
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-neutral-800 dark:text-neutral-200">Camera check-ins</p>
+          <p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+            When on, creating a today's list snaps a ~1s webcam GIF. Uses your camera, stays on your Mac, never uploaded. Turn it off anytime.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={theme.checkinsEnabled}
+          aria-label="Toggle camera check-ins"
+          class="relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors"
+          class:bg-blue-600={theme.checkinsEnabled}
+          class:bg-neutral-300={!theme.checkinsEnabled}
+          class:dark:bg-neutral-700={!theme.checkinsEnabled}
+          onclick={() => theme.setCheckinsEnabled(!theme.checkinsEnabled)}
+        >
+          <span
+            class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
+            class:translate-x-5={theme.checkinsEnabled}
+          ></span>
+        </button>
+      </div>
+
+      {#if app.checkins.length === 0}
+        <p class="mt-10 text-center text-sm text-neutral-400 dark:text-neutral-500">
+          {theme.checkinsEnabled
+            ? "No check-ins yet — create a today's list to snap your first one."
+            : "No check-ins yet. Enable the toggle above to start."}
+        </p>
+      {:else}
+        <div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
+          {#each app.checkins as c, i (c.id)}
+            <figure class="group relative overflow-hidden rounded-xl border border-neutral-200/70 bg-black/5 dark:border-neutral-700/60 dark:bg-white/5">
+              <button
+                type="button"
+                title="Delete check-in"
+                aria-label="Delete check-in"
+                class="absolute right-1.5 top-1.5 z-10 rounded-full bg-black/50 p-1 text-white/90 opacity-0 transition-opacity hover:bg-red-600 group-hover:opacity-100"
+                onclick={() => app.deleteCheckin(c.id)}
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zm-1 6a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 112 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
+              </button>
+              <button
+                type="button"
+                class="block w-full cursor-zoom-in"
+                aria-label="View check-in {fmtCheckin(c.createdAt)}"
+                onclick={() => (lightboxIndex = i)}
+              >
+                <img src={checkinSrc(c.path)} alt="Check-in {fmtCheckin(c.createdAt)}" class="aspect-[4/3] w-full object-cover" />
+              </button>
+              <figcaption class="flex items-center justify-between px-2.5 py-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+                {fmtCheckin(c.createdAt)}
+              </figcaption>
+            </figure>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {:else}
   <div class="flex-1 overflow-y-auto p-6">
     {#if app.activityLoading && visibleWeeks.length === 0}
       <p class="text-sm text-neutral-400 dark:text-neutral-500">Loading…</p>
@@ -310,8 +424,10 @@
       </div>
     {/if}
   </div>
+  {/if}
 
-  <!-- Hover detail strip -->
+  <!-- Hover detail strip (activity grid only) -->
+  {#if tab === "activity"}
   <footer class="border-t border-neutral-200/70 px-6 py-3 dark:border-neutral-700/70">
     {#if hovered}
       {@const total = totalOf(hovered)}
@@ -346,5 +462,14 @@
       </p>
     {/if}
   </footer>
+  {/if}
 </main>
+
+{#if lightboxIndex !== null}
+  <CheckinLightbox
+    checkins={app.checkins}
+    startIndex={lightboxIndex}
+    onClose={() => (lightboxIndex = null)}
+  />
+{/if}
 

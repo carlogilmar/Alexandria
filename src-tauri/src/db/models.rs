@@ -82,6 +82,95 @@ pub struct DayStats {
     pub done: i64,
 }
 
+// Storyboards (Sprint 43): a sequence of pages, each a tiny canvas + a
+// markdown note. Node/edge shape mirrors Blueprints but scoped to a page.
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct Storyboard {
+    pub id: i64,
+    pub title: String,
+    pub pinned: bool,
+    pub archived: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct StoryboardSummary {
+    pub id: i64,
+    pub title: String,
+    pub pinned: bool,
+    pub archived: bool,
+    pub page_count: i64,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct StoryboardPage {
+    pub id: i64,
+    pub storyboard_id: i64,
+    pub position: i64,
+    pub note: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct StoryboardNode {
+    pub id: i64,
+    pub page_id: i64,
+    pub kind: String,
+    pub label: String,
+    pub icon: Option<String>,
+    pub color: Option<String>,
+    pub content: Option<String>,
+    pub x: f64,
+    pub y: f64,
+    pub width: Option<f64>,
+    pub height: Option<f64>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct StoryboardEdge {
+    pub id: i64,
+    pub page_id: i64,
+    pub source_id: i64,
+    pub target_id: i64,
+    pub source_handle: Option<String>,
+    pub target_handle: Option<String>,
+    pub label: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+// The full get-state payload: the storyboard + all its pages + every page's
+// nodes and edges (the editor filters by the current page).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoryboardState {
+    pub storyboard: Storyboard,
+    pub pages: Vec<StoryboardPage>,
+    pub nodes: Vec<StoryboardNode>,
+    pub edges: Vec<StoryboardEdge>,
+}
+
+// Camera check-in (Sprint 42): a webcam GIF snapped when a today's list is
+// created. `path` is the absolute GIF file path; `list_id` may be null.
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct Checkin {
+    pub id: i64,
+    pub list_id: Option<i64>,
+    pub path: String,
+    pub created_at: String,
+}
+
 // Passwords vault (Sprint 41). `SecretMeta` is the safe listing shape — id +
 // plaintext title only, never the password. `VaultStatus` drives the UI gate.
 #[derive(Debug, Clone, Serialize, FromRow)]

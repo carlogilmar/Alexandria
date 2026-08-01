@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Sprint 42: shown by macOS when the webview first requests the camera
+       for the (opt-in) check-in GIF feature. -->
+  <key>NSCameraUsageDescription</key>
+  <string>Alexandria uses your camera only for the optional "check-in" GIFs you enable in Settings. Photos stay on your Mac and are never uploaded.</string>
+</dict>
+</plist>

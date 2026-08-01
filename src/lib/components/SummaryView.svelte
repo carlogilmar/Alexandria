@@ -9,6 +9,7 @@
     Flashcard,
     ListSummary,
     NoteSummary,
+    StoryboardSummary,
     WorkflowSummary,
   } from "$lib/ipc";
 
@@ -18,16 +19,24 @@
     | "workflow"
     | "board"
     | "blueprint"
+    | "storyboard"
     | "flashcard"
     | "list";
   // The kinds IdChip knows how to render (board/flashcard have no chip).
-  type ChipKind = "article" | "note" | "workflow" | "blueprint" | "list";
+  type ChipKind =
+    | "article"
+    | "note"
+    | "workflow"
+    | "blueprint"
+    | "storyboard"
+    | "list";
 
   type Section =
     | "all"
     | "articles"
     | "notes"
     | "blueprints"
+    | "storyboards"
     | "workflows"
     | "boards"
     | "cards"
@@ -56,6 +65,7 @@
     workflow: 32,
     board: 350,
     blueprint: 200,
+    storyboard: 158,
     flashcard: 175,
     list: 158,
   };
@@ -111,6 +121,20 @@
       chipKind: "blueprint",
       hue: KIND_HUE.blueprint,
       sortKey: b.updatedAt,
+    };
+  }
+  function storyboardRow(s: StoryboardSummary): Row {
+    return {
+      kind: "storyboard",
+      id: s.id,
+      title: s.title,
+      meta: `${s.pageCount} ${s.pageCount === 1 ? "page" : "pages"} · ${formatUpdated(s.updatedAt)}`,
+      pinned: s.pinned,
+      badge: false,
+      deletable: true,
+      chipKind: "storyboard",
+      hue: KIND_HUE.storyboard,
+      sortKey: s.updatedAt,
     };
   }
   function workflowRow(w: WorkflowSummary): Row {
@@ -177,6 +201,9 @@
   let blueprintRows = $derived(
     app.blueprints.filter((b) => !b.archived).map(blueprintRow),
   );
+  let storyboardRows = $derived(
+    app.storyboards.filter((s) => !s.archived).map(storyboardRow),
+  );
   let workflowRows = $derived(
     app.workflows.filter((w) => !w.archived).map(workflowRow),
   );
@@ -192,6 +219,7 @@
       ...articleRows,
       ...noteRows,
       ...blueprintRows,
+      ...storyboardRows,
       ...workflowRows,
       ...boardRows,
       ...cardRows,
@@ -209,6 +237,8 @@
         return noteRows;
       case "blueprints":
         return blueprintRows;
+      case "storyboards":
+        return storyboardRows;
       case "workflows":
         return workflowRows;
       case "boards":
@@ -229,6 +259,7 @@
     | { kind: "workflow"; entity: WorkflowSummary }
     | { kind: "board"; entity: FeedbackBoardSummary }
     | { kind: "blueprint"; entity: BlueprintSummary }
+    | { kind: "storyboard"; entity: StoryboardSummary }
     | { kind: "flashcard"; entity: Flashcard }
     | { kind: "list"; entity: ListSummary };
   let archivedRows = $derived<ArchivedRow[]>([
@@ -247,6 +278,9 @@
     ...app.blueprints
       .filter((b) => b.archived)
       .map((b) => ({ kind: "blueprint", entity: b }) as ArchivedRow),
+    ...app.storyboards
+      .filter((s) => s.archived)
+      .map((s) => ({ kind: "storyboard", entity: s }) as ArchivedRow),
     ...app.flashcards
       .filter((c) => c.archived)
       .map((c) => ({ kind: "flashcard", entity: c }) as ArchivedRow),
@@ -260,6 +294,7 @@
     articles: articleRows.length,
     notes: noteRows.length,
     blueprints: blueprintRows.length,
+    storyboards: storyboardRows.length,
     workflows: workflowRows.length,
     boards: boardRows.length,
     cards: cardRows.length,
@@ -272,6 +307,7 @@
     { key: "articles", label: "Articles" },
     { key: "notes", label: "Notes" },
     { key: "blueprints", label: "Blueprints" },
+    { key: "storyboards", label: "Storyboards" },
     { key: "workflows", label: "Workflows" },
     { key: "boards", label: "Boards" },
     { key: "cards", label: "Cards" },
@@ -285,6 +321,7 @@
     else if (kind === "workflow") app.selectWorkflow(id);
     else if (kind === "board") app.openFeedbackBoard(id);
     else if (kind === "blueprint") app.openBlueprint(id);
+    else if (kind === "storyboard") app.openStoryboard(id);
     else if (kind === "flashcard") app.openFlashcardInDeck(id);
     else app.select(id);
   }
@@ -294,6 +331,7 @@
     else if (kind === "workflow") app.setWorkflowArchived(id, true);
     else if (kind === "board") app.setFeedbackBoardArchived(id, true);
     else if (kind === "blueprint") app.setBlueprintArchived(id, true);
+    else if (kind === "storyboard") app.setStoryboardArchived(id, true);
     else if (kind === "flashcard") app.setFlashcardArchived(id, true);
     else app.setListArchived(id, true);
   }
@@ -303,6 +341,7 @@
     else if (kind === "workflow") app.setWorkflowArchived(id, false);
     else if (kind === "board") app.setFeedbackBoardArchived(id, false);
     else if (kind === "blueprint") app.setBlueprintArchived(id, false);
+    else if (kind === "storyboard") app.setStoryboardArchived(id, false);
     else if (kind === "flashcard") app.setFlashcardArchived(id, false);
     else app.setListArchived(id, false);
   }
@@ -312,6 +351,7 @@
     else if (kind === "workflow") app.deleteWorkflowById(id);
     else if (kind === "board") app.deleteFeedbackBoard(id);
     else if (kind === "blueprint") app.deleteBlueprint(id);
+    else if (kind === "storyboard") app.deleteStoryboard(id);
     else if (kind === "flashcard") app.deleteFlashcardById(id);
     // Lists: skip permanent delete for now (use Archive instead).
   }
@@ -322,6 +362,7 @@
     else if (kind === "workflow") app.setWorkflowPinnedById(id, next);
     else if (kind === "board") app.setFeedbackBoardPinned(id, next);
     else if (kind === "blueprint") app.setBlueprintPinned(id, next);
+    else if (kind === "storyboard") app.setStoryboardPinned(id, next);
     else if (kind === "flashcard") app.toggleFlashcardPin(id);
     else app.setListPinnedById(id, next);
   }

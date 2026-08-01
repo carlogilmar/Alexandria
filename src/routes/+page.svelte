@@ -25,6 +25,8 @@
   import AddEntityModal from "$lib/components/AddEntityModal.svelte";
   import FocusMode from "$lib/components/FocusMode.svelte";
   import PasswordsView from "$lib/components/PasswordsView.svelte";
+  import StoryboardsView from "$lib/components/StoryboardsView.svelte";
+  import StoryboardView from "$lib/components/StoryboardView.svelte";
 
   let sidebar: Sidebar | undefined = $state();
   let inspectorTodo = $derived(app.selectedTodo());
@@ -45,6 +47,8 @@
     flashdeck: "Flash Deck",
     blueprints: "Blueprints",
     blueprint: "Blueprints",
+    storyboards: "Storyboards",
+    storyboard: "Storyboards",
     passwords: "Passwords",
   };
   let viewLabel = $derived(VIEW_LABELS[app.view] ?? "");
@@ -237,6 +241,10 @@
       <BlueprintsView />
     {:else if app.view === "blueprint"}
       <BlueprintView />
+    {:else if app.view === "storyboards"}
+      <StoryboardsView />
+    {:else if app.view === "storyboard"}
+      <StoryboardView />
     {:else}
       <ListView />
     {/if}
@@ -277,5 +285,16 @@
     out:fade={{ duration: 200 }}
   >
     {app.flash}
+  </div>
+{/if}
+
+{#if app.capturingCheckin}
+  <div
+    class="pointer-events-none fixed right-6 top-6 z-[60] flex items-center gap-2 rounded-full bg-red-600/90 px-3 py-1.5 text-xs font-medium text-white shadow-lg"
+    in:fade={{ duration: 120 }}
+    out:fade={{ duration: 200 }}
+  >
+    <span class="h-2 w-2 animate-pulse rounded-full bg-white"></span>
+    📸 Capturing check-in…
   </div>
 {/if}

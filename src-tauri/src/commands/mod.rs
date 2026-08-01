@@ -1,5 +1,6 @@
 pub mod articles;
 pub mod blueprints;
+pub mod checkins;
 pub mod export;
 pub mod feedback;
 pub mod flashcards;
@@ -8,6 +9,7 @@ pub mod lists;
 pub mod notes;
 pub mod search;
 pub mod secrets;
+pub mod storyboards;
 pub mod tags;
 pub mod todos;
 pub mod workflows;

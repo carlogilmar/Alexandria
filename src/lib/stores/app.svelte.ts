@@ -1,4 +1,6 @@
 import { confirm, save } from "@tauri-apps/plugin-dialog";
+import { theme } from "$lib/stores/theme.svelte";
+import { captureCheckinGif } from "$lib/checkin";
 import {
   listToday,
   listAll,
@@ -34,6 +36,41 @@ import {
   revealSecret as revealSecretIpc,
   deleteSecret as deleteSecretIpc,
   type SecretMeta,
+  saveImageBytes,
+  addCheckin as addCheckinIpc,
+  listCheckins,
+  deleteCheckin as deleteCheckinIpc,
+  type Checkin,
+  listStoryboards,
+  createStoryboard as createStoryboardIpc,
+  getStoryboard,
+  renameStoryboard as renameStoryboardIpc,
+  setStoryboardPinned as setStoryboardPinnedIpc,
+  setStoryboardArchived as setStoryboardArchivedIpc,
+  deleteStoryboard as deleteStoryboardIpc,
+  addStoryboardPage as addStoryboardPageIpc,
+  deleteStoryboardPage as deleteStoryboardPageIpc,
+  updateStoryboardPageNote as updateStoryboardPageNoteIpc,
+  reorderStoryboardPages as reorderStoryboardPagesIpc,
+  addStoryboardBox as addStoryboardBoxIpc,
+  addStoryboardIcon as addStoryboardIconIpc,
+  addStoryboardHeader as addStoryboardHeaderIpc,
+  addStoryboardComment as addStoryboardCommentIpc,
+  updateStoryboardNodeLabel as updateStoryboardNodeLabelIpc,
+  updateStoryboardNodeContent as updateStoryboardNodeContentIpc,
+  setStoryboardNodeIcon as setStoryboardNodeIconIpc,
+  setStoryboardNodeColor as setStoryboardNodeColorIpc,
+  moveStoryboardNode as moveStoryboardNodeIpc,
+  resizeStoryboardNode as resizeStoryboardNodeIpc,
+  removeStoryboardNode as removeStoryboardNodeIpc,
+  addStoryboardEdge as addStoryboardEdgeIpc,
+  updateStoryboardEdgeLabel as updateStoryboardEdgeLabelIpc,
+  removeStoryboardEdge as removeStoryboardEdgeIpc,
+  type Storyboard,
+  type StoryboardSummary,
+  type StoryboardPage,
+  type StoryboardNode,
+  type StoryboardEdge,
   tagsForTodo,
   listTags,
   addTagToTodo,
@@ -208,6 +245,7 @@ type NavLoc =
   | { view: "workflow"; id: number }
   | { view: "feedback-board"; id: number }
   | { view: "blueprint"; id: number }
+  | { view: "storyboard"; id: number }
   | {
       view:
         | "index"
@@ -216,6 +254,7 @@ type NavLoc =
         | "activity"
         | "flashdeck"
         | "blueprints"
+        | "storyboards"
         | "passwords";
     };
 
@@ -234,6 +273,8 @@ class AppStore {
     | "flashdeck"
     | "blueprints"
     | "blueprint"
+    | "storyboards"
+    | "storyboard"
     | "passwords"
   >("home");
   // Back-navigation history — locations we can pop back to. $state so the
@@ -349,6 +390,7 @@ class AppStore {
       this.dailyStats = await getDailyStats(null, null);
       this.activityStats = await getActivityStats();
       this.backlogPending = await listBacklogPending();
+      this.checkins = await listCheckins();
       this.allTags = await listTags();
       this.workflows = await listWorkflows();
       this.notes = await listNotes();
@@ -359,6 +401,7 @@ class AppStore {
       await this.refreshFlashcards();
       await this.refreshFlashcardCategories();
       await this.refreshBlueprints();
+      await this.refreshStoryboards();
     } catch (e) {
       this.error = String(e);
     } finally {
@@ -493,12 +536,17 @@ class AppStore {
         return this.selectedBlueprint !== null
           ? { view: "blueprint", id: this.selectedBlueprint.id }
           : { view: "blueprints" };
+      case "storyboard":
+        return this.selectedStoryboard !== null
+          ? { view: "storyboard", id: this.selectedStoryboard.id }
+          : { view: "storyboards" };
       case "index":
       case "garden":
       case "feedback":
       case "activity":
       case "flashdeck":
       case "blueprints":
+      case "storyboards":
       case "passwords":
         return { view: this.view };
       default:
@@ -573,6 +621,12 @@ class AppStore {
           break;
         case "blueprint":
           await this.openBlueprint(loc.id);
+          break;
+        case "storyboards":
+          await this.openStoryboards();
+          break;
+        case "storyboard":
+          await this.openStoryboard(loc.id);
           break;
         case "passwords":
           await this.openPasswords();
@@ -1287,6 +1341,356 @@ class AppStore {
     }
   }
 
+  // ---- Storyboards (Sprint 43) ----
+  // State holds ALL pages' nodes/edges; the editor filters by currentPageId.
+
+  storyboards = $state<StoryboardSummary[]>([]);
+  storyboardsLoaded = $state(false);
+  selectedStoryboard = $state<Storyboard | null>(null);
+  storyboardPages = $state<StoryboardPage[]>([]);
+  storyboardNodes = $state<StoryboardNode[]>([]);
+  storyboardEdges = $state<StoryboardEdge[]>([]);
+  currentPageId = $state<number | null>(null);
+  storyboardLoading = $state(false);
+
+  private clearForView() {
+    this.selected = null;
+    this.todos = [];
+    this.selectedTodoId = null;
+    this.selectedTodoTags = [];
+    this.selectedWorkflow = null;
+    this.workflowSteps = [];
+    this.selectedNote = null;
+    this.selectedArticle = null;
+  }
+
+  async openStoryboards() {
+    this.recordNav();
+    this.view = "storyboards";
+    this.clearForView();
+    await this.refreshStoryboards();
+  }
+
+  async refreshStoryboards() {
+    this.storyboards = await listStoryboards();
+    this.storyboardsLoaded = true;
+  }
+
+  async openStoryboard(id: number) {
+    this.recordNav();
+    this.clearForView();
+    this.storyboardLoading = true;
+    try {
+      const s = await getStoryboard(id);
+      this.selectedStoryboard = s.storyboard;
+      this.storyboardPages = s.pages;
+      this.storyboardNodes = s.nodes;
+      this.storyboardEdges = s.edges;
+      this.currentPageId = s.pages[0]?.id ?? null;
+      this.view = "storyboard";
+    } catch (e) {
+      this.error = String(e);
+    } finally {
+      this.storyboardLoading = false;
+    }
+  }
+
+  async newStoryboard(title = "Untitled storyboard") {
+    try {
+      const created = await createStoryboardIpc(title);
+      await this.refreshStoryboards();
+      await this.openStoryboard(created.id);
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async renameStoryboard(id: number, title: string) {
+    try {
+      const updated = await renameStoryboardIpc(id, title);
+      this.storyboards = this.storyboards.map((s) =>
+        s.id === id ? { ...s, title: updated.title } : s,
+      );
+      if (this.selectedStoryboard?.id === id) this.selectedStoryboard = updated;
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async setStoryboardPinned(id: number, pinned: boolean) {
+    try {
+      await setStoryboardPinnedIpc(id, pinned);
+      await this.refreshStoryboards();
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async setStoryboardArchived(id: number, archived: boolean) {
+    try {
+      await setStoryboardArchivedIpc(id, archived);
+      await this.refreshStoryboards();
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async deleteStoryboard(id: number) {
+    const ok = await confirm("Delete this storyboard and all its pages?", {
+      title: "Delete storyboard?",
+      kind: "warning",
+    });
+    if (!ok) return;
+    try {
+      await deleteStoryboardIpc(id);
+      if (this.selectedStoryboard?.id === id) this.selectedStoryboard = null;
+      await this.refreshStoryboards();
+      this.openStoryboards();
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  // ---- pages ----
+
+  selectStoryboardPage(pageId: number) {
+    if (this.storyboardPages.some((p) => p.id === pageId))
+      this.currentPageId = pageId;
+  }
+
+  async addStoryboardPage() {
+    if (!this.selectedStoryboard) return;
+    try {
+      const page = await addStoryboardPageIpc(this.selectedStoryboard.id);
+      this.storyboardPages = [...this.storyboardPages, page];
+      this.currentPageId = page.id;
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async deleteStoryboardPage(pageId: number) {
+    if (this.storyboardPages.length <= 1) {
+      this.setFlash("A storyboard needs at least one page");
+      return;
+    }
+    try {
+      await deleteStoryboardPageIpc(pageId);
+      const idx = this.storyboardPages.findIndex((p) => p.id === pageId);
+      this.storyboardPages = this.storyboardPages.filter((p) => p.id !== pageId);
+      this.storyboardNodes = this.storyboardNodes.filter(
+        (n) => n.pageId !== pageId,
+      );
+      this.storyboardEdges = this.storyboardEdges.filter(
+        (e) => e.pageId !== pageId,
+      );
+      if (this.currentPageId === pageId) {
+        const next = this.storyboardPages[Math.max(0, idx - 1)];
+        this.currentPageId = next?.id ?? null;
+      }
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async updateStoryboardPageNote(pageId: number, note: string) {
+    // Optimistic local update; persist in the background.
+    this.storyboardPages = this.storyboardPages.map((p) =>
+      p.id === pageId ? { ...p, note } : p,
+    );
+    try {
+      await updateStoryboardPageNoteIpc(pageId, note);
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async reorderStoryboardPages(orderedIds: number[]) {
+    if (!this.selectedStoryboard) return;
+    const byId = new Map(this.storyboardPages.map((p) => [p.id, p] as const));
+    this.storyboardPages = orderedIds
+      .map((id, i) => {
+        const p = byId.get(id);
+        return p ? { ...p, position: i } : null;
+      })
+      .filter((p): p is StoryboardPage => p !== null);
+    try {
+      await reorderStoryboardPagesIpc(this.selectedStoryboard.id, orderedIds);
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  // ---- nodes ----
+
+  private pushStoryboardNode(n: StoryboardNode) {
+    this.storyboardNodes = [...this.storyboardNodes, n];
+  }
+
+  async addStoryboardBox(pageId: number, label: string, x: number, y: number) {
+    try {
+      const n = await addStoryboardBoxIpc(pageId, label, x, y);
+      this.pushStoryboardNode(n);
+      return n;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+  async addStoryboardIcon(
+    pageId: number,
+    icon: string,
+    label: string,
+    x: number,
+    y: number,
+  ) {
+    try {
+      const n = await addStoryboardIconIpc(pageId, icon, label, x, y);
+      this.pushStoryboardNode(n);
+      return n;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+  async addStoryboardHeader(
+    pageId: number,
+    content: string,
+    x: number,
+    y: number,
+  ) {
+    try {
+      const n = await addStoryboardHeaderIpc(pageId, content, x, y);
+      this.pushStoryboardNode(n);
+      return n;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+  async addStoryboardComment(
+    pageId: number,
+    content: string,
+    x: number,
+    y: number,
+  ) {
+    try {
+      const n = await addStoryboardCommentIpc(pageId, content, x, y);
+      this.pushStoryboardNode(n);
+      return n;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+
+  private patchStoryboardNode(updated: StoryboardNode) {
+    this.storyboardNodes = this.storyboardNodes.map((n) =>
+      n.id === updated.id ? updated : n,
+    );
+  }
+
+  async updateStoryboardNodeLabel(id: number, label: string) {
+    try {
+      this.patchStoryboardNode(await updateStoryboardNodeLabelIpc(id, label));
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+  async updateStoryboardNodeContent(id: number, content: string) {
+    try {
+      this.patchStoryboardNode(
+        await updateStoryboardNodeContentIpc(id, content),
+      );
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+  async setStoryboardNodeIcon(id: number, icon: string | null) {
+    try {
+      this.patchStoryboardNode(await setStoryboardNodeIconIpc(id, icon));
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+  async setStoryboardNodeColor(id: number, color: string | null) {
+    try {
+      this.patchStoryboardNode(await setStoryboardNodeColorIpc(id, color));
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+  async moveStoryboardNode(id: number, x: number, y: number) {
+    try {
+      this.patchStoryboardNode(await moveStoryboardNodeIpc(id, x, y));
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+  async resizeStoryboardNode(id: number, width: number, height: number) {
+    try {
+      this.patchStoryboardNode(
+        await resizeStoryboardNodeIpc(id, width, height),
+      );
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+  async removeStoryboardNode(id: number) {
+    try {
+      await removeStoryboardNodeIpc(id);
+      this.storyboardNodes = this.storyboardNodes.filter((n) => n.id !== id);
+      this.storyboardEdges = this.storyboardEdges.filter(
+        (e) => e.sourceId !== id && e.targetId !== id,
+      );
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  // ---- edges ----
+
+  async addStoryboardEdge(
+    pageId: number,
+    sourceId: number,
+    targetId: number,
+    sourceHandle: string | null,
+    targetHandle: string | null,
+  ) {
+    try {
+      const edge = await addStoryboardEdgeIpc(
+        pageId,
+        sourceId,
+        targetId,
+        sourceHandle,
+        targetHandle,
+      );
+      this.storyboardEdges = [...this.storyboardEdges, edge];
+      return edge;
+    } catch (e) {
+      this.setFlash(String(e));
+      return null;
+    }
+  }
+  async updateStoryboardEdgeLabel(id: number, label: string | null) {
+    try {
+      const updated = await updateStoryboardEdgeLabelIpc(id, label);
+      this.storyboardEdges = this.storyboardEdges.map((e) =>
+        e.id === id ? updated : e,
+      );
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+  async removeStoryboardEdge(id: number) {
+    try {
+      await removeStoryboardEdgeIpc(id);
+      this.storyboardEdges = this.storyboardEdges.filter((e) => e.id !== id);
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
   // ---- Articles ----
 
   async refreshArticles() {
@@ -1441,7 +1845,13 @@ class AppStore {
   // ---- Generic "new entity" used by the sidebar's Add modal ----
 
   async newEntity(
-    kind: "note" | "article" | "workflow" | "flashcard" | "blueprint",
+    kind:
+      | "note"
+      | "article"
+      | "workflow"
+      | "flashcard"
+      | "blueprint"
+      | "storyboard",
     title: string,
   ) {
     const t = title.trim();
@@ -1455,6 +1865,8 @@ class AppStore {
       await this.newFlashcard(t || "New card");
     } else if (kind === "blueprint") {
       await this.newBlueprint(t || "New blueprint");
+    } else if (kind === "storyboard") {
+      await this.newStoryboard(t || "Untitled storyboard");
     } else {
       await this.newWorkflow(t || "New workflow");
     }
@@ -1649,6 +2061,47 @@ class AppStore {
     const created = await createList(finalTitle, targetDate);
     await this.refreshLists();
     await this.select(created.id);
+    // "lolcommits"-style camera check-in (opt-in) — fire and forget so it
+    // never blocks list creation.
+    void this.maybeCaptureCheckin(created.id);
+  }
+
+  // ---- Camera check-ins (Sprint 42) ----
+
+  checkins = $state<Checkin[]>([]);
+  capturingCheckin = $state(false);
+
+  private async maybeCaptureCheckin(listId: number) {
+    if (!theme.checkinsEnabled || this.capturingCheckin) return;
+    this.capturingCheckin = true;
+    try {
+      const bytes = await captureCheckinGif();
+      const path = await saveImageBytes(Array.from(bytes), "gif");
+      const created = await addCheckinIpc(path, listId);
+      this.checkins = [created, ...this.checkins];
+      this.setFlash("📸 Check-in saved");
+    } catch {
+      this.setFlash("Check-in skipped — camera unavailable");
+    } finally {
+      this.capturingCheckin = false;
+    }
+  }
+
+  async refreshCheckins() {
+    try {
+      this.checkins = await listCheckins();
+    } catch (e) {
+      this.setFlash(String(e));
+    }
+  }
+
+  async deleteCheckin(id: number) {
+    try {
+      await deleteCheckinIpc(id);
+      this.checkins = this.checkins.filter((c) => c.id !== id);
+    } catch (e) {
+      this.setFlash(String(e));
+    }
   }
 
   async selectToday() {

@@ -286,24 +286,26 @@ mod tests {
         let t = todos::create(&pool, l.id, "done one").await.unwrap();
         todos::create(&pool, l.id, "still open").await.unwrap();
         todos::toggle(&pool, t.id).await.unwrap();
-        // A note + article + blueprint all created "now" (same day).
+        // A note + article + blueprint all created "now". Use localtime for
+        // created_at so date(created_at) matches date('now','localtime') even
+        // when the machine's UTC date differs from its local date.
         sqlx::query(
             "INSERT INTO notes (title, body, date, created_at, updated_at)
-             VALUES ('n', '', date('now','localtime'), datetime('now'), datetime('now'))",
+             VALUES ('n', '', date('now','localtime'), datetime('now','localtime'), datetime('now','localtime'))",
         )
         .execute(&pool)
         .await
         .unwrap();
         sqlx::query(
             "INSERT INTO articles (title, body, created_at, updated_at)
-             VALUES ('a', '', datetime('now'), datetime('now'))",
+             VALUES ('a', '', datetime('now','localtime'), datetime('now','localtime'))",
         )
         .execute(&pool)
         .await
         .unwrap();
         sqlx::query(
             "INSERT INTO blueprints (title, created_at, updated_at)
-             VALUES ('b', datetime('now'), datetime('now'))",
+             VALUES ('b', datetime('now','localtime'), datetime('now','localtime'))",
         )
         .execute(&pool)
         .await

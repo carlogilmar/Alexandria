@@ -1,7 +1,13 @@
 <script lang="ts">
   import { app } from "$lib/stores/app.svelte";
 
-  type Kind = "note" | "article" | "workflow" | "flashcard" | "blueprint";
+  type Kind =
+    | "note"
+    | "article"
+    | "workflow"
+    | "flashcard"
+    | "blueprint"
+    | "storyboard";
   type Props = { onClose: () => void };
   let { onClose }: Props = $props();
 
@@ -20,6 +26,7 @@
     { value: "workflow", label: "Workflow", hue: 32, hint: "Step-by-step process" },
     { value: "flashcard", label: "Flashcard", hue: 175, hint: "A card in your Flash Deck" },
     { value: "blueprint", label: "Blueprint", hue: 200, hint: "A design canvas for planning software" },
+    { value: "storyboard", label: "Storyboard", hue: 158, hint: "Tiny diagram + note, page by page" },
   ];
 
   async function submit() {

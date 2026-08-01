@@ -169,7 +169,7 @@
       // guard against links to entities that have since been deleted so we
       // surface a friendly flash instead of an error screen.
       const ent = href.match(
-        /^(note|list|workflow|article|flashcard|blueprint):(\d+)$/,
+        /^(note|list|workflow|article|flashcard|blueprint|storyboard):(\d+)$/,
       );
       if (ent) {
         const id = Number(ent[2]);
@@ -222,6 +222,9 @@
     } else if (kind === "blueprint") {
       if (app.blueprints.some((b) => b.id === id)) app.openBlueprint(id);
       else app.setFlash("That blueprint no longer exists");
+    } else if (kind === "storyboard") {
+      if (app.storyboards.some((s) => s.id === id)) app.openStoryboard(id);
+      else app.setFlash("That storyboard no longer exists");
     }
   }
 

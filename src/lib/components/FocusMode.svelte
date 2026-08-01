@@ -2,6 +2,16 @@
   import { fade } from "svelte/transition";
   import { app } from "$lib/stores/app.svelte";
   import { theme } from "$lib/stores/theme.svelte";
+  import { checkinSrc } from "$lib/ipc";
+  import CheckinLightbox from "$lib/components/CheckinLightbox.svelte";
+
+  // Check-in(s) for today's list, shown as a miniature on the stage.
+  let focusCheckins = $derived(
+    app.focusListId
+      ? app.checkins.filter((c) => c.listId === app.focusListId)
+      : [],
+  );
+  let checkinLbOpen = $state(false);
 
   // Aurora palette: use the active sidebar aurora tint if the user has one
   // selected, otherwise a calm teal/green/indigo default. Focus mode is always
@@ -94,6 +104,11 @@
 
   function onKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") {
+      // Let the check-in lightbox handle Esc first (close it, stay in Focus).
+      if (checkinLbOpen) {
+        checkinLbOpen = false;
+        return;
+      }
       e.preventDefault();
       app.exitFocus();
     }
@@ -137,6 +152,24 @@
       />
     </svg>
   </button>
+
+  <!-- Today's check-in miniature (top-left), click to enlarge. -->
+  {#if focusCheckins.length > 0}
+    <button
+      type="button"
+      class="absolute left-6 top-6 z-10 h-14 w-14 overflow-hidden rounded-xl border border-white/20 shadow-lg transition-transform hover:scale-110"
+      title="View today's check-in"
+      aria-label="View today's check-in"
+      onclick={() => (checkinLbOpen = true)}
+    >
+      <img src={checkinSrc(focusCheckins[0].path)} alt="Check-in" class="h-full w-full object-cover" />
+      {#if focusCheckins.length > 1}
+        <span class="absolute bottom-0 right-0 rounded-tl bg-black/60 px-1 text-[9px] font-semibold text-white">
+          {focusCheckins.length}
+        </span>
+      {/if}
+    </button>
+  {/if}
 
   <!-- Content: clock/date, then the list, vertically centered. -->
   <div class="relative z-[1] flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-16">
@@ -240,6 +273,10 @@
       </div>
     </div>
   </div>
+
+  {#if checkinLbOpen && focusCheckins.length > 0}
+    <CheckinLightbox checkins={focusCheckins} onClose={() => (checkinLbOpen = false)} />
+  {/if}
 </div>
 
 <style>

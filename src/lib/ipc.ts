@@ -682,3 +682,168 @@ export const revealSecret = (id: number) =>
   invoke<string>("reveal_secret", { id });
 export const deleteSecret = (id: number) =>
   invoke<void>("delete_secret", { id });
+
+// Camera check-ins (Sprint 42)
+export type Checkin = {
+  id: number;
+  listId: number | null;
+  path: string;
+  createdAt: string;
+};
+
+// Save raw image bytes and get back the absolute file PATH (checkins store the
+// path; the gallery converts it to an asset URL with checkinSrc).
+export const saveImageBytes = (bytes: number[], extension: string) =>
+  invoke<string>("save_image", { bytes, extension });
+export const checkinSrc = (path: string) => convertFileSrc(path);
+export const addCheckin = (path: string, listId: number | null) =>
+  invoke<Checkin>("add_checkin", { path, listId });
+export const listCheckins = () => invoke<Checkin[]>("list_checkins");
+export const deleteCheckin = (id: number) =>
+  invoke<void>("delete_checkin", { id });
+
+// Storyboards (Sprint 43)
+export type StoryboardNodeKind = "box" | "icon" | "header" | "comment";
+export type Storyboard = {
+  id: number;
+  title: string;
+  pinned: boolean;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+export type StoryboardSummary = {
+  id: number;
+  title: string;
+  pinned: boolean;
+  archived: boolean;
+  pageCount: number;
+  updatedAt: string;
+};
+export type StoryboardPage = {
+  id: number;
+  storyboardId: number;
+  position: number;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+};
+export type StoryboardNode = {
+  id: number;
+  pageId: number;
+  kind: StoryboardNodeKind;
+  label: string;
+  icon: string | null;
+  color: string | null;
+  content: string | null;
+  x: number;
+  y: number;
+  width: number | null;
+  height: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+export type StoryboardEdge = {
+  id: number;
+  pageId: number;
+  sourceId: number;
+  targetId: number;
+  sourceHandle: string | null;
+  targetHandle: string | null;
+  label: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+export type StoryboardState = {
+  storyboard: Storyboard;
+  pages: StoryboardPage[];
+  nodes: StoryboardNode[];
+  edges: StoryboardEdge[];
+};
+
+export const listStoryboards = () =>
+  invoke<StoryboardSummary[]>("list_storyboards");
+export const createStoryboard = (title: string) =>
+  invoke<Storyboard>("create_storyboard", { title });
+export const getStoryboard = (id: number) =>
+  invoke<StoryboardState>("get_storyboard", { id });
+export const renameStoryboard = (id: number, title: string) =>
+  invoke<Storyboard>("rename_storyboard", { id, title });
+export const setStoryboardPinned = (id: number, pinned: boolean) =>
+  invoke<Storyboard>("set_storyboard_pinned", { id, pinned });
+export const setStoryboardArchived = (id: number, archived: boolean) =>
+  invoke<Storyboard>("set_storyboard_archived", { id, archived });
+export const deleteStoryboard = (id: number) =>
+  invoke<void>("delete_storyboard", { id });
+export const addStoryboardPage = (storyboardId: number) =>
+  invoke<StoryboardPage>("add_storyboard_page", { storyboardId });
+export const deleteStoryboardPage = (pageId: number) =>
+  invoke<void>("delete_storyboard_page", { pageId });
+export const updateStoryboardPageNote = (pageId: number, note: string) =>
+  invoke<StoryboardPage>("update_storyboard_page_note", { pageId, note });
+export const reorderStoryboardPages = (
+  storyboardId: number,
+  orderedIds: number[],
+) => invoke<void>("reorder_storyboard_pages", { storyboardId, orderedIds });
+export const addStoryboardBox = (
+  pageId: number,
+  label: string,
+  x: number,
+  y: number,
+) => invoke<StoryboardNode>("add_storyboard_box", { pageId, label, x, y });
+export const addStoryboardIcon = (
+  pageId: number,
+  icon: string,
+  label: string,
+  x: number,
+  y: number,
+) =>
+  invoke<StoryboardNode>("add_storyboard_icon", { pageId, icon, label, x, y });
+export const addStoryboardHeader = (
+  pageId: number,
+  content: string,
+  x: number,
+  y: number,
+) => invoke<StoryboardNode>("add_storyboard_header", { pageId, content, x, y });
+export const addStoryboardComment = (
+  pageId: number,
+  content: string,
+  x: number,
+  y: number,
+) =>
+  invoke<StoryboardNode>("add_storyboard_comment", { pageId, content, x, y });
+export const updateStoryboardNodeLabel = (id: number, label: string) =>
+  invoke<StoryboardNode>("update_storyboard_node_label", { id, label });
+export const updateStoryboardNodeContent = (id: number, content: string) =>
+  invoke<StoryboardNode>("update_storyboard_node_content", { id, content });
+export const setStoryboardNodeIcon = (id: number, icon: string | null) =>
+  invoke<StoryboardNode>("set_storyboard_node_icon", { id, icon });
+export const setStoryboardNodeColor = (id: number, color: string | null) =>
+  invoke<StoryboardNode>("set_storyboard_node_color", { id, color });
+export const moveStoryboardNode = (id: number, x: number, y: number) =>
+  invoke<StoryboardNode>("move_storyboard_node", { id, x, y });
+export const resizeStoryboardNode = (
+  id: number,
+  width: number,
+  height: number,
+) => invoke<StoryboardNode>("resize_storyboard_node", { id, width, height });
+export const removeStoryboardNode = (id: number) =>
+  invoke<void>("remove_storyboard_node", { id });
+export const addStoryboardEdge = (
+  pageId: number,
+  sourceId: number,
+  targetId: number,
+  sourceHandle: string | null,
+  targetHandle: string | null,
+) =>
+  invoke<StoryboardEdge>("add_storyboard_edge", {
+    pageId,
+    sourceId,
+    targetId,
+    sourceHandle,
+    targetHandle,
+  });
+export const updateStoryboardEdgeLabel = (id: number, label: string | null) =>
+  invoke<StoryboardEdge>("update_storyboard_edge_label", { id, label });
+export const removeStoryboardEdge = (id: number) =>
+  invoke<void>("remove_storyboard_edge", { id });

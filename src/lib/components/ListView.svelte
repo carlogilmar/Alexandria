@@ -2,15 +2,22 @@
   import { fade } from "svelte/transition";
   import { flip } from "svelte/animate";
   import { app } from "$lib/stores/app.svelte";
+  import { checkinSrc } from "$lib/ipc";
   import TodoRow from "$lib/components/TodoRow.svelte";
   import IdChip from "$lib/components/IdChip.svelte";
+  import CheckinLightbox from "$lib/components/CheckinLightbox.svelte";
 
   let quickAddText = $state("");
   let dragId = $state<number | null>(null);
   let qaInput: HTMLInputElement | undefined = $state();
   let exportMenuOpen = $state(false);
+  let checkinOpen = $state(false);
 
   let isBacklog = $derived(app.selected?.isBacklog ?? false);
+  // Check-in GIFs captured for this list (newest first).
+  let listCheckins = $derived(
+    app.selected ? app.checkins.filter((c) => c.listId === app.selected!.id) : [],
+  );
   let total = $derived(app.todos.length);
   let done = $derived(app.todos.filter((t) => t.completed).length);
   let progressPct = $derived(total === 0 ? 0 : Math.round((done / total) * 100));
@@ -26,9 +33,11 @@
       : "",
   );
 
-  // Focus quick-add input whenever the selected list changes.
+  // Focus quick-add input whenever the selected list changes; close the
+  // check-in popover so it never lingers with another list's GIF.
   $effect(() => {
     if (app.selected) {
+      checkinOpen = false;
       queueMicrotask(() => qaInput?.focus());
     }
   });
@@ -165,6 +174,23 @@
           >
             {done} / {total}
           </p>
+        {/if}
+        {#if listCheckins.length > 0}
+          <!-- Live miniature of the most recent check-in; click to enlarge. -->
+          <button
+            type="button"
+            class="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-neutral-200/80 shadow-sm transition-transform hover:scale-110 dark:border-neutral-700/70"
+            title="View check-in"
+            aria-label="View check-in"
+            onclick={() => (checkinOpen = true)}
+          >
+            <img src={checkinSrc(listCheckins[0].path)} alt="Check-in" class="h-full w-full object-cover" />
+            {#if listCheckins.length > 1}
+              <span class="absolute bottom-0 right-0 rounded-tl bg-black/60 px-1 text-[9px] font-semibold leading-tight text-white">
+                {listCheckins.length}
+              </span>
+            {/if}
+          </button>
         {/if}
         {#if !isBacklog}
         <button
@@ -333,4 +359,8 @@
       </ul>
     {/if}
   </main>
+{/if}
+
+{#if checkinOpen && listCheckins.length > 0}
+  <CheckinLightbox checkins={listCheckins} onClose={() => (checkinOpen = false)} />
 {/if}

@@ -3,6 +3,7 @@ export type Theme = "light" | "dark" | "system";
 const STORAGE_KEY = "theme";
 const TINT_KEY = "sidebarTint";
 const BRAND_KEY = "brandLabel";
+const CHECKINS_KEY = "checkinsEnabled"; // Sprint 42 — camera check-ins opt-in
 
 // Default sidebar app-brand label (Sprint 31). Editable + persisted.
 export const DEFAULT_BRAND = "Alert Media Engineering Toolbox";
@@ -197,12 +198,17 @@ class ThemeStore {
   sidebarTint = $state<string>("neutral");
   // Editable sidebar app-brand label (Sprint 31).
   brandLabel = $state<string>(DEFAULT_BRAND);
+  // Camera check-ins (Sprint 42). Opt-in, default OFF.
+  checkinsEnabled = $state<boolean>(false);
 
   init() {
     if (typeof document === "undefined") return;
     this.preference = readStored();
     this.sidebarTint = readStoredTint();
     this.brandLabel = readStoredBrand();
+    if (typeof localStorage !== "undefined") {
+      this.checkinsEnabled = localStorage.getItem(CHECKINS_KEY) === "1";
+    }
     this.apply();
 
     // Re-apply when the system preference flips, but only if we're following
@@ -244,6 +250,13 @@ class ThemeStore {
     if (names.length === 0) return;
     const pick = names[Math.floor(Math.random() * names.length)];
     this.setSidebarTint(pick);
+  }
+
+  setCheckinsEnabled(on: boolean) {
+    this.checkinsEnabled = on;
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(CHECKINS_KEY, on ? "1" : "0");
+    }
   }
 
   // Set the app-brand label; empty/blank resets to the default. Persisted.
