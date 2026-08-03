@@ -211,7 +211,7 @@ pub async fn get_daily_stats(
 pub(crate) async fn activity_stats(pool: &SqlitePool) -> AppResult<Vec<ActivityDay>> {
     sqlx::query_as::<_, ActivityDay>(
         "SELECT d AS date, CAST(SUM(c) AS INTEGER) AS count FROM (
-             SELECT l.date AS d, SUM(t.completed) AS c
+             SELECT l.date AS d, COUNT(t.id) AS c
                FROM todos t JOIN lists l ON l.id = t.list_id
               WHERE l.archived = 0 AND l.is_backlog = 0
               GROUP BY l.date
@@ -316,9 +316,10 @@ mod tests {
             .fetch_one(&pool)
             .await
             .unwrap();
-        // 1 completed todo (on 2026-05-10) + 3 entities created today.
+        // 2 todos on the list (on 2026-05-10, regardless of completion)
+        // + 3 entities created today.
         let for_may10 = rows.iter().find(|r| r.date == "2026-05-10");
-        assert_eq!(for_may10.map(|r| r.count), Some(1));
+        assert_eq!(for_may10.map(|r| r.count), Some(2));
         let for_today = rows.iter().find(|r| r.date == today).map(|r| r.count);
         assert_eq!(for_today, Some(3));
     }

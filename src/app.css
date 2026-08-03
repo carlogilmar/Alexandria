@@ -523,6 +523,25 @@ html.dark .markdown-body .md-cards .md-card-filled.md-card-gray {
 }
 
 /* ------------------------------------------------------------------ */
+/* :name: inline dev icons (Sprint 44). Sized to the line; concept icons */
+/* inherit text color, brand logos keep their own.                      */
+/* ------------------------------------------------------------------ */
+.markdown-body .md-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05em;
+  height: 1.05em;
+  vertical-align: -0.18em;
+  margin: 0 0.08em;
+}
+.markdown-body .md-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ------------------------------------------------------------------ */
 /* ```chart — inline SVG bar / donut / line charts (Sprint 30).        */
 /* Series colors are baked into the SVG; structural ink (axis text,    */
 /* gridlines, center total) uses currentColor so it follows the theme. */

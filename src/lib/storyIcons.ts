@@ -383,9 +383,139 @@ export const STORY_ICONS: StoryIcon[] = [
     "label": "Elixir",
     "kind": "brand",
     "body": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 128 128\"><linearGradient id=\"elixir-original-a\" gradientUnits=\"userSpaceOnUse\" x1=\"835.592\" y1=\"-36.546\" x2=\"821.211\" y2=\"553.414\" gradientTransform=\"matrix(.1297 0 0 .2 -46.03 17.198)\"><stop offset=\"0\" stop-color=\"#d9d8dc\"/><stop offset=\"1\" stop-color=\"#fff\" stop-opacity=\".385\"/></linearGradient><path fill-rule=\"evenodd\" clip-rule=\"evenodd\" fill=\"url(#elixir-original-a)\" d=\"M64.4.5C36.7 13.9 1.9 83.4 30.9 113.9c26.8 33.5 85.4 1.3 68.4-40.5-21.5-36-35-37.9-34.9-72.9z\"/><linearGradient id=\"elixir-original-b\" gradientUnits=\"userSpaceOnUse\" x1=\"942.357\" y1=\"-40.593\" x2=\"824.692\" y2=\"472.243\" gradientTransform=\"matrix(.1142 0 0 .2271 -47.053 17.229)\"><stop offset=\"0\" stop-color=\"#8d67af\" stop-opacity=\".672\"/><stop offset=\"1\" stop-color=\"#9f8daf\"/></linearGradient><path fill-rule=\"evenodd\" clip-rule=\"evenodd\" fill=\"url(#elixir-original-b)\" d=\"M64.4.2C36.8 13.6 1.9 82.9 31 113.5c10.7 12.4 28 16.5 37.7 9.1 26.4-18.8 7.4-53.1 10.4-78.5C68.1 33.9 64.2 11.3 64.4.2z\"/><linearGradient id=\"elixir-original-c\" gradientUnits=\"userSpaceOnUse\" x1=\"924.646\" y1=\"120.513\" x2=\"924.646\" y2=\"505.851\" gradientTransform=\"matrix(.1227 0 0 .2115 -46.493 17.206)\"><stop offset=\"0\" stop-color=\"#26053d\" stop-opacity=\".762\"/><stop offset=\"1\" stop-color=\"#b7b4b4\" stop-opacity=\".278\"/></linearGradient><path fill-rule=\"evenodd\" clip-rule=\"evenodd\" fill=\"url(#elixir-original-c)\" d=\"M56.7 4.3c-22.3 15.9-28.2 75-24.1 94.2 8.2 48.1 75.2 28.3 69.6-16.5-6-29.2-48.8-39.2-45.5-77.7z\"/><linearGradient id=\"elixir-original-d\" gradientUnits=\"userSpaceOnUse\" x1=\"428.034\" y1=\"198.448\" x2=\"607.325\" y2=\"559.255\" gradientTransform=\"matrix(.1848 0 0 .1404 -42.394 17.138)\"><stop offset=\"0\" stop-color=\"#91739f\" stop-opacity=\".46\"/><stop offset=\"1\" stop-color=\"#32054f\" stop-opacity=\".54\"/></linearGradient><path fill-rule=\"evenodd\" clip-rule=\"evenodd\" fill=\"url(#elixir-original-d)\" d=\"M78.8 49.8c10.4 13.4 12.7 22.6 6.8 27.9-27.7 19.4-61.3 7.4-54-37.3C22.1 63 4.5 96.8 43.3 101.6c20.8 3.6 54 2 58.9-16.1-.2-15.9-10.8-22.9-23.4-35.7z\"/><linearGradient id=\"elixir-original-e\" gradientUnits=\"userSpaceOnUse\" x1=\"907.895\" y1=\"540.636\" x2=\"590.242\" y2=\"201.281\" gradientTransform=\"matrix(.1418 0 0 .1829 -45.23 17.18)\"><stop offset=\"0\" stop-color=\"#463d49\" stop-opacity=\".331\"/><stop offset=\"1\" stop-color=\"#340a50\" stop-opacity=\".821\"/></linearGradient><path fill-rule=\"evenodd\" clip-rule=\"evenodd\" fill=\"url(#elixir-original-e)\" d=\"M38.1 36.4c-2.9 21.2 35.1 77.9 58.3 71-17.7 35.6-56.9-21.2-64-41.7 1.5-11 2.2-16.4 5.7-29.3z\"/><linearGradient id=\"elixir-original-f\" gradientUnits=\"userSpaceOnUse\" x1=\"1102.297\" y1=\"100.542\" x2=\"1008.071\" y2=\"431.648\" gradientTransform=\"matrix(.106 0 0 .2448 -47.595 17.242)\"><stop offset=\"0\" stop-color=\"#715383\" stop-opacity=\".145\"/><stop offset=\"1\" stop-color=\"#f4f4f4\" stop-opacity=\".234\"/></linearGradient><path fill-rule=\"evenodd\" clip-rule=\"evenodd\" fill=\"url(#elixir-original-f)\" d=\"M60.4 49.7c.8 7.9 3.9 20.5 0 28.8S38.7 102 43.6 115.3c11.4 24.8 37.1-4.4 36.9-19 1.1-11.8-6.6-38.7-1.8-52.5L76.5 41l-13.6-4c-2.2 3.2-3 7.5-2.5 12.7z\"/><linearGradient id=\"elixir-original-g\" gradientUnits=\"userSpaceOnUse\" x1=\"1354.664\" y1=\"140.06\" x2=\"1059.233\" y2=\"84.466\" gradientTransform=\"matrix(.09173 0 0 .2828 -48.536 17.28)\"><stop offset=\"0\" stop-color=\"#a5a1a8\" stop-opacity=\".356\"/><stop offset=\"1\" stop-color=\"#370c50\" stop-opacity=\".582\"/></linearGradient><path fill-rule=\"evenodd\" clip-rule=\"evenodd\" fill=\"url(#elixir-original-g)\" d=\"M65.3 10.8C36 27.4 48 53.4 49.3 81.6l19.1-55.4c-1.4-5.7-2.3-9.5-3.1-15.4z\"/><path fill-rule=\"evenodd\" clip-rule=\"evenodd\" fill=\"#330A4C\" fill-opacity=\".316\" d=\"M68.3 26.1c-14.8 11.7-14.1 31.3-18.6 54 8.1-21.3 4.1-38.2 18.6-54z\"/><path fill-rule=\"evenodd\" clip-rule=\"evenodd\" fill=\"#FFF\" d=\"M45.8 119.7c8 1.1 12.1 2.2 12.5 3 .3 4.2-11.1 1.2-12.5-3z\"/><path fill-rule=\"evenodd\" clip-rule=\"evenodd\" fill=\"#EDEDED\" fill-opacity=\".603\" d=\"M49.8 10.8c-6.9 7.7-14.4 21.8-18.2 29.7-1 6.5-.5 15.7.6 23.5.9-18.2 7.5-39.2 17.6-53.2z\"/></svg>"
+  },
+  {
+    "key": "ticket",
+    "label": "Ticket",
+    "kind": "concept",
+    "body": "<path d=\"M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z\" /> <path d=\"M13 5v2\" /> <path d=\"M13 17v2\" /> <path d=\"M13 11v2\" />"
+  },
+  {
+    "key": "kanban",
+    "label": "Kanban",
+    "kind": "concept",
+    "body": "<path d=\"M5 3v14\" /> <path d=\"M12 3v8\" /> <path d=\"M19 3v18\" />"
+  },
+  {
+    "key": "todo",
+    "label": "To-do",
+    "kind": "concept",
+    "body": "<path d=\"M13 5h8\" /> <path d=\"M13 12h8\" /> <path d=\"M13 19h8\" /> <path d=\"m3 17 2 2 4-4\" /> <rect x=\"3\" y=\"4\" width=\"6\" height=\"6\" rx=\"1\" />"
+  },
+  {
+    "key": "backlog",
+    "label": "Backlog",
+    "kind": "concept",
+    "body": "<rect width=\"8\" height=\"4\" x=\"8\" y=\"2\" rx=\"1\" ry=\"1\" /> <path d=\"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2\" /> <path d=\"M12 11h4\" /> <path d=\"M12 16h4\" /> <path d=\"M8 11h.01\" /> <path d=\"M8 16h.01\" />"
+  },
+  {
+    "key": "pull-request",
+    "label": "Pull request",
+    "kind": "concept",
+    "body": "<circle cx=\"18\" cy=\"18\" r=\"3\" /> <circle cx=\"6\" cy=\"6\" r=\"3\" /> <path d=\"M13 6h3a2 2 0 0 1 2 2v7\" /> <line x1=\"6\" x2=\"6\" y1=\"9\" y2=\"21\" />"
+  },
+  {
+    "key": "comment",
+    "label": "Comment",
+    "kind": "concept",
+    "body": "<path d=\"M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z\" />"
+  },
+  {
+    "key": "flag",
+    "label": "Flag",
+    "kind": "concept",
+    "body": "<path d=\"M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528\" />"
+  },
+  {
+    "key": "bell",
+    "label": "Notification",
+    "kind": "concept",
+    "body": "<path d=\"M10.268 21a2 2 0 0 0 3.464 0\" /> <path d=\"M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326\" />"
+  },
+  {
+    "key": "calendar",
+    "label": "Calendar",
+    "kind": "concept",
+    "body": "<path d=\"M8 2v3\" /> <path d=\"M16 2v3\" /> <rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" /> <path d=\"M3 9h18\" />"
+  },
+  {
+    "key": "bookmark",
+    "label": "Bookmark",
+    "kind": "concept",
+    "body": "<path d=\"M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z\" />"
+  },
+  {
+    "key": "check",
+    "label": "Done",
+    "kind": "concept",
+    "body": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"m9 12 2 2 4-4\" />"
+  },
+  {
+    "key": "tag",
+    "label": "Label / Tag",
+    "kind": "concept",
+    "body": "<path d=\"M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z\" /> <circle cx=\"7.5\" cy=\"7.5\" r=\".5\" fill=\"currentColor\" />"
+  },
+  {
+    "key": "b:jira",
+    "label": "Jira",
+    "kind": "brand",
+    "body": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 128 128\"><defs><linearGradient id=\"jira-original-a\" gradientUnits=\"userSpaceOnUse\" x1=\"22.034\" y1=\"9.773\" x2=\"17.118\" y2=\"14.842\" gradientTransform=\"scale(4)\"><stop offset=\".176\" stop-color=\"#0052cc\"/><stop offset=\"1\" stop-color=\"#2684ff\"/></linearGradient><linearGradient id=\"jira-original-b\" gradientUnits=\"userSpaceOnUse\" x1=\"16.641\" y1=\"15.564\" x2=\"10.957\" y2=\"21.094\" gradientTransform=\"scale(4)\"><stop offset=\".176\" stop-color=\"#0052cc\"/><stop offset=\"1\" stop-color=\"#2684ff\"/></linearGradient></defs><path d=\"M108.023 16H61.805c0 11.52 9.324 20.848 20.847 20.848h8.5v8.226c0 11.52 9.328 20.848 20.848 20.848V19.977A3.98 3.98 0 00108.023 16zm0 0\" fill=\"#2684ff\"/><path d=\"M85.121 39.04H38.902c0 11.519 9.325 20.847 20.844 20.847h8.504v8.226c0 11.52 9.328 20.848 20.848 20.848V43.016a3.983 3.983 0 00-3.977-3.977zm0 0\" fill=\"url(#jira-original-a)\"/><path d=\"M62.219 62.078H16c0 11.524 9.324 20.848 20.848 20.848h8.5v8.23c0 11.52 9.328 20.844 20.847 20.844V66.059a3.984 3.984 0 00-3.976-3.98zm0 0\" fill=\"url(#jira-original-b)\"/></svg>"
+  },
+  {
+    "key": "b:confluence",
+    "label": "Confluence",
+    "kind": "brand",
+    "body": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 128 128\"><defs><linearGradient id=\"a\" x1=\"26.791\" x2=\"11.792\" y1=\"28.467\" y2=\"19.855\" gradientTransform=\"translate(-21.334 -18.666) scale(5.33331)\" gradientUnits=\"userSpaceOnUse\"><stop offset=\"0\" stop-color=\"#0052cc\"/><stop offset=\".918\" stop-color=\"#2380fb\"/><stop offset=\"1\" stop-color=\"#2684ff\"/></linearGradient><linearGradient id=\"b\" x1=\"5.209\" x2=\"20.208\" y1=\"2.523\" y2=\"11.136\" gradientTransform=\"translate(-21.334 -18.666) scale(5.33331)\" gradientUnits=\"userSpaceOnUse\"><stop offset=\"0\" stop-color=\"#0052cc\"/><stop offset=\".918\" stop-color=\"#2380fb\"/><stop offset=\"1\" stop-color=\"#2684ff\"/></linearGradient></defs><path fill=\"url(#a)\" d=\"M4.655 96.303a332.061 332.061 0 0 0-4.062 6.577c-1.156 1.933-.578 4.448 1.354 5.61l26.484 16.25c1.934 1.16 4.443.577 5.604-1.355a185.798 185.798 0 0 1 3.866-6.579c10.442-17.213 21.071-15.28 40.014-6.186l26.293 12.374c2.124.97 4.447 0 5.41-1.933l12.569-28.43c.963-1.938 0-4.448-1.939-5.418-5.604-2.516-16.618-7.74-26.285-12.573-35.76-17.219-66.114-16.057-89.306 21.663Zm0 0\"/><path fill=\"url(#b)\" d=\"M123.343 31.697a332.061 332.061 0 0 0 4.063-6.577c1.16-1.933.577-4.448-1.355-5.61L99.567 3.26c-1.933-1.16-4.443-.577-5.604 1.355a178.066 178.066 0 0 1-3.865 6.579c-10.443 17.213-21.072 15.28-40.015 6.186L23.79 5.006c-2.124-.97-4.441 0-5.41 1.933L5.816 35.369c-.968 1.938 0 4.454 1.933 5.418 5.604 2.516 16.624 7.74 26.285 12.573 35.767 17.027 66.115 16.056 89.307-21.663zm0 0\"/></svg>"
+  },
+  {
+    "key": "b:trello",
+    "label": "Trello",
+    "kind": "brand",
+    "body": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 128 128\"><defs><linearGradient id=\"a\" x1=\"128\" x2=\"128\" y1=\"0\" y2=\"256\" gradientTransform=\"scale(.5)\" gradientUnits=\"userSpaceOnUse\"><stop offset=\"0\" stop-color=\"#2684ff\"/><stop offset=\"1\" stop-color=\"#0052cc\"/></linearGradient></defs><path fill=\"url(#a)\" d=\"M12.5 0h103c6.925 0 12.5 5.575 12.5 12.5v103c0 6.925-5.575 12.5-12.5 12.5h-103C5.575 128 0 122.425 0 115.5v-103C0 5.575 5.575 0 12.5 0Z\"/><path fill=\"#fff\" d=\"M78.32 16.64h27.04c3.324 0 6 2.676 6 6v44c0 3.324-2.676 6-6 6H78.32c-3.324 0-6-2.676-6-6v-44c0-3.324 2.676-6 6-6zm-55.68 0h27.04c3.324 0 6 2.676 6 6v76c0 3.324-2.676 6-6 6H22.64c-3.324 0-6-2.676-6-6v-76c0-3.324 2.676-6 6-6z\"/></svg>"
+  },
+  {
+    "key": "b:slack",
+    "label": "Slack",
+    "kind": "brand",
+    "body": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 128 128\"><path d=\"M27.255 80.719c0 7.33-5.978 13.317-13.309 13.317C6.616 94.036.63 88.049.63 80.719s5.987-13.317 13.317-13.317h13.309zm6.709 0c0-7.33 5.987-13.317 13.317-13.317s13.317 5.986 13.317 13.317v33.335c0 7.33-5.986 13.317-13.317 13.317-7.33 0-13.317-5.987-13.317-13.317zm0 0\" fill=\"#de1c59\"/><path d=\"M47.281 27.255c-7.33 0-13.317-5.978-13.317-13.309C33.964 6.616 39.951.63 47.281.63s13.317 5.987 13.317 13.317v13.309zm0 6.709c7.33 0 13.317 5.987 13.317 13.317s-5.986 13.317-13.317 13.317H13.946C6.616 60.598.63 54.612.63 47.281c0-7.33 5.987-13.317 13.317-13.317zm0 0\" fill=\"#35c5f0\"/><path d=\"M100.745 47.281c0-7.33 5.978-13.317 13.309-13.317 7.33 0 13.317 5.987 13.317 13.317s-5.987 13.317-13.317 13.317h-13.309zm-6.709 0c0 7.33-5.987 13.317-13.317 13.317s-13.317-5.986-13.317-13.317V13.946C67.402 6.616 73.388.63 80.719.63c7.33 0 13.317 5.987 13.317 13.317zm0 0\" fill=\"#2eb57d\"/><path d=\"M80.719 100.745c7.33 0 13.317 5.978 13.317 13.309 0 7.33-5.987 13.317-13.317 13.317s-13.317-5.987-13.317-13.317v-13.309zm0-6.709c-7.33 0-13.317-5.987-13.317-13.317s5.986-13.317 13.317-13.317h33.335c7.33 0 13.317 5.986 13.317 13.317 0 7.33-5.987 13.317-13.317 13.317zm0 0\" fill=\"#ebb02e\"/></svg>"
+  },
+  {
+    "key": "b:figma",
+    "label": "Figma",
+    "kind": "brand",
+    "body": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 128 128\"><path fill=\"#0acf83\" d=\"M45.5 129c11.9 0 21.5-9.6 21.5-21.5V86H45.5C33.6 86 24 95.6 24 107.5S33.6 129 45.5 129zm0 0\"/><path fill=\"#a259ff\" d=\"M24 64.5C24 52.6 33.6 43 45.5 43H67v43H45.5C33.6 86 24 76.4 24 64.5zm0 0\"/><path fill=\"#f24e1e\" d=\"M24 21.5C24 9.6 33.6 0 45.5 0H67v43H45.5C33.6 43 24 33.4 24 21.5zm0 0\"/><path fill=\"#ff7262\" d=\"M67 0h21.5C100.4 0 110 9.6 110 21.5S100.4 43 88.5 43H67zm0 0\"/><path fill=\"#1abcfe\" d=\"M110 64.5c0 11.9-9.6 21.5-21.5 21.5S67 76.4 67 64.5 76.6 43 88.5 43 110 52.6 110 64.5zm0 0\"/></svg>"
+  },
+  {
+    "key": "b:gitlab",
+    "label": "GitLab",
+    "kind": "brand",
+    "body": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 128 128\" xml:space=\"preserve\"><path fill=\"#E24329\" d=\"m124.755 51.382-.177-.452L107.47 6.282a4.459 4.459 0 0 0-1.761-2.121 4.581 4.581 0 0 0-5.236.281 4.578 4.578 0 0 0-1.518 2.304L87.404 42.088H40.629L29.077 6.746a4.492 4.492 0 0 0-1.518-2.31 4.581 4.581 0 0 0-5.236-.281 4.502 4.502 0 0 0-1.761 2.121L3.422 50.904l-.17.452c-5.059 13.219-.763 28.192 10.537 36.716l.059.046.157.111 26.061 19.516 12.893 9.758 7.854 5.93a5.283 5.283 0 0 0 6.388 0l7.854-5.93 12.893-9.758 26.218-19.634.065-.052c11.273-8.526 15.562-23.472 10.524-36.677z\"/><path fill=\"#FC6D26\" d=\"m124.755 51.382-.177-.452a57.79 57.79 0 0 0-23.005 10.341L64 89.682c12.795 9.68 23.934 18.09 23.934 18.09l26.218-19.634.065-.052c11.291-8.527 15.586-23.488 10.538-36.704z\"/><path fill=\"#FCA326\" d=\"m40.066 107.771 12.893 9.758 7.854 5.93a5.283 5.283 0 0 0 6.388 0l7.854-5.93 12.893-9.758s-11.152-8.436-23.947-18.09a18379.202 18379.202 0 0 0-23.935 18.09z\"/><path fill=\"#FC6D26\" d=\"M26.42 61.271A57.73 57.73 0 0 0 3.422 50.904l-.17.452c-5.059 13.219-.763 28.192 10.537 36.716l.059.046.157.111 26.061 19.516L64 89.655 26.42 61.271z\"/></svg>"
+  },
+  {
+    "key": "b:bitbucket",
+    "label": "Bitbucket",
+    "kind": "brand",
+    "body": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 128 128\"><defs><linearGradient id=\"bitbucket-original-a\" gradientUnits=\"userSpaceOnUse\" x1=\"28.593\" y1=\"14.226\" x2=\"16.672\" y2=\"23.532\" gradientTransform=\"scale(4)\"><stop offset=\".176\" stop-color=\"#0052cc\"/><stop offset=\"1\" stop-color=\"#2684ff\"/></linearGradient></defs><path d=\"M19.082 20c-1.918 0-3.355 1.758-3.039 3.516l12.95 79.289c.32 2.078 2.077 3.515 4.155 3.515h62.66c1.442 0 2.72-1.12 3.04-2.558l13.109-80.086c.316-1.918-1.121-3.516-3.039-3.516zM74.07 77.227H54.09l-5.278-28.293h30.215zm0 0\" fill=\"#2684ff\"/><path d=\"M107.64 48.934H78.868L74.07 77.227H54.09l-23.5 27.972s1.12.961 2.719.961h62.66c1.441 0 2.719-1.12 3.039-2.558zm0 0\" fill=\"url(#bitbucket-original-a)\"/></svg>"
   }
 ];
 
 export const STORY_ICON_MAP: Map<string, StoryIcon> = new Map(
   STORY_ICONS.map((i) => [i.key, i]),
 );
+
+// Resolve a markdown shortcode `:name:` to an icon. Concept keys are flat
+// (`database`), brand keys are `b:<name>` — so `:docker:` finds `b:docker`.
+export function iconByShortcode(name: string): StoryIcon | undefined {
+  const n = name.toLowerCase();
+  return STORY_ICON_MAP.get(n) ?? STORY_ICON_MAP.get(`b:${n}`);
+}
+
+// Renders an icon's inline SVG. Concept icons inherit the surrounding text
+// color (currentColor line icons); brand logos keep their own colors.
+export function iconInlineSvg(icon: StoryIcon): string {
+  if (icon.kind === "concept") {
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon.body}</svg>`;
+  }
+  return icon.body;
+}

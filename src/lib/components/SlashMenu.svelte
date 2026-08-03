@@ -16,7 +16,7 @@
     keywords?: string;
     snippet?: string;
     caretOffset?: number; // caret position within the snippet (default: end)
-    action?: "link" | "image";
+    action?: "link" | "image" | "icon";
   };
 
   type Props = {
@@ -25,8 +25,9 @@
     onEdit: (nextValue: string, caret: number) => void;
     onLink?: () => void;
     onImage?: () => void;
+    onIcon?: () => void;
   };
-  let { textarea, onEdit, onLink, onImage }: Props = $props();
+  let { textarea, onEdit, onLink, onImage, onIcon }: Props = $props();
 
   const TABLE = "\n| Column | Column |\n| --- | --- |\n| Cell | Cell |\n";
   const MERMAID = "\n```mermaid\nflowchart TD\n  A[Start] --> B[End]\n```\n";
@@ -71,6 +72,7 @@
     { id: "divider", label: "Divider", icon: "—", keywords: "hr rule separator", snippet: "\n---\n" },
     { id: "link", label: "Link", icon: "🔗", keywords: "url entity href", action: "link" },
     { id: "image", label: "Image", icon: "🖼", keywords: "picture photo", action: "image" },
+    { id: "icon", label: "Icon", icon: "◈", keywords: "icon dev logo lucide devicon jira confluence docker database", action: "icon" },
   ];
 
   let open = $state(false);
@@ -192,6 +194,7 @@
       queueMicrotask(() => {
         if (cmd.action === "link") onLink?.();
         else if (cmd.action === "image") onImage?.();
+        else if (cmd.action === "icon") onIcon?.();
       });
       return;
     }

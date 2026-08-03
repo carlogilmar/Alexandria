@@ -391,7 +391,28 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 43 (Storyboards — a new canvas entity for TINY
+Last updated: end of Sprint 44 (Icons in powered markdown — the curated
+Storyboard icon set (Lucide concept line icons + Devicon brand logos, from
+`$lib/storyIcons.ts`) is now usable INLINE in notes/articles via a `:name:`
+shortcode. `addIconShortcodes` in `$lib/markdownit.ts` adds an inline rule
+BEFORE `emphasis` that fires only when `:([a-z0-9][a-z0-9-]*):` resolves to a
+known icon via new helper `iconByShortcode` (flat concept key, then `b:` brand
+prefix) — an unknown `:x:` is left as plain text, so URLs/times (`10:30`) are
+never mangled. Renders `<span class="md-icon md-icon-{kind}">` with
+`iconInlineSvg` (concepts stroked with `currentColor` so they tint with text;
+brand logos keep their colors); `.md-icon` CSS = `1.05em` inline box. New
+`IconPicker.svelte` (Concepts/Logos tabs + search, inserts the shortcode),
+reused by both `MarkdownEditor`/`ArticleEditor` (each got `iconPickerOpen`,
+`openIconPicker`, `insertIcon`, an Insert-icon toolbar button, the
+`commit()` blur-guard extended, and the `SlashMenu` `onIcon` wire); `SlashMenu`
+gained an `/icon` command. Grew the icon set ~63→82 for PM work: concepts
+ticket/kanban/todo/backlog/pull-request/comment/flag/bell/calendar/bookmark/
+check/tag + logos jira/confluence/trello/slack/figma/gitlab/bitbucket
+(`scripts/gen-story-icons.mjs` lists updated to match; generated file stays
+self-contained/offline). FormattingHelp gains a `:name:` row + an "Icons"
+section. No dep/backend/migration. svelte-check 0/0, build clean. See
+documentation/SPRINT44.md. — earlier:
+Sprint 43 (Storyboards — a new canvas entity for TINY
 diagrams: a sequence of pages, each a mini-canvas + a powered-markdown note,
 flipped like slides and built to present. Clone-and-simplify of Blueprints (NOT a
 shared refactor — Blueprints is the flagship): reuses the combined nodes+edges
@@ -461,8 +482,9 @@ fallbacks changed to no-ops (Blueprints always passes its own
 svelte-check + build all pass. See documentation/SPRINT40.md. — earlier:
 Sprint 39) Contribution graph in Focus mode — a GitHub-style
 52-week activity heatmap below the today's-list block on the aurora screensaver.
-Counts a COMBINED per-day activity: completed todos (by list date) + notes/
-articles/blueprints CREATED that day (by `created_at`), archived+backlog excluded.
+Counts a COMBINED per-day activity: todos on that day's list (by list date —
+ALL tasks, not just completed; changed Sprint 44) + notes/articles/blueprints
+CREATED that day (by `created_at`), archived+backlog excluded.
 Backend `get_activity_stats` (`commands/search.rs`, model `ActivityDay{date,count}`)
 UNION ALLs four per-day GROUP BYs and sums (test:
 `activity_stats_combines_todos_and_entities`); store `activityStats` loaded in

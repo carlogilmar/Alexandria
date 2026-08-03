@@ -46,6 +46,18 @@ const CONCEPTS = [
   ["split", "split", "Load balancer"],
   ["funnel", "filter", "Filter / Queue"],
   ["radio-tower", "broker", "Broker / PubSub"],
+  ["ticket", "ticket", "Ticket / Issue"],
+  ["square-kanban", "kanban", "Kanban board"],
+  ["list-todo", "todo", "Todo / Task"],
+  ["list-checks", "backlog", "Backlog"],
+  ["git-pull-request", "pull-request", "Pull request"],
+  ["message-square", "comment", "Comment"],
+  ["flag", "flag", "Flag / Priority"],
+  ["bell", "bell", "Notification"],
+  ["calendar", "calendar", "Calendar / Sprint"],
+  ["bookmark", "bookmark", "Bookmark"],
+  ["check", "check", "Done / Check"],
+  ["tag", "tag", "Tag / Label"],
 ];
 
 // ---- brand logos (Devicon, multi-color -original) ----
@@ -78,6 +90,13 @@ const BRANDS = [
   ["elasticsearch", "elasticsearch", "Elasticsearch"],
   ["tailwindcss", "tailwind", "Tailwind"],
   ["elixir", "elixir", "Elixir"],
+  ["jira", "jira", "Jira"],
+  ["confluence", "confluence", "Confluence"],
+  ["trello", "trello", "Trello"],
+  ["slack", "slack", "Slack"],
+  ["figma", "figma", "Figma"],
+  ["gitlab", "gitlab", "GitLab"],
+  ["bitbucket", "bitbucket", "Bitbucket"],
 ];
 
 function lucideBody(file) {

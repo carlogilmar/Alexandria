@@ -16,6 +16,7 @@
   import EmbedBlock from "$lib/components/EmbedBlock.svelte";
   import EntityLinkPicker from "$lib/components/EntityLinkPicker.svelte";
   import SlashMenu from "$lib/components/SlashMenu.svelte";
+  import IconPicker from "$lib/components/IconPicker.svelte";
 
   type Props = {
     value: string;
@@ -131,11 +132,29 @@
   }
 
   async function commit() {
-    // Focusing the link picker blurs the textarea; don't exit edit mode while
-    // it's open — we resume editing once the picker closes.
-    if (linkPickerOpen) return;
+    // Focusing the link/icon picker blurs the textarea; don't exit edit mode
+    // while one is open — we resume editing once it closes.
+    if (linkPickerOpen || iconPickerOpen) return;
     editing = false;
     await onCommit(draft);
+  }
+
+  let iconPickerOpen = $state(false);
+  function openIconPicker() {
+    editing = true;
+    iconPickerOpen = true;
+  }
+  function insertIcon(name: string) {
+    const token = `:${name}:`;
+    const base = editing ? draft : value;
+    const caret = textarea?.selectionStart ?? base.length;
+    draft = base.slice(0, caret) + token + base.slice(caret);
+    editing = true;
+    iconPickerOpen = false;
+    queueMicrotask(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(caret + token.length, caret + token.length);
+    });
   }
 
   function onPreviewClick(e: MouseEvent) {
@@ -417,6 +436,17 @@
       <button
         type="button"
         onmousedown={(e) => e.preventDefault()}
+        onclick={openIconPicker}
+        title="Insert icon"
+        class={btnCls}
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3">
+          <path d="M10 1.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15l-5.2 2.7 1-5.8L1.6 7.7l5.8-.8L10 1.6z" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        onmousedown={(e) => e.preventDefault()}
         onclick={insertTable}
         title="Insert table"
         class={btnCls}
@@ -479,6 +509,7 @@
       onEdit={slashApplyEdit}
       onLink={openLinkPicker}
       onImage={pickAndInsertImage}
+      onIcon={openIconPicker}
     />
   </div>
 {:else if hasContent}
@@ -540,6 +571,10 @@
 
 {#if linkPickerOpen}
   <EntityLinkPicker onPick={onLinkChosen} onClose={onLinkPickerClose} />
+{/if}
+
+{#if iconPickerOpen}
+  <IconPicker onPick={insertIcon} onClose={() => (iconPickerOpen = false)} />
 {/if}
 
 <style>

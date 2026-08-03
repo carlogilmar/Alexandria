@@ -5,6 +5,7 @@
 
 import MarkdownIt from "markdown-it";
 import { hierarchy, treemap, treemapSquarify } from "d3-hierarchy";
+import { iconByShortcode, iconInlineSvg } from "$lib/storyIcons";
 import { renderMermaid } from "$lib/mermaid";
 import hljs from "highlight.js/lib/core";
 import elixir from "highlight.js/lib/languages/elixir";
@@ -142,6 +143,11 @@ export function createMarkdownIt(): MarkdownIt {
     /^\{(red|orange|amber|green|teal|blue|violet|pink|gray)\|([^}]+)\}/,
     (m) => `<span class="md-c md-c-${m[1]}">${md.utils.escapeHtml(m[2])}</span>`,
   );
+
+  // `:name:` → an inline dev icon (Lucide concept / Devicon brand). Only
+  // consumes the token when `name` is a KNOWN icon, so `10:30` / URLs / plain
+  // colons are left untouched. Concept icons inherit the text color.
+  addIconShortcodes(md);
 
   // GitHub-style callouts: a blockquote whose first line is [!TYPE].
   addCallouts(md);
@@ -1027,6 +1033,30 @@ function addInlineWrap(
   });
   md.renderer.rules[name] = (tokens, idx) =>
     render((tokens[idx].meta as { m: RegExpExecArray }).m);
+}
+
+// `:name:` inline icon shortcode. Consumes the token only when `name` resolves
+// to a known icon (so `10:30`, URLs, and stray colons pass through untouched).
+function addIconShortcodes(md: MarkdownIt): void {
+  const RE = /^:([a-z0-9][a-z0-9-]*):/i;
+  md.inline.ruler.before("emphasis", "story_icon", (state, silent) => {
+    if (state.src.charCodeAt(state.pos) !== 0x3a /* : */) return false;
+    const m = RE.exec(state.src.slice(state.pos));
+    if (!m) return false;
+    const icon = iconByShortcode(m[1]);
+    if (!icon) return false;
+    if (!silent) {
+      const token = state.push("story_icon", "", 0);
+      token.meta = { icon };
+    }
+    state.pos += m[0].length;
+    return true;
+  });
+  md.renderer.rules.story_icon = (tokens, idx) => {
+    const icon = (tokens[idx].meta as { icon: ReturnType<typeof iconByShortcode> })
+      .icon!;
+    return `<span class="md-icon md-icon-${icon.kind}" title="${md.utils.escapeHtml(icon.label)}">${iconInlineSvg(icon)}</span>`;
+  };
 }
 
 const CALLOUT_KINDS = new Set([

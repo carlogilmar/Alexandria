@@ -22,6 +22,7 @@
         { syntax: "{blue|colored text}", does: "Colored text (red, orange, amber, green, teal, blue, violet, pink, gray)" },
         { syntax: "==highlight==", does: "Yellow highlighter" },
         { syntax: "## {blue|Heading}", does: "Color works inside headings too" },
+        { syntax: ":jira:  :database:  :docker:", does: "Inline icon — concept line icons + brand logos. See “Icons” below (or the Insert icon button)." },
       ],
     },
     {
@@ -107,6 +108,15 @@
         { syntax: "the shared palette", does: "The SAME names work in cards, charts, marquee, progress & treemap." },
         { syntax: "solid colors", does: "red · orange · amber · green · teal · blue · violet · pink · gray · black. Default blue." },
         { syntax: "gradients", does: "sunset · ocean · forest · dusk · candy — use any one in place of a color." },
+      ],
+    },
+    {
+      title: "Icons",
+      rows: [
+        { syntax: ":name:", does: "Inline icon, sized to the text and tinting with it. Use the Insert icon button (or the / menu) to browse & search — it inserts the shortcode for you." },
+        { syntax: "concepts", does: "Line icons that follow the text color: database, server, git-branch, terminal, cloud, bug, ticket, kanban, flag, bell, calendar, check, tag … (the Concepts tab)." },
+        { syntax: "logos", does: "Full-color brand marks: jira, confluence, trello, slack, figma, gitlab, bitbucket, docker, elixir … (the Logos tab)." },
+        { syntax: "unknown :x:", does: "An unrecognized name is left as plain text — so URLs and times (`10:30`) are untouched." },
       ],
     },
   ];
