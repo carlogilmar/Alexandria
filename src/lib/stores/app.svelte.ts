@@ -351,6 +351,11 @@ class AppStore {
   focusListId = $state<number | null>(null);
   focusListTitle = $state<string | null>(null);
 
+  // Home "Today" card (Sprint 48). Today's list + its todos, loaded
+  // independently of `this.todos` so the Home card is self-contained.
+  homeListId = $state<number | null>(null);
+  homeTodos = $state<Todo[]>([]);
+
   // Backlog (Sprint 29): a single durable list for unscheduled tasks. `backlogId`
   // is cached once resolved; `backlogPending` drives the sidebar badge.
   backlogId = $state<number | null>(null);
@@ -796,6 +801,51 @@ class AppStore {
     if (this.selected && this.selected.id === updated.listId) {
       this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t));
     }
+    await this.refreshLists();
+  }
+
+  // ---- Home "Today" card (Sprint 48) ----
+
+  // Resolve today's list (same detection as Focus) and load its todos. Never
+  // auto-creates (Sprint 11) — an absent list shows the Create CTA.
+  async loadHomeToday() {
+    const today = todayIso();
+    const candidates = this.lists.filter((l) => l.date === today && !l.archived);
+    if (candidates.length === 0) {
+      this.homeListId = null;
+      this.homeTodos = [];
+    } else {
+      const list = candidates.reduce((a, b) => (b.id < a.id ? b : a));
+      this.homeListId = list.id;
+      this.homeTodos = await listTodos(list.id);
+    }
+  }
+
+  async createHomeToday() {
+    const created = await createList(
+      defaultListTitleForDate(todayIso()),
+      todayIso(),
+    );
+    this.homeListId = created.id;
+    this.homeTodos = [];
+    await this.refreshLists();
+  }
+
+  async toggleHomeTodo(todo: Todo) {
+    const updated = await toggleTodo(todo.id);
+    this.homeTodos = this.homeTodos.map((t) => (t.id === updated.id ? updated : t));
+    // Keep the underlying list view in sync if it happens to be open.
+    if (this.selected && this.selected.id === updated.listId) {
+      this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t));
+    }
+    await this.refreshLists();
+  }
+
+  async addHomeTodo(text: string) {
+    const t = text.trim();
+    if (!t || this.homeListId === null) return;
+    const created = await createTodo(this.homeListId, t);
+    this.homeTodos = [...this.homeTodos, created];
     await this.refreshLists();
   }
 

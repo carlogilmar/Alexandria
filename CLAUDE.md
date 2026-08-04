@@ -57,7 +57,8 @@ src/
   lib/
     components/
       Sidebar.svelte                 # left rail; ⌘1–6 destinations + pinned
-      Welcome.svelte                 # home view; calendar grid + buckets
+      Welcome.svelte                 # home view; Today card + Jump-back-in +
+                                     #   contribution calendar (Sprint 48)
       HelpModal.svelte               # `?` shortcuts modal
       AddEntityModal.svelte          # "+ Add" picker from sidebar
       ListView/NoteView/ArticleView/WorkflowView.svelte
@@ -405,7 +406,24 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 47 ("The Library" — consolidated four list views into
+Last updated: end of Sprint 48 (Home, redesigned — `Welcome.svelte` rewritten to
+lead with action, not counts. OUT: the Articles/Notes/Blueprints counter cards,
+the Library/Mirror quick-nav cards, and the per-kind bucket list (all redundant
+with the toolbar + Library). IN: (1) a time-aware **greeting** + a header New-list
+button (creates today's list, or "Open today's list" if one exists); (2) a
+**Today card** — today's list as checkable tasks + progress bar + inline "Add a
+task", with a **Backlog pill** (pending count → Backlog); empty state = "＋ Create
+today's list" CTA + backlog line; (3) **Jump back in** — the 6 most-recently-touched
+notes/articles/blueprints/boards/storyboards (type colour+icon + "edited Xago"),
+click to resume. KEPT the contribution **calendar** + day-detail panel + first-run
+Start-here card. Store gained a self-contained Home-Today slice (`homeListId`/
+`homeTodos` + `loadHomeToday`/`createHomeToday`/`toggleHomeTodo`/`addHomeTodo`,
+mirroring Focus); `Welcome` loads it on mount + via a guarded `$effect` (handles
+the async-init race). New `$lib/anim.ts` `reveal` action (Web Animations API:
+staggered fade-up, reduced-motion-safe) drives the entrance — same no-dependency,
+hand-rolled approach as the Mirror (NOT anime.js); reusable. Frontend-only, no
+backend/migration. svelte-check 0/0, build clean. See documentation/SPRINT48.md.
+— earlier: Sprint 47 ("The Library" — consolidated four list views into
 one. Summary + the Blueprints/Feedback/Storyboards index views were the same
 "list of entities with open/pin/archive/delete" (the dedicated ones just added
 "+ New"). New `LibraryView.svelte` unifies them: a toolbar (title · search · sort
