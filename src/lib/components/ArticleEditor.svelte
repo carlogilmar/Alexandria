@@ -27,7 +27,7 @@
 
   let {
     value,
-    placeholder = "Write in markdown. Embed any element on its own line — e.g. {{note:5}} or {{workflow:3}}.",
+    placeholder = "Write in markdown. Embed any element on its own line — e.g. {{note:5}} or {{article:3}}.",
     minHeight = "24rem",
     onCommit,
   }: Props = $props();
@@ -52,7 +52,6 @@
   type EmbedKind =
     | "note"
     | "list"
-    | "workflow"
     | "todo"
     | "article"
     | "flashcard";
@@ -61,7 +60,7 @@
     | { type: "embed"; kind: EmbedKind; id: number };
 
   const EMBED_LINE =
-    /^\s*\{\{(note|list|workflow|todo|article|flashcard):(\d+)\}\}\s*$/;
+    /^\s*\{\{(note|list|todo|article|flashcard):(\d+)\}\}\s*$/;
 
   let segments = $derived.by<Segment[]>(() => {
     const out: Segment[] = [];
@@ -201,7 +200,7 @@
       const href = anchor.getAttribute("href");
       if (!href) return;
       const m = href.match(
-        /^(note|list|workflow|article|flashcard|blueprint|storyboard):(\d+)$/,
+        /^(note|list|article|flashcard|blueprint|storyboard):(\d+)$/,
       );
       if (m) {
         const id = Number(m[2]);
@@ -242,9 +241,6 @@
     } else if (kind === "article") {
       if (app.articles.some((a) => a.id === id)) app.selectArticle(id);
       else app.setFlash("That article no longer exists");
-    } else if (kind === "workflow") {
-      if (app.workflows.some((w) => w.id === id)) app.selectWorkflow(id);
-      else app.setFlash("That workflow no longer exists");
     } else if (kind === "list") {
       if (app.lists.some((l) => l.id === id)) app.select(id);
       else app.setFlash("That list no longer exists");

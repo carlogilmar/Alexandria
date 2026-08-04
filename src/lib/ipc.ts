@@ -89,34 +89,6 @@ export type MirrorData = {
   lists: MirrorList[];
 };
 
-export type Workflow = {
-  id: number;
-  title: string;
-  description: string | null;
-  pinned: boolean;
-  archived: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type WorkflowSummary = {
-  id: number;
-  title: string;
-  stepCount: number;
-  pinned: boolean;
-  archived: boolean;
-};
-
-export type WorkflowStep = {
-  id: number;
-  workflowId: number;
-  parentStepId: number | null;
-  text: string;
-  position: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export type Note = {
   id: number;
   title: string;
@@ -213,7 +185,6 @@ export type WeeklyActivity = {
   weekStart: string;
   notes: number;
   articles: number;
-  workflows: number;
   lists: number;
 };
 
@@ -276,53 +247,6 @@ export type PinOrderRow = { kind: string; entityId: number; position: number };
 export const getPinOrder = () => invoke<PinOrderRow[]>("get_pin_order_cmd");
 export const setPinOrder = (order: { kind: string; entityId: number }[]) =>
   invoke<void>("set_pin_order_cmd", { order });
-
-// Workflows
-export const listWorkflows = () =>
-  invoke<WorkflowSummary[]>("list_workflows");
-export const workflowById = (id: number) =>
-  invoke<Workflow>("workflow_by_id", { id });
-export const createWorkflow = (title: string) =>
-  invoke<Workflow>("create_workflow", { title });
-export const renameWorkflow = (id: number, title: string) =>
-  invoke<Workflow>("rename_workflow", { id, title });
-export const updateWorkflowDescription = (
-  id: number,
-  description: string | null,
-) =>
-  invoke<Workflow>("update_workflow_description", { id, description });
-export const deleteWorkflow = (id: number) =>
-  invoke<void>("delete_workflow", { id });
-export const setWorkflowPinned = (id: number, pinned: boolean) =>
-  invoke<Workflow>("set_workflow_pinned", { id, pinned });
-export const setWorkflowArchived = (id: number, archived: boolean) =>
-  invoke<Workflow>("set_workflow_archived", { id, archived });
-export const listWorkflowSteps = (workflowId: number) =>
-  invoke<WorkflowStep[]>("list_workflow_steps", { workflowId });
-export const createWorkflowStep = (
-  workflowId: number,
-  text: string,
-  parentStepId: number | null = null,
-) =>
-  invoke<WorkflowStep>("create_workflow_step", {
-    workflowId,
-    text,
-    parentStepId,
-  });
-export const updateWorkflowStep = (id: number, text: string) =>
-  invoke<WorkflowStep>("update_workflow_step", { id, text });
-export const deleteWorkflowStep = (id: number) =>
-  invoke<void>("delete_workflow_step", { id });
-export const reorderWorkflowSteps = (
-  workflowId: number,
-  parentStepId: number | null,
-  orderedIds: number[],
-) =>
-  invoke<void>("reorder_workflow_steps", {
-    workflowId,
-    parentStepId,
-    orderedIds,
-  });
 
 // Notes
 export const listNotes = () => invoke<NoteSummary[]>("list_notes");

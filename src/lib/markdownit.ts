@@ -112,6 +112,11 @@ export function createMarkdownIt(): MarkdownIt {
     if (info === "lettering" || info.startsWith("lettering ")) {
       return renderLettering(tokens[idx].content, info.split(/\s+/).slice(1), md);
     }
+    // ```workflow → a numbered "chain" of steps (one per line; `backtick`
+    // segments render as tag badges). Replaces the old workflow entity.
+    if (info === "workflow") {
+      return renderWorkflow(tokens[idx].content, md);
+    }
     // Every other fenced block gets a GitHub-style copy button. The button is
     // static HTML (no per-instance handler survives `{@html}` re-renders); a
     // single delegated document listener — installCodeCopy — handles the click
@@ -211,7 +216,33 @@ const CARD_SOLID = new Set([
 ]);
 const CARD_GRADIENT = new Set(["sunset", "ocean", "forest", "dusk", "candy"]);
 const CARD_ENTITY =
-  /^(note|list|workflow|article|flashcard|blueprint|storyboard):(\d+)$/;
+  /^(note|list|article|flashcard|blueprint|storyboard):(\d+)$/;
+
+// ```workflow → a numbered chain of steps. One step per non-empty line;
+// `backtick` segments render as tag badges (matching the old workflow entity's
+// style). CSS-only/synchronous like the other fences.
+function renderWorkflow(source: string, md: MarkdownIt): string {
+  const steps = source
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  if (steps.length === 0) return "";
+  const items = steps
+    .map((line, i) => {
+      const parts = line
+        .split(/(`[^`]+`)/g)
+        .filter(Boolean)
+        .map((seg) =>
+          seg.length > 1 && seg.startsWith("`") && seg.endsWith("`")
+            ? `<span class="md-wf-tag">${md.utils.escapeHtml(seg.slice(1, -1))}</span>`
+            : md.utils.escapeHtml(seg),
+        )
+        .join("");
+      return `<li class="md-wf-step"><span class="md-wf-num">${i + 1}</span><span class="md-wf-text">${parts}</span></li>`;
+    })
+    .join("");
+  return `<ol class="md-workflow">${items}</ol>`;
+}
 
 function renderCards(source: string, md: MarkdownIt): string {
   const esc = (s: string) => md.utils.escapeHtml(s);

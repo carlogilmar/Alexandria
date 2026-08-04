@@ -14,7 +14,6 @@
     app.lists.length === 0 &&
       app.notes.length === 0 &&
       app.articles.length === 0 &&
-      app.workflows.length === 0 &&
       app.flashcards.length === 0 &&
       app.feedbackBoards.length === 0,
   );
@@ -232,7 +231,7 @@
         </button>
       </div>
       <ul class="flex flex-col gap-2 text-sm text-neutral-700 dark:text-neutral-200">
-        <li class="flex items-center gap-2"><kbd class="rounded border border-neutral-300/70 px-1.5 py-0.5 font-mono text-[11px] dark:border-neutral-600/70">＋ Add</kbd> a note, article, workflow, or flashcard from the sidebar.</li>
+        <li class="flex items-center gap-2"><kbd class="rounded border border-neutral-300/70 px-1.5 py-0.5 font-mono text-[11px] dark:border-neutral-600/70">＋ Add</kbd> a note, article, blueprint, or flashcard from the sidebar.</li>
         <li class="flex items-center gap-2"><kbd class="rounded border border-neutral-300/70 px-1.5 py-0.5 font-mono text-[11px] dark:border-neutral-600/70">⌘K</kbd> search everything and jump to any section.</li>
         <li class="flex items-center gap-2"><kbd class="rounded border border-neutral-300/70 px-1.5 py-0.5 font-mono text-[11px] dark:border-neutral-600/70">?</kbd> see all shortcuts and the formatting reference.</li>
       </ul>

@@ -6,20 +6,16 @@
     articleById,
     listById,
     listTodos,
-    listWorkflowSteps,
     noteById,
-    workflowById,
     type Article,
     type Flashcard,
     type List,
     type Note,
     type Todo,
-    type Workflow,
-    type WorkflowStep,
   } from "$lib/ipc";
 
   type Props = {
-    kind: "note" | "list" | "workflow" | "todo" | "article" | "flashcard";
+    kind: "note" | "list" | "todo" | "article" | "flashcard";
     id: number;
   };
   let { kind, id }: Props = $props();
@@ -37,8 +33,6 @@
   let note = $state<Note | null>(null);
   let list = $state<List | null>(null);
   let listTodosData = $state<Todo[]>([]);
-  let workflow = $state<Workflow | null>(null);
-  let workflowSteps = $state<WorkflowStep[]>([]);
   let todo = $state<Todo | null>(null);
   let todoListTitle = $state<string | null>(null);
   let article = $state<Article | null>(null);
@@ -50,8 +44,6 @@
     note = null;
     list = null;
     listTodosData = [];
-    workflow = null;
-    workflowSteps = [];
     todo = null;
     todoListTitle = null;
     article = null;
@@ -64,9 +56,6 @@
         } else if (kind === "list") {
           list = await listById(id);
           listTodosData = await listTodos(id);
-        } else if (kind === "workflow") {
-          workflow = await workflowById(id);
-          workflowSteps = await listWorkflowSteps(id);
         } else if (kind === "todo") {
           // Find via the cached hit list — gives us the list context.
           const hit = app.allTodos.find((t) => t.id === id);
@@ -99,14 +88,9 @@
     })();
   });
 
-  let topLevelSteps = $derived(
-    workflowSteps.filter((s) => s.parentStepId === null),
-  );
-
   function open() {
     if (kind === "note") app.selectNote(id);
     else if (kind === "list") app.select(id);
-    else if (kind === "workflow") app.selectWorkflow(id);
     else if (kind === "article") app.selectArticle(id);
     else if (kind === "flashcard") app.openFlashcardInDeck(id);
     else if (kind === "todo" && todo) app.select(todo.listId);
@@ -168,22 +152,6 @@
             </li>
           {/each}
         </ul>
-      {/if}
-    {:else if kind === "workflow" && workflow}
-      <h4 class="mb-1 text-sm font-semibold text-neutral-800 dark:text-neutral-100">
-        {workflow.title}
-      </h4>
-      {#if workflow.description}
-        <p class="mb-2 text-xs text-neutral-500 dark:text-neutral-400">{workflow.description}</p>
-      {/if}
-      {#if topLevelSteps.length === 0}
-        <p class="text-xs italic text-neutral-400 dark:text-neutral-500">(no steps)</p>
-      {:else}
-        <ol class="ml-4 list-decimal text-sm text-neutral-800 dark:text-neutral-200">
-          {#each topLevelSteps as s (s.id)}
-            <li class="my-0.5">{s.text}</li>
-          {/each}
-        </ol>
       {/if}
     {:else if kind === "todo" && todo}
       <div class="flex items-start gap-2 text-sm">

@@ -760,6 +760,69 @@ html.dark .markdown-body .md-chart {
 /* ------------------------------------------------------------------ */
 /* ```lettering — big centered display-type announcement (Sprint 38).  */
 /* ------------------------------------------------------------------ */
+/* ```workflow — a numbered chain of steps (Sprint 50). */
+.markdown-body .md-workflow {
+  list-style: none;
+  margin: 0.7rem 0;
+  padding: 0;
+}
+.markdown-body .md-workflow .md-wf-step {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding-bottom: 0.95rem;
+}
+.markdown-body .md-workflow .md-wf-step:last-child {
+  padding-bottom: 0;
+}
+/* Connector line joining the numbered bullets. */
+.markdown-body .md-workflow .md-wf-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 24px;
+  bottom: -1px;
+  width: 2px;
+  background: rgba(37, 99, 235, 0.25);
+}
+.markdown-body .md-workflow .md-wf-num {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #2563eb;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.markdown-body .md-workflow .md-wf-text {
+  padding-top: 3px;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+.markdown-body .md-wf-tag {
+  display: inline-block;
+  margin: 0 0.1rem;
+  padding: 0 0.35rem;
+  border-radius: 0.3rem;
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+  font-size: 0.85em;
+  font-weight: 500;
+}
+html.dark .markdown-body .md-workflow .md-wf-num {
+  background: #3b82f6;
+}
+html.dark .markdown-body .md-wf-tag {
+  background: rgba(96, 165, 250, 0.16);
+  color: #93c5fd;
+}
+
 .markdown-body .md-lettering {
   font-family: "Oswald", var(--font-sans);
   font-weight: 700;

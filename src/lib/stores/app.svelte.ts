@@ -79,18 +79,6 @@ import {
   listTags,
   addTagToTodo,
   removeTagFromTodo,
-  listWorkflows,
-  workflowById,
-  createWorkflow as createWorkflowIpc,
-  renameWorkflow as renameWorkflowIpc,
-  updateWorkflowDescription,
-  deleteWorkflow as deleteWorkflowIpc,
-  setWorkflowPinned,
-  listWorkflowSteps,
-  createWorkflowStep,
-  updateWorkflowStep,
-  deleteWorkflowStep,
-  reorderWorkflowSteps,
   listAllTodos,
   listNotes,
   listNotesForDate,
@@ -101,7 +89,6 @@ import {
   deleteNote as deleteNoteIpc,
   setNotePinned,
   setNoteArchived,
-  setWorkflowArchived,
   setArticleArchived,
   listArticles,
   articleById,
@@ -192,9 +179,6 @@ import {
   type Todo,
   type TodoHit,
   type WeeklyActivity,
-  type Workflow,
-  type WorkflowStep,
-  type WorkflowSummary,
 } from "$lib/ipc";
 
 export function todayIso(): string {
@@ -245,7 +229,6 @@ type NavLoc =
   | { view: "list"; id: number }
   | { view: "note"; id: number }
   | { view: "article"; id: number }
-  | { view: "workflow"; id: number }
   | { view: "feedback-board"; id: number }
   | { view: "blueprint"; id: number }
   | { view: "storyboard"; id: number }
@@ -265,7 +248,6 @@ class AppStore {
   view = $state<
     | "home"
     | "list"
-    | "workflow"
     | "note"
     | "index"
     | "article"
@@ -304,9 +286,6 @@ class AppStore {
     this.sidebarCollapsed = !this.sidebarCollapsed;
   }
 
-  workflows = $state<WorkflowSummary[]>([]);
-  selectedWorkflow = $state<Workflow | null>(null);
-  workflowSteps = $state<WorkflowStep[]>([]);
 
   notes = $state<NoteSummary[]>([]);
   selectedNote = $state<Note | null>(null);
@@ -423,7 +402,6 @@ class AppStore {
       this.backlogPending = await listBacklogPending();
       this.checkins = await listCheckins();
       this.allTags = await listTags();
-      this.workflows = await listWorkflows();
       this.notes = await listNotes();
       this.articles = await listArticles();
       this.allTodos = await listAllTodos();
@@ -439,104 +417,6 @@ class AppStore {
     } finally {
       this.loading = false;
     }
-  }
-
-  // ---- Workflows ----
-
-  async refreshWorkflows() {
-    this.workflows = await listWorkflows();
-  }
-
-  async selectWorkflow(id: number) {
-    this.recordNav();
-    try {
-      this.view = "workflow";
-      this.selected = null;
-      this.selectedTodoId = null;
-      this.selectedTodoTags = [];
-      this.selectedNote = null;
-      this.selectedArticle = null;
-      this.selectedWorkflow = await workflowById(id);
-      this.workflowSteps = await listWorkflowSteps(id);
-    } catch (e) {
-      this.error = String(e);
-    }
-  }
-
-  async newWorkflow(title = "New workflow") {
-    const created = await createWorkflowIpc(title);
-    await this.refreshWorkflows();
-    await this.selectWorkflow(created.id);
-  }
-
-  async renameSelectedWorkflow(title: string) {
-    if (!this.selectedWorkflow) return;
-    const updated = await renameWorkflowIpc(this.selectedWorkflow.id, title);
-    this.selectedWorkflow = updated;
-    await this.refreshWorkflows();
-  }
-
-  async updateSelectedDescription(description: string) {
-    if (!this.selectedWorkflow) return;
-    const trimmed = description.trim();
-    const next = trimmed.length === 0 ? null : trimmed;
-    if ((this.selectedWorkflow.description ?? null) === next) return;
-    const updated = await updateWorkflowDescription(
-      this.selectedWorkflow.id,
-      next,
-    );
-    this.selectedWorkflow = updated;
-  }
-
-  async deleteSelectedWorkflow() {
-    if (!this.selectedWorkflow) return;
-    const ok = await confirm(
-      `"${this.selectedWorkflow.title}" and all its steps will be permanently removed.`,
-      { title: "Delete this workflow?", kind: "warning" },
-    );
-    if (!ok) return;
-    await deleteWorkflowIpc(this.selectedWorkflow.id);
-    this.selectedWorkflow = null;
-    this.workflowSteps = [];
-    this.view = "home";
-    await this.refreshWorkflows();
-    this.setFlash("Workflow deleted");
-  }
-
-  async addWorkflowStep(text: string) {
-    if (!this.selectedWorkflow) return;
-    const created = await createWorkflowStep(this.selectedWorkflow.id, text, null);
-    this.workflowSteps = [...this.workflowSteps, created];
-    await this.refreshWorkflows();
-  }
-
-  async editWorkflowStep(id: number, text: string) {
-    const updated = await updateWorkflowStep(id, text);
-    this.workflowSteps = this.workflowSteps.map((s) =>
-      s.id === updated.id ? updated : s,
-    );
-  }
-
-  async removeWorkflowStep(id: number) {
-    await deleteWorkflowStep(id);
-    this.workflowSteps = this.workflowSteps.filter((s) => s.id !== id);
-    await this.refreshWorkflows();
-  }
-
-  reorderWorkflowStepsLocal(orderedIds: number[]) {
-    const byId = new Map(this.workflowSteps.map((s) => [s.id, s] as const));
-    this.workflowSteps = orderedIds
-      .map((id) => byId.get(id))
-      .filter((s): s is WorkflowStep => s !== undefined);
-  }
-
-  async commitWorkflowReorder() {
-    if (!this.selectedWorkflow) return;
-    await reorderWorkflowSteps(
-      this.selectedWorkflow.id,
-      null,
-      this.workflowSteps.filter((s) => s.parentStepId === null).map((s) => s.id),
-    );
   }
 
   // ---- Back navigation ----
@@ -555,10 +435,6 @@ class AppStore {
       case "article":
         return this.selectedArticle
           ? { view: "article", id: this.selectedArticle.id }
-          : null;
-      case "workflow":
-        return this.selectedWorkflow
-          ? { view: "workflow", id: this.selectedWorkflow.id }
           : null;
       case "feedback-board":
         return this.selectedFeedbackBoardId !== null
@@ -627,9 +503,6 @@ class AppStore {
         case "article":
           await this.selectArticle(loc.id);
           break;
-        case "workflow":
-          await this.selectWorkflow(loc.id);
-          break;
         case "index":
           await this.openIndex();
           break;
@@ -674,8 +547,6 @@ class AppStore {
     this.view = "home";
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
-    this.selectedWorkflow = null;
-    this.workflowSteps = [];
     this.selectedNote = null;
     this.selectedArticle = null;
     if (focusToday) this.homeFocusedDate = todayIso();
@@ -688,7 +559,6 @@ class AppStore {
       this.notes = await listNotes();
       this.articles = await listArticles();
       this.allTodos = await listAllTodos();
-      this.workflows = await listWorkflows();
       await this.refreshFeedbackBoards();
       await this.refreshFlashcards();
     } catch (e) {
@@ -710,8 +580,6 @@ class AppStore {
       this.todos = [];
       this.selectedTodoId = null;
       this.selectedTodoTags = [];
-      this.selectedWorkflow = null;
-      this.workflowSteps = [];
       this.selectedArticle = null;
       this.selectedNote = await noteById(id);
     } catch (e) {
@@ -908,8 +776,6 @@ class AppStore {
     this.todos = [];
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
-    this.selectedWorkflow = null;
-    this.workflowSteps = [];
     this.selectedNote = null;
     this.selectedArticle = null;
     try {
@@ -933,8 +799,6 @@ class AppStore {
     this.todos = [];
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
-    this.selectedWorkflow = null;
-    this.workflowSteps = [];
     this.selectedNote = null;
     this.selectedArticle = null;
 
@@ -967,8 +831,6 @@ class AppStore {
     this.todos = [];
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
-    this.selectedWorkflow = null;
-    this.workflowSteps = [];
     this.selectedNote = null;
     this.selectedArticle = null;
     await this.refreshVault();
@@ -1103,8 +965,6 @@ class AppStore {
     this.todos = [];
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
-    this.selectedWorkflow = null;
-    this.workflowSteps = [];
     this.selectedNote = null;
     this.selectedArticle = null;
     this.selectedBlueprint = null;
@@ -1428,8 +1288,6 @@ class AppStore {
     this.todos = [];
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
-    this.selectedWorkflow = null;
-    this.workflowSteps = [];
     this.selectedNote = null;
     this.selectedArticle = null;
   }
@@ -1775,8 +1633,6 @@ class AppStore {
       this.todos = [];
       this.selectedTodoId = null;
       this.selectedTodoTags = [];
-      this.selectedWorkflow = null;
-      this.workflowSteps = [];
       this.selectedNote = null;
       this.selectedArticle = await articleById(id);
     } catch (e) {
@@ -1840,17 +1696,6 @@ class AppStore {
     this.setFlash(next ? "Pinned" : "Unpinned");
   }
 
-  async toggleSelectedWorkflowPin() {
-    if (!this.selectedWorkflow) return;
-    const next = !this.selectedWorkflow.pinned;
-    this.selectedWorkflow = await setWorkflowPinned(
-      this.selectedWorkflow.id,
-      next,
-    );
-    await this.refreshWorkflows();
-    this.setFlash(next ? "Pinned" : "Unpinned");
-  }
-
   async toggleSelectedListPin() {
     if (!this.selected) return;
     const next = !this.selected.pinned;
@@ -1870,12 +1715,6 @@ class AppStore {
   async setArticlePinnedById(id: number, pinned: boolean) {
     await setArticlePinned(id, pinned);
     await this.refreshArticles();
-    this.setFlash(pinned ? "Pinned" : "Unpinned");
-  }
-
-  async setWorkflowPinnedById(id: number, pinned: boolean) {
-    await setWorkflowPinned(id, pinned);
-    await this.refreshWorkflows();
     this.setFlash(pinned ? "Pinned" : "Unpinned");
   }
 
@@ -1899,11 +1738,6 @@ class AppStore {
     this.setFlash(archived ? "Archived" : "Unarchived");
   }
 
-  async setWorkflowArchived(id: number, archived: boolean) {
-    await setWorkflowArchived(id, archived);
-    await this.refreshWorkflows();
-    this.setFlash(archived ? "Archived" : "Unarchived");
-  }
 
   async setListArchived(id: number, archived: boolean) {
     if (archived) await archiveList(id);
@@ -1915,13 +1749,7 @@ class AppStore {
   // ---- Generic "new entity" used by the sidebar's Add modal ----
 
   async newEntity(
-    kind:
-      | "note"
-      | "article"
-      | "workflow"
-      | "flashcard"
-      | "blueprint"
-      | "storyboard",
+    kind: "note" | "article" | "flashcard" | "blueprint" | "storyboard",
     title: string,
   ) {
     const t = title.trim();
@@ -1935,10 +1763,8 @@ class AppStore {
       await this.newFlashcard(t || "New card");
     } else if (kind === "blueprint") {
       await this.newBlueprint(t || "New blueprint");
-    } else if (kind === "storyboard") {
-      await this.newStoryboard(t || "Untitled storyboard");
     } else {
-      await this.newWorkflow(t || "New workflow");
+      await this.newStoryboard(t || "Untitled storyboard");
     }
   }
 
@@ -1972,25 +1798,9 @@ class AppStore {
     this.setFlash("Article deleted");
   }
 
-  async deleteWorkflowById(id: number) {
-    const workflow = this.workflows.find((w) => w.id === id);
-    const label = workflow?.title ?? `workflow ${id}`;
-    const ok = await confirm(`"${label}" and all its steps will be removed.`, {
-      title: "Delete this workflow?",
-      kind: "warning",
-    });
-    if (!ok) return;
-    await deleteWorkflowIpc(id);
-    await this.refreshWorkflows();
-    if (this.selectedWorkflow?.id === id) this.selectedWorkflow = null;
-    this.setFlash("Workflow deleted");
-  }
-
   async select(id: number) {
     this.recordNav();
     this.view = "list";
-    this.selectedWorkflow = null;
-    this.workflowSteps = [];
     this.selectedNote = null;
     this.selectedArticle = null;
     if (this.selected?.id === id) return;
@@ -2319,8 +2129,6 @@ class AppStore {
     this.todos = [];
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
-    this.selectedWorkflow = null;
-    this.workflowSteps = [];
     this.selectedNote = null;
     this.selectedArticle = null;
     this.selectedFeedbackBoardId = null;
@@ -2519,8 +2327,6 @@ class AppStore {
     this.todos = [];
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
-    this.selectedWorkflow = null;
-    this.workflowSteps = [];
     this.selectedNote = null;
     this.selectedArticle = null;
     this.selectedFlashcardId = null;
@@ -2655,8 +2461,6 @@ class AppStore {
     this.todos = [];
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
-    this.selectedWorkflow = null;
-    this.workflowSteps = [];
     this.selectedNote = null;
     this.selectedArticle = null;
     await this.refreshWeeklyActivity();

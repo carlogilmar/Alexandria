@@ -13,7 +13,6 @@ pub mod secrets;
 pub mod storyboards;
 pub mod tags;
 pub mod todos;
-pub mod workflows;
 
 use sqlx::SqlitePool;
 use tokio::sync::Mutex;

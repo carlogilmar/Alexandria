@@ -1,7 +1,7 @@
 # Alexandria
 
 A single-user desktop personal knowledge system: daily lists, notes,
-articles, workflows, design canvases ("Blueprints"), a kanban for
+articles, design canvases ("Blueprints"), a kanban for
 feedback planning, and two visualizations of activity. All data lives
 on-device. (The original single shared canvas — the "Alexandria" map —
 was removed in Sprint 40; Blueprints superseded it.)
@@ -62,7 +62,7 @@ src/
                                      #   contribution calendar (Sprint 48)
       HelpModal.svelte               # `?` shortcuts modal
       AddEntityModal.svelte          # "+ Add" picker from sidebar
-      ListView/NoteView/ArticleView/WorkflowView.svelte
+      ListView/NoteView/ArticleView.svelte  # (WorkflowView removed — Sprint 50)
       LibraryView.svelte             # "Library" — unified browser for all
                                      #   entities (Sprint 47; replaced
                                      #   SummaryView + the Blueprints/Feedback/
@@ -92,7 +92,7 @@ src/
 src-tauri/
   src/
     commands/
-      lists.rs todos.rs tags.rs notes.rs articles.rs workflows.rs
+      lists.rs todos.rs tags.rs notes.rs articles.rs pins.rs
       map.rs feedback.rs search.rs export.rs images.rs blueprints.rs mod.rs
     db/
       mod.rs                         # pool setup + sqlx::migrate!()
@@ -123,7 +123,7 @@ UI event in a *.svelte component
 destination, add a string to the union, add a `route` case, add a
 sidebar button.
 
-Current view values: `home · list · workflow · note · index · article ·
+Current view values: `home · list · note · index · article ·
 mirror · feedback · feedback-board · activity · flashdeck ·
 blueprints · blueprint · storyboards · storyboard · passwords`.
 
@@ -283,7 +283,9 @@ numbered, applied at startup. To add one:
   filter `is_backlog = 0`). Tasks move between a daily list and the backlog via
   `move_todo(id, targetListId)` — "Send to backlog" / "Pull to today" per-row
   actions in `TodoRow`/`ListView`; the sidebar shows a pending-count entry.
-- `workflows` + `workflow_steps`: step chains with optional sublists.
+- `workflows` + `workflow_steps`: REMOVED in Sprint 50 (migration `0026`
+  drops both). The workflow entity is gone — replaced by a ```workflow
+  markdown block (numbered step chain; `renderWorkflow` in markdownit.ts).
 - `notes` / `articles`: markdown bodies, day-attached (notes) or
   free-form (articles), with `{{kind:id}}` embed tokens parsed
   client-side in articles.
@@ -407,7 +409,25 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 49 (Sidebar redesign + drag-to-reorder pins — the
+Last updated: end of Sprint 50 (Removed the Workflow entity; added a ```workflow
+markdown block. The author doesn't create workflows, so the full CRUD entity was
+retired. NEW BLOCK: `renderWorkflow` in `$lib/markdownit.ts` (synchronous fence) —
+one step per non-empty line, `` `backtick` `` segments → tag badges; numbered blue
+bullets joined by a connector line (`.md-workflow` CSS), matching the old entity's
+style. Slash command "Workflow (steps)" + FormattingHelp row. REMOVAL (full-stack):
+migration `0026_drop_workflows.sql` drops `workflow_steps`+`workflows`; deleted
+`commands/workflows.rs` (+ mod/handler regs) and models `Workflow`/`WorkflowSummary`
+/`WorkflowStep`; `WeeklyActivity` lost its `workflows` count (Activity view now
+shows 3 figures — notes·articles·lists — not 4). Frontend: deleted `WorkflowView`
+(+ the unused legacy `IndexView`), removed the workflow slice from the store (state,
+`workflow` view value/NavLoc, all `*Workflow*` methods, nav switches), and the
+`workflow` kind everywhere it was woven — Library, Sidebar pins, AddEntityModal,
+CommandPalette, EntityLinkPicker, IdChip, EmbedBlock (`{{workflow:id}}`),
+MarkdownEditor/ArticleEditor (entity-link + embed regex + navigate), placeholders,
+Welcome empty-state, `+page` (view/label/dispatch). Kept the `workflow` concept
+icon in `storyIcons.ts` (used by the Storyboard icon picker — unrelated). 95 cargo
+tests + svelte-check + build all pass. See documentation/SPRINT50.md. — earlier:
+Sprint 49 (Sidebar redesign + drag-to-reorder pins — the
 7 near-identical pinned blocks (Workflows/Articles/Notes/Blueprints/Storyboards/
 Boards/Flashcards) collapsed into ONE unified "Pinned" list: a flat, single-
 header list where a type-colored icon conveys kind (no per-type headers / repeated

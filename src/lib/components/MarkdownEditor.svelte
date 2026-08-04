@@ -231,7 +231,7 @@
       // guard against links to entities that have since been deleted so we
       // surface a friendly flash instead of an error screen.
       const ent = href.match(
-        /^(note|list|workflow|article|flashcard|blueprint|storyboard):(\d+)$/,
+        /^(note|list|article|flashcard|blueprint|storyboard):(\d+)$/,
       );
       if (ent) {
         const id = Number(ent[2]);
@@ -273,9 +273,6 @@
     } else if (kind === "article") {
       if (app.articles.some((a) => a.id === id)) app.selectArticle(id);
       else app.setFlash("That article no longer exists");
-    } else if (kind === "workflow") {
-      if (app.workflows.some((w) => w.id === id)) app.selectWorkflow(id);
-      else app.setFlash("That workflow no longer exists");
     } else if (kind === "list") {
       if (app.lists.some((l) => l.id === id)) app.select(id);
       else app.setFlash("That list no longer exists");

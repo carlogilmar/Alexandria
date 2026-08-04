@@ -126,7 +126,7 @@ pub(crate) async fn daily_stats(
     .map_err(Into::into)
 }
 
-/// Per-week counts of created entities across notes / articles / workflows /
+/// Per-week counts of created entities across notes / articles /
 /// lists. The result includes one row for every week between `from` and
 /// `to` inclusive, even if every count is zero — the UI grid needs a cell
 /// for each week. ISO week (Mon–Sun) via strftime('%Y-%W').
@@ -159,9 +159,6 @@ pub(crate) async fn weekly_activity(
                COALESCE((SELECT COUNT(*) FROM articles a
                           WHERE date(a.created_at) >= w.week_start
                             AND date(a.created_at) <  date(w.week_start, '+7 days')), 0) AS articles,
-               COALESCE((SELECT COUNT(*) FROM workflows wf
-                          WHERE date(wf.created_at) >= w.week_start
-                            AND date(wf.created_at) <  date(w.week_start, '+7 days')), 0) AS workflows,
                COALESCE((SELECT COUNT(*) FROM lists l
                           WHERE date(l.created_at) >= w.week_start
                             AND date(l.created_at) <  date(w.week_start, '+7 days')

@@ -4,7 +4,6 @@
   type Kind =
     | "note"
     | "article"
-    | "workflow"
     | "flashcard"
     | "blueprint"
     | "storyboard";
@@ -23,7 +22,6 @@
   const OPTIONS: { value: Kind; label: string; hue: number; hint: string }[] = [
     { value: "article", label: "Article", hue: 268, hint: "Long-form, can embed other items" },
     { value: "note", label: "Note", hue: 217, hint: "Daily markdown note" },
-    { value: "workflow", label: "Workflow", hue: 32, hint: "Step-by-step process" },
     { value: "flashcard", label: "Flashcard", hue: 175, hint: "A card in your Flash Deck" },
     { value: "blueprint", label: "Blueprint", hue: 200, hint: "A design canvas for planning software" },
     { value: "storyboard", label: "Storyboard", hue: 158, hint: "Tiny diagram + note, page by page" },

@@ -8,7 +8,6 @@
   import Inspector from "$lib/components/Inspector.svelte";
   import Welcome from "$lib/components/Welcome.svelte";
   import HelpModal from "$lib/components/HelpModal.svelte";
-  import WorkflowView from "$lib/components/WorkflowView.svelte";
   import NoteView from "$lib/components/NoteView.svelte";
   import LibraryView from "$lib/components/LibraryView.svelte";
   import ArticleView from "$lib/components/ArticleView.svelte";
@@ -35,7 +34,6 @@
     list: "List",
     note: "Note",
     article: "Article",
-    workflow: "Workflow",
     index: "Library",
     mirror: "The Mirror",
     feedback: "Library",
@@ -214,8 +212,6 @@
       </div>
     {:else if app.view === "home"}
       <Welcome />
-    {:else if app.view === "workflow"}
-      <WorkflowView />
     {:else if app.view === "note"}
       <NoteView />
     {:else if app.view === "index"}

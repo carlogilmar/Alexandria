@@ -88,7 +88,7 @@
   });
 
   // ----- Unified Pinned list (Sprint 49) -----
-  type PinKind = "note" | "article" | "blueprint" | "storyboard" | "board" | "workflow" | "flashcard";
+  type PinKind = "note" | "article" | "blueprint" | "storyboard" | "board" | "flashcard";
   type Pin = {
     key: string;
     kind: PinKind;
@@ -105,7 +105,6 @@
     blueprint: '<rect x="3" y="3" width="5" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="12" y="12" width="5" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 5.5h4v6.5" fill="none" stroke="currentColor" stroke-width="1.5"/>',
     storyboard: '<rect x="3" y="5" width="14" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 5v10M13 5v10" stroke="currentColor" stroke-width="1.5"/>',
     board: '<rect x="3" y="3" width="4" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="8.5" y="3" width="4" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="3" width="3.5" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>',
-    workflow: '<circle cx="5" cy="5" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="15" cy="15" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 7v4a3 3 0 003 3h4" fill="none" stroke="currentColor" stroke-width="1.5"/>',
     flashcard: '<rect x="3.5" y="5" width="13" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 9h6M7 12h4" stroke="currentColor" stroke-width="1.5"/>',
   };
 
@@ -115,7 +114,6 @@
     ...app.blueprints.filter((b) => b.pinned && !b.archived).map((b) => ({ key: `blueprint:${b.id}`, kind: "blueprint" as const, id: b.id, title: b.title, meta: "", hue: 200, badge: false, selected: app.view === "blueprint" && app.selectedBlueprint?.id === b.id })),
     ...app.storyboards.filter((s) => s.pinned && !s.archived).map((s) => ({ key: `storyboard:${s.id}`, kind: "storyboard" as const, id: s.id, title: s.title, meta: "", hue: 158, badge: false, selected: app.view === "storyboard" && app.selectedStoryboard?.id === s.id })),
     ...app.feedbackBoards.filter((b) => b.pinned && !b.archived).map((b) => ({ key: `board:${b.id}`, kind: "board" as const, id: b.id, title: b.title, meta: "", hue: 350, badge: true, selected: app.view === "feedback-board" && app.selectedFeedbackBoardId === b.id })),
-    ...app.workflows.filter((w) => w.pinned && !w.archived).map((w) => ({ key: `workflow:${w.id}`, kind: "workflow" as const, id: w.id, title: w.title, meta: w.stepCount > 0 ? String(w.stepCount) : "", hue: 32, badge: false, selected: app.view === "workflow" && app.selectedWorkflow?.id === w.id })),
     ...app.flashcards.filter((c) => c.pinned && !c.archived).map((c) => ({ key: `flashcard:${c.id}`, kind: "flashcard" as const, id: c.id, title: c.title, meta: "", hue: 175, badge: true, selected: app.view === "flashdeck" && app.selectedFlashcardId === c.id })),
   ]);
   let pinMap = $derived(new Map(allPins.map((p) => [p.key, p])));
@@ -142,7 +140,6 @@
     else if (p.kind === "blueprint") app.openBlueprint(p.id);
     else if (p.kind === "storyboard") app.openStoryboard(p.id);
     else if (p.kind === "board") app.openFeedbackBoard(p.id);
-    else if (p.kind === "workflow") app.selectWorkflow(p.id);
     else app.openFlashcardInDeck(p.id);
   }
   function unpin(p: Pin) {
@@ -151,7 +148,6 @@
     else if (p.kind === "blueprint") app.setBlueprintPinned(p.id, false);
     else if (p.kind === "storyboard") app.setStoryboardPinned(p.id, false);
     else if (p.kind === "board") app.setFeedbackBoardPinned(p.id, false);
-    else if (p.kind === "workflow") app.setWorkflowPinnedById(p.id, false);
     else app.toggleFlashcardPin(p.id);
   }
 

@@ -4,7 +4,6 @@
   type LinkKind =
     | "note"
     | "list"
-    | "workflow"
     | "article"
     | "flashcard"
     | "blueprint";
@@ -27,7 +26,6 @@
   const KIND_HUE: Record<LinkKind, number> = {
     note: 217,
     article: 268,
-    workflow: 32,
     list: 152,
     flashcard: 175,
     blueprint: 200,
@@ -44,15 +42,6 @@
     for (const a of app.articles) {
       if (a.archived) continue;
       out.push({ kind: "article", id: a.id, title: a.title, sub: "article" });
-    }
-    for (const w of app.workflows) {
-      if (w.archived) continue;
-      out.push({
-        kind: "workflow",
-        id: w.id,
-        title: w.title,
-        sub: `${w.stepCount} ${w.stepCount === 1 ? "step" : "steps"}`,
-      });
     }
     for (const l of app.lists) {
       if (l.archived) continue;
@@ -126,7 +115,7 @@
         bind:this={searchInput}
         bind:value={query}
         type="text"
-        placeholder="Link to a note, list, workflow, or article…"
+        placeholder="Link to a note, list, or article…"
         class="w-full rounded-md border border-neutral-300/70 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/70 dark:bg-neutral-900/40 dark:text-neutral-100"
       />
     </div>

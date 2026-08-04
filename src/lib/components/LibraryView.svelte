@@ -9,7 +9,6 @@
     Flashcard,
     NoteSummary,
     StoryboardSummary,
-    WorkflowSummary,
   } from "$lib/ipc";
 
   // The Library consolidates the old Summary + Blueprints + Feedback +
@@ -23,7 +22,6 @@
     | "blueprint"
     | "board"
     | "storyboard"
-    | "workflow"
     | "flashcard";
   type Filter = Kind | "all" | "pinned" | "archived";
 
@@ -33,7 +31,6 @@
     { key: "blueprint", label: "Blueprints", hue: 200, icon: "blueprint", creatable: true, renamable: true },
     { key: "board", label: "Boards", hue: 350, icon: "board", creatable: true, renamable: true },
     { key: "storyboard", label: "Storyboards", hue: 158, icon: "storyboard", creatable: true, renamable: true },
-    { key: "workflow", label: "Workflows", hue: 32, icon: "workflow", creatable: true, renamable: false },
     { key: "flashcard", label: "Flash cards", hue: 175, icon: "flashcard", creatable: false, renamable: false },
   ];
   const KINDMAP = Object.fromEntries(KINDS.map((k) => [k.key, k])) as Record<Kind, (typeof KINDS)[number]>;
@@ -45,7 +42,6 @@
     blueprint: '<rect x="3" y="3" width="5" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="12" y="12" width="5" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 5.5h4v6.5" fill="none" stroke="currentColor" stroke-width="1.4"/>',
     board: '<rect x="3" y="3" width="4" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="8.5" y="3" width="4" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="14" y="3" width="3.5" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/>',
     storyboard: '<rect x="3" y="5" width="14" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7 5v10M13 5v10" stroke="currentColor" stroke-width="1.4"/>',
-    workflow: '<circle cx="5" cy="5" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="15" cy="15" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 7v4a3 3 0 003 3h4" fill="none" stroke="currentColor" stroke-width="1.4"/>',
     flashcard: '<rect x="3.5" y="5" width="13" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7 9h6M7 12h4" stroke="currentColor" stroke-width="1.4"/>',
   };
 
@@ -80,9 +76,6 @@
   function storyboardRow(s: StoryboardSummary): Row {
     return { kind: "storyboard", id: s.id, title: s.title, meta: `${plural(s.pageCount, "page")} · ${fmtUpdated(s.updatedAt)}`, pinned: s.pinned, archived: s.archived, badge: false, hue: 158, sortKey: s.updatedAt };
   }
-  function workflowRow(w: WorkflowSummary): Row {
-    return { kind: "workflow", id: w.id, title: w.title, meta: plural(w.stepCount, "step"), pinned: w.pinned, archived: w.archived, badge: false, hue: 32, sortKey: "" };
-  }
   function boardRow(b: FeedbackBoardSummary): Row {
     return { kind: "board", id: b.id, title: b.title, meta: `${plural(b.cardCount, "card")} · ${fmtUpdated(b.updatedAt)}`, pinned: b.pinned, archived: b.archived, badge: true, hue: 350, sortKey: b.updatedAt };
   }
@@ -95,7 +88,6 @@
     ...app.notes.map(noteRow),
     ...app.blueprints.map(blueprintRow),
     ...app.storyboards.map(storyboardRow),
-    ...app.workflows.map(workflowRow),
     ...app.feedbackBoards.map(boardRow),
     ...app.flashcards.map(cardRow),
   ]);
@@ -167,7 +159,6 @@
   function openItem(k: Kind, id: number) {
     if (k === "article") app.selectArticle(id);
     else if (k === "note") app.selectNote(id);
-    else if (k === "workflow") app.selectWorkflow(id);
     else if (k === "board") app.openFeedbackBoard(id);
     else if (k === "blueprint") app.openBlueprint(id);
     else if (k === "storyboard") app.openStoryboard(id);
@@ -177,7 +168,6 @@
     const next = !pinned;
     if (k === "article") app.setArticlePinnedById(id, next);
     else if (k === "note") app.setNotePinnedById(id, next);
-    else if (k === "workflow") app.setWorkflowPinnedById(id, next);
     else if (k === "board") app.setFeedbackBoardPinned(id, next);
     else if (k === "blueprint") app.setBlueprintPinned(id, next);
     else if (k === "storyboard") app.setStoryboardPinned(id, next);
@@ -186,7 +176,6 @@
   function setArchived(k: Kind, id: number, val: boolean) {
     if (k === "article") app.setArticleArchived(id, val);
     else if (k === "note") app.setNoteArchived(id, val);
-    else if (k === "workflow") app.setWorkflowArchived(id, val);
     else if (k === "board") app.setFeedbackBoardArchived(id, val);
     else if (k === "blueprint") app.setBlueprintArchived(id, val);
     else if (k === "storyboard") app.setStoryboardArchived(id, val);
@@ -195,7 +184,6 @@
   function deleteItem(k: Kind, id: number) {
     if (k === "article") app.deleteArticleById(id);
     else if (k === "note") app.deleteNoteById(id);
-    else if (k === "workflow") app.deleteWorkflowById(id);
     else if (k === "board") app.deleteFeedbackBoard(id);
     else if (k === "blueprint") app.deleteBlueprint(id);
     else if (k === "storyboard") app.deleteStoryboard(id);

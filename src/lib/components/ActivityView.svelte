@@ -36,7 +36,7 @@
   const PAD = 14;
 
   // Hue palette mirroring the rest of the app.
-  const HUE = { note: 217, article: 268, workflow: 32, list: 158 };
+  const HUE = { note: 217, article: 268, list: 158 };
 
   function rangeFor(g: Granularity): { from: string; to: string } {
     const today = new Date();
@@ -69,13 +69,13 @@
   // auto-wraps to fit the container; we never need horizontal scroll.
   let visibleWeeks = $derived(
     app.weeklyActivity.filter(
-      (w) => w.notes + w.articles + w.workflows + w.lists > 0,
+      (w) => w.notes + w.articles + w.lists > 0,
     ),
   );
 
   // Stats for visual scaling — computed only over visible (non-empty) weeks.
   let totals = $derived(
-    visibleWeeks.map((w) => w.notes + w.articles + w.workflows + w.lists),
+    visibleWeeks.map((w) => w.notes + w.articles + w.lists),
   );
   let avgTotal = $derived(
     totals.length === 0 ? 0 : totals.reduce((a, b) => a + b, 0) / totals.length,
@@ -101,7 +101,7 @@
   }
 
   // Each kind anchors to one quadrant of the cell.
-  // 0 = note (TL), 1 = article (TR), 2 = workflow (BL), 3 = list (BR)
+  // 0 = note (TL), 1 = article (TR), 3 = list (BR)
   function anchor(slot: number): { ax: number; ay: number } {
     const half = (CELL - PAD * 2) / 4;
     const q1 = PAD + half;
@@ -122,7 +122,7 @@
   }
 
   // Figure renderer paths (centered at 0,0).
-  function pathFor(kind: "note" | "article" | "workflow" | "list", r: number): string {
+  function pathFor(kind: "note" | "article" | "list", r: number): string {
     if (kind === "note") {
       // circle
       return `M ${-r} 0 a ${r} ${r} 0 1 0 ${2 * r} 0 a ${r} ${r} 0 1 0 ${-2 * r} 0`;
@@ -140,9 +140,6 @@
               Q ${-k} ${k} ${-k} ${k - rad}
               L ${-k} ${-k + rad}
               Q ${-k} ${-k} ${-k + rad} ${-k} Z`;
-    }
-    if (kind === "workflow") {
-      return `M 0 ${-r} L ${r} 0 L 0 ${r} L ${-r} 0 Z`;
     }
     // hexagon
     const sides = 6;
@@ -163,7 +160,7 @@
   const GHOST = 2;
 
   function totalOf(w: WeeklyActivity): number {
-    return w.notes + w.articles + w.workflows + w.lists;
+    return w.notes + w.articles + w.lists;
   }
 
   function fmtWeek(w: WeeklyActivity): string {
@@ -197,7 +194,7 @@
       </h1>
       <p class="text-xs text-neutral-500 dark:text-neutral-400">
         {tab === "activity"
-          ? "Each cell is one week. Four figures = notes · articles · workflows · lists."
+          ? "Each cell is one week. Three figures = notes · articles · lists."
           : "Camera check-ins captured when you create a today's list."}
       </p>
     </div>
@@ -335,8 +332,6 @@
           {@const jNote = jitter(w.weekStart, 0)}
           {@const aArt = anchor(1)}
           {@const jArt = jitter(w.weekStart, 1)}
-          {@const aWf = anchor(2)}
-          {@const jWf = jitter(w.weekStart, 2)}
           {@const aLs = anchor(3)}
           {@const jLs = jitter(w.weekStart, 3)}
           <button
@@ -391,18 +386,6 @@
                 <circle cx={aArt.ax} cy={aArt.ay} r={GHOST} fill="none" stroke={`hsl(${HUE.article} 30% 60%)`} stroke-width="1"/>
               {/if}
 
-              <!-- Workflow (BL) -->
-              {#if w.workflows > 0}
-                <path
-                  d={pathFor("workflow", radius(w.workflows))}
-                  transform={`translate(${aWf.ax + jWf.dx},${aWf.ay + jWf.dy})`}
-                  fill={`hsl(${HUE.workflow} 78% 55%)`}
-                  opacity="0.9"
-                />
-              {:else}
-                <circle cx={aWf.ax} cy={aWf.ay} r={GHOST} fill="none" stroke={`hsl(${HUE.workflow} 30% 60%)`} stroke-width="1"/>
-              {/if}
-
               <!-- List (BR) -->
               {#if w.lists > 0}
                 <path
@@ -443,10 +426,6 @@
         <span class="inline-flex items-center gap-1.5">
           <span class="inline-block h-2.5 w-2.5 rounded-sm" style="background: hsl({HUE.article} 78% 55%);"></span>
           {hovered.articles} articles
-        </span>
-        <span class="inline-flex items-center gap-1.5">
-          <span class="inline-block h-2.5 w-2.5 rotate-45" style="background: hsl({HUE.workflow} 78% 55%);"></span>
-          {hovered.workflows} workflows
         </span>
         <span class="inline-flex items-center gap-1.5">
           <span class="inline-block h-2.5 w-2.5" style="background: hsl({HUE.list} 78% 55%); clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);"></span>

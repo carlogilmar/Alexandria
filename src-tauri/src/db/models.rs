@@ -244,40 +244,6 @@ pub struct MirrorData {
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
-pub struct Workflow {
-    pub id: i64,
-    pub title: String,
-    pub description: Option<String>,
-    pub pinned: bool,
-    pub archived: bool,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, FromRow)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkflowSummary {
-    pub id: i64,
-    pub title: String,
-    pub step_count: i64,
-    pub pinned: bool,
-    pub archived: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkflowStep {
-    pub id: i64,
-    pub workflow_id: i64,
-    pub parent_step_id: Option<i64>,
-    pub text: String,
-    pub position: i64,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-#[serde(rename_all = "camelCase")]
 pub struct Note {
     pub id: i64,
     pub title: String,
@@ -468,7 +434,6 @@ pub struct WeeklyActivity {
     pub week_start: String,
     pub notes: i64,
     pub articles: i64,
-    pub workflows: i64,
     pub lists: i64,
 }
 

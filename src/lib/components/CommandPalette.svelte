@@ -44,7 +44,6 @@
   const actions: Item[] = [
     { key: "new-note", group: "Create", label: "New note", run: () => app.newEntity("note", "") },
     { key: "new-article", group: "Create", label: "New article", run: () => app.newEntity("article", "") },
-    { key: "new-workflow", group: "Create", label: "New workflow", run: () => app.newEntity("workflow", "") },
     { key: "new-card", group: "Create", label: "New flashcard", run: () => app.newEntity("flashcard", "") },
     { key: "new-board", group: "Create", label: "New feedback board", run: () => app.newFeedbackBoard("New board") },
     { key: "new-storyboard", group: "Create", label: "New storyboard", run: () => app.newStoryboard() },
@@ -68,10 +67,6 @@
     for (const a of app.articles) {
       if (a.archived) continue;
       out.push({ key: `art-${a.id}`, group: "Articles", label: a.title, run: () => app.selectArticle(a.id) });
-    }
-    for (const w of app.workflows) {
-      if (w.archived) continue;
-      out.push({ key: `wf-${w.id}`, group: "Workflows", label: w.title, run: () => app.selectWorkflow(w.id) });
     }
     for (const c of app.flashcards) {
       if (c.archived) continue;
