@@ -32,25 +32,18 @@
     },
     {
       key: "index",
-      title: "Summary",
+      title: "Library",
       sc: "⌘3",
       hue: 217,
       d: "M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm3 2a1 1 0 100 2h8a1 1 0 100-2H6zm0 4a1 1 0 100 2h8a1 1 0 100-2H6zm0 4a1 1 0 100 2h5a1 1 0 100-2H6z",
       go: () => app.openIndex(),
-      active: (v) => v === "index",
+      // The Library renders index + the (pre-filtered) blueprints / feedback /
+      // storyboards views, so its hub icon lights up for all of them.
+      active: (v) => v === "index" || v === "blueprints" || v === "feedback" || v === "storyboards",
     },
   ];
 
   const NAV: NavItem[] = [
-    {
-      key: "blueprints",
-      title: "Blueprints",
-      sc: "⌘2",
-      hue: 265,
-      d: "M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm1 3a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H6a1 1 0 01-1-1V6zm8 0a1 1 0 011-1h0a1 1 0 011 1v8a1 1 0 01-1 1h0a1 1 0 01-1-1V6zM6 13a1 1 0 100 2h4a1 1 0 100-2H6z",
-      go: () => app.openBlueprints(),
-      active: (v) => v === "blueprints" || v === "blueprint",
-    },
     {
       key: "mirror",
       title: "The Mirror",
@@ -59,15 +52,6 @@
       d: "M10 2a6 6 0 016 6c0 2.6-1.7 4.8-4 5.6V16a1 1 0 01-1 1H9a1 1 0 01-1-1v-2.4C5.7 12.8 4 10.6 4 8a6 6 0 016-6zm0 2a4 4 0 00-4 4c0 1.9 1.3 3.4 3 3.9V8a1 1 0 112 0v3.9c1.7-.5 3-2 3-3.9a4 4 0 00-4-4z",
       go: () => app.openMirror(),
       active: (v) => v === "mirror",
-    },
-    {
-      key: "feedback",
-      title: "Feedback",
-      sc: "⌘5",
-      hue: 350,
-      d: "M3 4a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm9 0a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2V4zm-9 9a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3zm9 0a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2v-3z",
-      go: () => app.openFeedback(),
-      active: (v) => v === "feedback" || v === "feedback-board",
     },
     {
       key: "activity",

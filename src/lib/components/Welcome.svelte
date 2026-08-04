@@ -281,7 +281,7 @@
         <li class="flex items-center gap-2"><kbd class="rounded border border-neutral-300/70 px-1.5 py-0.5 font-mono text-[11px] dark:border-neutral-600/70">?</kbd> see all shortcuts and the formatting reference.</li>
       </ul>
       <p class="mt-3 text-xs text-neutral-500 dark:text-neutral-500">
-        The icons top-right are your sections: <strong>Blueprints</strong> (design canvases), <strong>Summary</strong>, <strong>The Mirror</strong>, <strong>Feedback</strong>, <strong>Activity</strong>, <strong>Flash Deck</strong> — hover any for its name &amp; shortcut.
+        The icons top-right are your sections: <strong>Blueprints</strong> (design canvases), <strong>Library</strong>, <strong>The Mirror</strong>, <strong>Feedback</strong>, <strong>Activity</strong>, <strong>Flash Deck</strong> — hover any for its name &amp; shortcut.
       </p>
     </section>
   {/if}
@@ -327,7 +327,7 @@
       <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-blue-500 dark:text-blue-400">
         <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h8a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
       </svg>
-      <p class="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">Summary</p>
+      <p class="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">Library</p>
     </button>
     <button
       type="button"

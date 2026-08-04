@@ -574,7 +574,7 @@
 
       {#if pinnedWorkflows.length === 0 && pinnedArticles.length === 0 && pinnedNotes.length === 0 && pinnedBlueprints.length === 0 && pinnedStoryboards.length === 0 && pinnedBoards.length === 0 && pinnedFlashcards.length === 0}
         <p class="px-2 text-[11px] italic text-neutral-400 dark:text-neutral-500">
-          Pin items from Summary to keep them one click away here.
+          Pin items from the Library to keep them one click away here.
         </p>
       {/if}
     {/if}

@@ -61,14 +61,17 @@ src/
       HelpModal.svelte               # `?` shortcuts modal
       AddEntityModal.svelte          # "+ Add" picker from sidebar
       ListView/NoteView/ArticleView/WorkflowView.svelte
-      SummaryView.svelte             # formerly IndexView — tabbed list
+      LibraryView.svelte             # "Library" — unified browser for all
+                                     #   entities (Sprint 47; replaced
+                                     #   SummaryView + the Blueprints/Feedback/
+                                     #   Storyboards index views)
       MirrorView.svelte              # "The Mirror" — canvas data-portrait (Sprint 46)
       MapTextNode / MapCommentNode / MapTitleNode  # decorative canvas nodes,
                                      #   now used ONLY by Blueprints (the
                                      #   Alexandria map was removed, Sprint 40)
-      BlueprintsView.svelte          # blueprints index (Sprint 22)
+                                     # (BlueprintsView removed — Sprint 47)
       BlueprintView / BlueprintEditor / BlueprintCardNode
-      FeedbackBoardsView.svelte      # kanban index
+                                     # (FeedbackBoardsView removed — Sprint 47)
       FeedbackBoardView.svelte       # kanban columns + DnD
       FeedbackCardPanel.svelte       # card detail slide-in
       ActivityView.svelte            # Kandinsky weekly grid
@@ -131,10 +134,10 @@ unchanged:
 | Internal | UI label             | Shortcut |
 |----------|----------------------|----------|
 | home     | Home (also logo)     | ⌘1       |
-| blueprints| Blueprints          | ⌘2 (Sprint 40 — promoted into the freed slot; has a toolbar icon + active on `blueprints`/`blueprint`) |
-| index    | Summary              | ⌘3       |
+| blueprints| (no toolbar icon)   | ⌘2 (Sprint 47 — TopNav button removed; ⌘2 still opens the Library pre-filtered to Blueprints) |
+| index    | Library              | ⌘3 (Sprint 47 — Library; `blueprints`/`feedback`/`storyboards` views now also render `LibraryView` pre-filtered, and the Library hub icon is active for all of them) |
 | mirror   | The Mirror           | ⌘4 (Sprint 46 — replaced the Garden/Visualization) |
-| feedback | Feedback             | ⌘5       |
+| feedback | (no toolbar icon)    | ⌘5 (Sprint 47 — TopNav button removed; ⌘5 still opens the Library pre-filtered to Boards) |
 | activity | Activity             | ⌘6       |
 | flashdeck| Flash Deck           | ⌘7       |
 | passwords| Passwords            | ⌘8 (Sprint 41 — encrypted site-password vault) |
@@ -230,12 +233,15 @@ In `onConnect`, edges are rejected if either endpoint is `text`,
 `comment`, or `title`. `custom` IS connectable. The check lives in
 `MapEditor.svelte`'s `onConnect`.
 
-### IndexView → SummaryView
+### IndexView → SummaryView → LibraryView
 
 The old free-text index doc is preserved in the `index_doc` table but
-not surfaced anywhere. `app.view = "index"` now renders
-`SummaryView.svelte` (tabbed list of all entities with
-pin/archive/delete actions).
+not surfaced anywhere. `app.view = "index"` renders `LibraryView.svelte`
+(Sprint 47 — the unified entity browser). The `blueprints`, `feedback`,
+and `storyboards` view values also render `LibraryView` (with a different
+`initialKind` prop), so those four destinations are one consolidated
+view; only the entity *editors* (`blueprint`/`feedback-board`/
+`storyboard`) remain distinct.
 
 ### "The Mirror" is a single `<canvas>` (Sprint 46)
 
@@ -399,7 +405,32 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 46 ("The Mirror" — replaced the Visualization/Garden.
+Last updated: end of Sprint 47 ("The Library" — consolidated four list views into
+one. Summary + the Blueprints/Feedback/Storyboards index views were the same
+"list of entities with open/pin/archive/delete" (the dedicated ones just added
+"+ New"). New `LibraryView.svelte` unifies them: a toolbar (title · search · sort
+recent/A–Z/type · grid⇄list · "+ New" → existing `AddEntityModal`) + HORIZONTAL
+filter chips (`All · Pinned │ Notes · Articles · Blueprints · Boards ·
+Storyboards · Workflows · Flash cards │ Archived`, colour dot + live count) —
+chips instead of a second left rail so it coexists with the app sidebar. Cards
+(or list rows): type colour+icon, title (`#tag` badges for boards/flashcards),
+meta = updated date + type-native metric (nodes/pages/cards/steps, straight off
+the existing summaries), pin toggle, hover actions (rename [blueprint/board/
+storyboard only] · archive · delete; restore/delete under Archived); Pinned
+surfaces to the top. Reuses ALL existing store actions — NO backend/ipc/store
+change. Low-risk wiring: the four view values (`index`/`blueprints`/`feedback`/
+`storyboards`) + their open methods/shortcuts/TopNav icons are KEPT; they now
+render `LibraryView` with a different `initialKind` (index→all, blueprints→
+blueprint, feedback→board, storyboards→storyboard), so ⌘3 = Library and ⌘2/⌘5
+open it pre-filtered; entity editors untouched. The now-redundant TopNav
+**Blueprints + Feedback icon buttons were removed** (⌘2/⌘5 shortcuts still route
+to the pre-filtered Library; the Library hub icon lights up for index/blueprints/
+feedback/storyboards). TopNav "Summary"→"Library";
+section labels/palette/Help/Welcome/Sidebar copy updated. REMOVED SummaryView/
+BlueprintsView/FeedbackBoardsView/StoryboardsView. Daily Lists dropped from the
+browse (they live in Home). Prototyped as an approved mockup. svelte-check 0/0,
+build clean. See documentation/SPRINT47.md.
+— earlier: Sprint 46 ("The Mirror" — replaced the Visualization/Garden.
 A data-portrait of the whole corpus on one time axis: centered contiguous **bars**
 = todo lists (height & Magma-gradient colour = task count), **orbs** = every
 artifact (notes float above, articles/blueprints/boards/storyboards below), sized

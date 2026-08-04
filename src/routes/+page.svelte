@@ -10,14 +10,12 @@
   import HelpModal from "$lib/components/HelpModal.svelte";
   import WorkflowView from "$lib/components/WorkflowView.svelte";
   import NoteView from "$lib/components/NoteView.svelte";
-  import SummaryView from "$lib/components/SummaryView.svelte";
+  import LibraryView from "$lib/components/LibraryView.svelte";
   import ArticleView from "$lib/components/ArticleView.svelte";
   import MirrorView from "$lib/components/MirrorView.svelte";
-  import FeedbackBoardsView from "$lib/components/FeedbackBoardsView.svelte";
   import FeedbackBoardView from "$lib/components/FeedbackBoardView.svelte";
   import ActivityView from "$lib/components/ActivityView.svelte";
   import FlashDeckView from "$lib/components/FlashDeckView.svelte";
-  import BlueprintsView from "$lib/components/BlueprintsView.svelte";
   import BlueprintView from "$lib/components/BlueprintView.svelte";
   import TopNav from "$lib/components/TopNav.svelte";
   import CommandPalette from "$lib/components/CommandPalette.svelte";
@@ -25,7 +23,6 @@
   import AddEntityModal from "$lib/components/AddEntityModal.svelte";
   import FocusMode from "$lib/components/FocusMode.svelte";
   import PasswordsView from "$lib/components/PasswordsView.svelte";
-  import StoryboardsView from "$lib/components/StoryboardsView.svelte";
   import StoryboardView from "$lib/components/StoryboardView.svelte";
 
   let sidebar: Sidebar | undefined = $state();
@@ -39,15 +36,15 @@
     note: "Note",
     article: "Article",
     workflow: "Workflow",
-    index: "Summary",
+    index: "Library",
     mirror: "The Mirror",
-    feedback: "Feedback",
+    feedback: "Library",
     "feedback-board": "Feedback",
     activity: "Activity",
     flashdeck: "Flash Deck",
-    blueprints: "Blueprints",
+    blueprints: "Library",
     blueprint: "Blueprints",
-    storyboards: "Storyboards",
+    storyboards: "Library",
     storyboard: "Storyboards",
     passwords: "Passwords",
   };
@@ -222,13 +219,13 @@
     {:else if app.view === "note"}
       <NoteView />
     {:else if app.view === "index"}
-      <SummaryView />
+      <LibraryView initialKind="all" />
     {:else if app.view === "article"}
       <ArticleView />
     {:else if app.view === "mirror"}
       <MirrorView />
     {:else if app.view === "feedback"}
-      <FeedbackBoardsView />
+      <LibraryView initialKind="board" />
     {:else if app.view === "feedback-board"}
       <FeedbackBoardView />
     {:else if app.view === "activity"}
@@ -238,11 +235,11 @@
     {:else if app.view === "passwords"}
       <PasswordsView />
     {:else if app.view === "blueprints"}
-      <BlueprintsView />
+      <LibraryView initialKind="blueprint" />
     {:else if app.view === "blueprint"}
       <BlueprintView />
     {:else if app.view === "storyboards"}
-      <StoryboardsView />
+      <LibraryView initialKind="storyboard" />
     {:else if app.view === "storyboard"}
       <StoryboardView />
     {:else}

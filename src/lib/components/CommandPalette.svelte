@@ -31,7 +31,7 @@
   // Destinations — double as the nav legend (label + what-it-is + shortcut).
   const destinations: Item[] = [
     { key: "go-home", group: "Go to", label: "Home", sub: "Today & your activity over time", hint: "⌘1", run: () => app.goHome(true) },
-    { key: "go-index", group: "Go to", label: "Summary", sub: "A catalog of everything you've made", hint: "⌘3", run: () => app.openIndex() },
+    { key: "go-index", group: "Go to", label: "Library", sub: "All your notes, articles, blueprints, boards & storyboards", hint: "⌘3", run: () => app.openIndex() },
     { key: "go-mirror", group: "Go to", label: "The Mirror", sub: "A data-portrait of your whole library", hint: "⌘4", run: () => app.openMirror() },
     { key: "go-feedback", group: "Go to", label: "Feedback", sub: "Kanban boards", hint: "⌘5", run: () => app.openFeedback() },
     { key: "go-activity", group: "Go to", label: "Activity", sub: "When you've been working", hint: "⌘6", run: () => app.openActivity() },
