@@ -3,14 +3,13 @@
 
   type Kind =
     | "note"
-    | "article"
     | "flashcard"
     | "blueprint"
     | "storyboard";
   type Props = { onClose: () => void };
   let { onClose }: Props = $props();
 
-  let kind = $state<Kind>("article");
+  let kind = $state<Kind>("note");
   let title = $state("");
   let titleInput: HTMLInputElement | undefined = $state();
 
@@ -20,7 +19,6 @@
   });
 
   const OPTIONS: { value: Kind; label: string; hue: number; hint: string }[] = [
-    { value: "article", label: "Article", hue: 268, hint: "Long-form, can embed other items" },
     { value: "note", label: "Note", hue: 217, hint: "Daily markdown note" },
     { value: "flashcard", label: "Flashcard", hue: 175, hint: "A card in your Flash Deck" },
     { value: "blueprint", label: "Blueprint", hue: 200, hint: "A design canvas for planning software" },

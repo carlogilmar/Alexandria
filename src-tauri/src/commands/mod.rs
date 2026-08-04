@@ -1,4 +1,3 @@
-pub mod articles;
 pub mod blueprints;
 pub mod checkins;
 pub mod export;

@@ -31,7 +31,7 @@
   // Destinations — double as the nav legend (label + what-it-is + shortcut).
   const destinations: Item[] = [
     { key: "go-home", group: "Go to", label: "Home", sub: "Today & your activity over time", hint: "⌘1", run: () => app.goHome(true) },
-    { key: "go-index", group: "Go to", label: "Library", sub: "All your notes, articles, blueprints, boards & storyboards", hint: "⌘3", run: () => app.openIndex() },
+    { key: "go-index", group: "Go to", label: "Library", sub: "All your notes, blueprints, boards & storyboards", hint: "⌘3", run: () => app.openIndex() },
     { key: "go-mirror", group: "Go to", label: "The Mirror", sub: "A data-portrait of your whole library", hint: "⌘4", run: () => app.openMirror() },
     { key: "go-feedback", group: "Go to", label: "Feedback", sub: "Kanban boards", hint: "⌘5", run: () => app.openFeedback() },
     { key: "go-activity", group: "Go to", label: "Activity", sub: "When you've been working", hint: "⌘6", run: () => app.openActivity() },
@@ -43,7 +43,6 @@
 
   const actions: Item[] = [
     { key: "new-note", group: "Create", label: "New note", run: () => app.newEntity("note", "") },
-    { key: "new-article", group: "Create", label: "New article", run: () => app.newEntity("article", "") },
     { key: "new-card", group: "Create", label: "New flashcard", run: () => app.newEntity("flashcard", "") },
     { key: "new-board", group: "Create", label: "New feedback board", run: () => app.newFeedbackBoard("New board") },
     { key: "new-storyboard", group: "Create", label: "New storyboard", run: () => app.newStoryboard() },
@@ -63,10 +62,6 @@
     for (const n of app.notes) {
       if (n.archived) continue;
       out.push({ key: `note-${n.id}`, group: "Notes", label: n.title, sub: n.date, run: () => app.selectNote(n.id) });
-    }
-    for (const a of app.articles) {
-      if (a.archived) continue;
-      out.push({ key: `art-${a.id}`, group: "Articles", label: a.title, run: () => app.selectArticle(a.id) });
     }
     for (const c of app.flashcards) {
       if (c.archived) continue;

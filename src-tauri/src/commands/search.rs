@@ -126,7 +126,7 @@ pub(crate) async fn daily_stats(
     .map_err(Into::into)
 }
 
-/// Per-week counts of created entities across notes / articles /
+/// Per-week counts of created entities across notes /
 /// lists. The result includes one row for every week between `from` and
 /// `to` inclusive, even if every count is zero — the UI grid needs a cell
 /// for each week. ISO week (Mon–Sun) via strftime('%Y-%W').
@@ -156,9 +156,6 @@ pub(crate) async fn weekly_activity(
                COALESCE((SELECT COUNT(*) FROM notes n
                           WHERE date(n.created_at) >= w.week_start
                             AND date(n.created_at) <  date(w.week_start, '+7 days')), 0) AS notes,
-               COALESCE((SELECT COUNT(*) FROM articles a
-                          WHERE date(a.created_at) >= w.week_start
-                            AND date(a.created_at) <  date(w.week_start, '+7 days')), 0) AS articles,
                COALESCE((SELECT COUNT(*) FROM lists l
                           WHERE date(l.created_at) >= w.week_start
                             AND date(l.created_at) <  date(w.week_start, '+7 days')
@@ -205,7 +202,7 @@ pub async fn get_daily_stats(
 }
 
 // Combined per-day activity for the contribution graph: completed todos (by
-// list date) + notes / articles / blueprints created (by created_at). Archived
+// list date) + notes / blueprints created (by created_at). Archived
 // and backlog items are excluded, matching the daily surfaces.
 pub(crate) async fn activity_stats(pool: &SqlitePool) -> AppResult<Vec<ActivityDay>> {
     sqlx::query_as::<_, ActivityDay>(
@@ -217,9 +214,6 @@ pub(crate) async fn activity_stats(pool: &SqlitePool) -> AppResult<Vec<ActivityD
              UNION ALL
              SELECT date(created_at) AS d, COUNT(*) AS c
                FROM notes WHERE archived = 0 GROUP BY d
-             UNION ALL
-             SELECT date(created_at) AS d, COUNT(*) AS c
-               FROM articles WHERE archived = 0 GROUP BY d
              UNION ALL
              SELECT date(created_at) AS d, COUNT(*) AS c
                FROM blueprints WHERE archived = 0 GROUP BY d
@@ -274,16 +268,11 @@ struct RawPoint {
 
 pub(crate) async fn mirror(pool: &SqlitePool) -> AppResult<MirrorData> {
     // Per-kind mass in unit-native terms; the frontend normalises across all.
-    let queries: [(&str, &str); 5] = [
+    let queries: [(&str, &str); 4] = [
         (
             "note",
             "SELECT id, title, created_at, length(body) AS mass
                FROM notes WHERE archived = 0",
-        ),
-        (
-            "article",
-            "SELECT id, title, created_at, length(body) AS mass
-               FROM articles WHERE archived = 0",
         ),
         (
             "blueprint",
@@ -383,13 +372,6 @@ mod tests {
         .await
         .unwrap();
         sqlx::query(
-            "INSERT INTO articles (title, body, created_at, updated_at)
-             VALUES ('a', '', datetime('now','localtime'), datetime('now','localtime'))",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-        sqlx::query(
             "INSERT INTO blueprints (title, created_at, updated_at)
              VALUES ('b', datetime('now','localtime'), datetime('now','localtime'))",
         )
@@ -403,11 +385,11 @@ mod tests {
             .await
             .unwrap();
         // 2 todos on the list (on 2026-05-10, regardless of completion)
-        // + 3 entities created today.
+        // + 2 entities created today (a note + a blueprint).
         let for_may10 = rows.iter().find(|r| r.date == "2026-05-10");
         assert_eq!(for_may10.map(|r| r.count), Some(2));
         let for_today = rows.iter().find(|r| r.date == today).map(|r| r.count);
-        assert_eq!(for_today, Some(3));
+        assert_eq!(for_today, Some(2));
     }
 
     #[tokio::test]

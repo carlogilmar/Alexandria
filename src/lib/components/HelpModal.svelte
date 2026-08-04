@@ -27,7 +27,6 @@
         { keys: "⌘ ⇧ N", label: "New note" },
         { keys: "⌘ ⇧ B", label: "New blueprint" },
         { keys: "⌘ ⇧ S", label: "Library" },
-        { keys: "⌘ ⇧ A", label: "Open the quick article (set it with the ★ in an article)" },
       ],
     },
     {

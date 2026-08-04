@@ -3,7 +3,6 @@
   import { app } from "$lib/stores/app.svelte";
   import TagBadges from "$lib/components/TagBadges.svelte";
   import type {
-    ArticleSummary,
     BlueprintSummary,
     FeedbackBoardSummary,
     Flashcard,
@@ -18,7 +17,6 @@
 
   type Kind =
     | "note"
-    | "article"
     | "blueprint"
     | "board"
     | "storyboard"
@@ -27,7 +25,6 @@
 
   const KINDS: { key: Kind; label: string; hue: number; icon: string; creatable: boolean; renamable: boolean }[] = [
     { key: "note", label: "Notes", hue: 217, icon: "note", creatable: true, renamable: false },
-    { key: "article", label: "Articles", hue: 268, icon: "article", creatable: true, renamable: false },
     { key: "blueprint", label: "Blueprints", hue: 200, icon: "blueprint", creatable: true, renamable: true },
     { key: "board", label: "Boards", hue: 350, icon: "board", creatable: true, renamable: true },
     { key: "storyboard", label: "Storyboards", hue: 158, icon: "storyboard", creatable: true, renamable: true },
@@ -38,7 +35,6 @@
   // Inline glyph paths per kind (currentColor line icons).
   const ICON: Record<string, string> = {
     note: '<path d="M5 3h7l3 3v11H5z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 8h5M8 11h5M8 14h3" stroke="currentColor" stroke-width="1.4"/>',
-    article: '<rect x="3.5" y="4" width="13" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6 8h8M6 11h8M6 14h5" stroke="currentColor" stroke-width="1.4"/>',
     blueprint: '<rect x="3" y="3" width="5" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="12" y="12" width="5" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 5.5h4v6.5" fill="none" stroke="currentColor" stroke-width="1.4"/>',
     board: '<rect x="3" y="3" width="4" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="8.5" y="3" width="4" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="14" y="3" width="3.5" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/>',
     storyboard: '<rect x="3" y="5" width="14" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7 5v10M13 5v10" stroke="currentColor" stroke-width="1.4"/>',
@@ -64,9 +60,6 @@
   }
   const plural = (n: number, w: string) => `${n} ${n === 1 ? w : w + "s"}`;
 
-  function articleRow(a: ArticleSummary): Row {
-    return { kind: "article", id: a.id, title: a.title, meta: fmtUpdated(a.updatedAt), pinned: a.pinned, archived: a.archived, badge: false, hue: 268, sortKey: a.updatedAt };
-  }
   function noteRow(n: NoteSummary): Row {
     return { kind: "note", id: n.id, title: n.title, meta: n.date, pinned: n.pinned, archived: n.archived, badge: false, hue: 217, sortKey: n.date };
   }
@@ -84,7 +77,6 @@
   }
 
   let rows = $derived<Row[]>([
-    ...app.articles.map(articleRow),
     ...app.notes.map(noteRow),
     ...app.blueprints.map(blueprintRow),
     ...app.storyboards.map(storyboardRow),
@@ -157,8 +149,7 @@
 
   // ----- actions -----
   function openItem(k: Kind, id: number) {
-    if (k === "article") app.selectArticle(id);
-    else if (k === "note") app.selectNote(id);
+if (k === "note") app.selectNote(id);
     else if (k === "board") app.openFeedbackBoard(id);
     else if (k === "blueprint") app.openBlueprint(id);
     else if (k === "storyboard") app.openStoryboard(id);
@@ -166,24 +157,21 @@
   }
   function togglePin(k: Kind, id: number, pinned: boolean) {
     const next = !pinned;
-    if (k === "article") app.setArticlePinnedById(id, next);
-    else if (k === "note") app.setNotePinnedById(id, next);
+if (k === "note") app.setNotePinnedById(id, next);
     else if (k === "board") app.setFeedbackBoardPinned(id, next);
     else if (k === "blueprint") app.setBlueprintPinned(id, next);
     else if (k === "storyboard") app.setStoryboardPinned(id, next);
     else app.toggleFlashcardPin(id);
   }
   function setArchived(k: Kind, id: number, val: boolean) {
-    if (k === "article") app.setArticleArchived(id, val);
-    else if (k === "note") app.setNoteArchived(id, val);
+if (k === "note") app.setNoteArchived(id, val);
     else if (k === "board") app.setFeedbackBoardArchived(id, val);
     else if (k === "blueprint") app.setBlueprintArchived(id, val);
     else if (k === "storyboard") app.setStoryboardArchived(id, val);
     else app.setFlashcardArchived(id, val);
   }
   function deleteItem(k: Kind, id: number) {
-    if (k === "article") app.deleteArticleById(id);
-    else if (k === "note") app.deleteNoteById(id);
+if (k === "note") app.deleteNoteById(id);
     else if (k === "board") app.deleteFeedbackBoard(id);
     else if (k === "blueprint") app.deleteBlueprint(id);
     else if (k === "storyboard") app.deleteStoryboard(id);

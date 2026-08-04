@@ -36,7 +36,7 @@
   const PAD = 14;
 
   // Hue palette mirroring the rest of the app.
-  const HUE = { note: 217, article: 268, list: 158 };
+  const HUE = { note: 217, list: 158 };
 
   function rangeFor(g: Granularity): { from: string; to: string } {
     const today = new Date();
@@ -69,13 +69,13 @@
   // auto-wraps to fit the container; we never need horizontal scroll.
   let visibleWeeks = $derived(
     app.weeklyActivity.filter(
-      (w) => w.notes + w.articles + w.lists > 0,
+      (w) => w.notes + w.lists > 0,
     ),
   );
 
   // Stats for visual scaling — computed only over visible (non-empty) weeks.
   let totals = $derived(
-    visibleWeeks.map((w) => w.notes + w.articles + w.lists),
+    visibleWeeks.map((w) => w.notes + w.lists),
   );
   let avgTotal = $derived(
     totals.length === 0 ? 0 : totals.reduce((a, b) => a + b, 0) / totals.length,
@@ -101,7 +101,7 @@
   }
 
   // Each kind anchors to one quadrant of the cell.
-  // 0 = note (TL), 1 = article (TR), 3 = list (BR)
+  // 0 = note (TL), 3 = list (BR)
   function anchor(slot: number): { ax: number; ay: number } {
     const half = (CELL - PAD * 2) / 4;
     const q1 = PAD + half;
@@ -122,24 +122,10 @@
   }
 
   // Figure renderer paths (centered at 0,0).
-  function pathFor(kind: "note" | "article" | "list", r: number): string {
+  function pathFor(kind: "note" | "list", r: number): string {
     if (kind === "note") {
       // circle
       return `M ${-r} 0 a ${r} ${r} 0 1 0 ${2 * r} 0 a ${r} ${r} 0 1 0 ${-2 * r} 0`;
-    }
-    if (kind === "article") {
-      // rounded square
-      const k = r;
-      const rad = r / 3;
-      return `M ${-k + rad} ${-k}
-              L ${k - rad} ${-k}
-              Q ${k} ${-k} ${k} ${-k + rad}
-              L ${k} ${k - rad}
-              Q ${k} ${k} ${k - rad} ${k}
-              L ${-k + rad} ${k}
-              Q ${-k} ${k} ${-k} ${k - rad}
-              L ${-k} ${-k + rad}
-              Q ${-k} ${-k} ${-k + rad} ${-k} Z`;
     }
     // hexagon
     const sides = 6;
@@ -160,7 +146,7 @@
   const GHOST = 2;
 
   function totalOf(w: WeeklyActivity): number {
-    return w.notes + w.articles + w.lists;
+    return w.notes + w.lists;
   }
 
   function fmtWeek(w: WeeklyActivity): string {
@@ -194,7 +180,7 @@
       </h1>
       <p class="text-xs text-neutral-500 dark:text-neutral-400">
         {tab === "activity"
-          ? "Each cell is one week. Three figures = notes · articles · lists."
+          ? "Each cell is one week. Two figures = notes · lists."
           : "Camera check-ins captured when you create a today's list."}
       </p>
     </div>
@@ -330,8 +316,6 @@
           {@const isToday = w.weekStart <= todayIso && todayIso < addDays(w.weekStart, 7)}
           {@const aNote = anchor(0)}
           {@const jNote = jitter(w.weekStart, 0)}
-          {@const aArt = anchor(1)}
-          {@const jArt = jitter(w.weekStart, 1)}
           {@const aLs = anchor(3)}
           {@const jLs = jitter(w.weekStart, 3)}
           <button
@@ -374,18 +358,6 @@
                 <circle cx={aNote.ax} cy={aNote.ay} r={GHOST} fill="none" stroke={`hsl(${HUE.note} 30% 60%)`} stroke-width="1"/>
               {/if}
 
-              <!-- Article (TR) -->
-              {#if w.articles > 0}
-                <path
-                  d={pathFor("article", radius(w.articles))}
-                  transform={`translate(${aArt.ax + jArt.dx},${aArt.ay + jArt.dy})`}
-                  fill={`hsl(${HUE.article} 78% 55%)`}
-                  opacity="0.9"
-                />
-              {:else}
-                <circle cx={aArt.ax} cy={aArt.ay} r={GHOST} fill="none" stroke={`hsl(${HUE.article} 30% 60%)`} stroke-width="1"/>
-              {/if}
-
               <!-- List (BR) -->
               {#if w.lists > 0}
                 <path
@@ -422,10 +394,6 @@
         <span class="inline-flex items-center gap-1.5">
           <span class="inline-block h-2.5 w-2.5 rounded-full" style="background: hsl({HUE.note} 78% 55%);"></span>
           {hovered.notes} notes
-        </span>
-        <span class="inline-flex items-center gap-1.5">
-          <span class="inline-block h-2.5 w-2.5 rounded-sm" style="background: hsl({HUE.article} 78% 55%);"></span>
-          {hovered.articles} articles
         </span>
         <span class="inline-flex items-center gap-1.5">
           <span class="inline-block h-2.5 w-2.5" style="background: hsl({HUE.list} 78% 55%); clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);"></span>

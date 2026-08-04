@@ -32,12 +32,11 @@
 
   const TYPES: { key: MirrorKind; label: string }[] = [
     { key: "note", label: "Notes" },
-    { key: "article", label: "Articles" },
     { key: "blueprint", label: "Blueprints" },
     { key: "board", label: "Boards" },
     { key: "storyboard", label: "Storyboards" },
   ];
-  const TYPE_ORDER: MirrorKind[] = ["note", "article", "blueprint", "board", "storyboard"];
+  const TYPE_ORDER: MirrorKind[] = ["note", "blueprint", "board", "storyboard"];
   // Orb colours are derived as a COMPLEMENT of the active bar palette (opposite
   // hue), spread into five coordinated tones — so a shuffle re-themes the whole
   // scene at once. Recomputed when the palette or light/dark changes.
@@ -291,7 +290,6 @@
 
   const MASSLABEL: Record<MirrorKind, (m: number) => string> = {
     note: (m) => `${m.toLocaleString()} chars`,
-    article: (m) => `${m.toLocaleString()} chars`,
     blueprint: (m) => `${m} nodes + edges`,
     board: (m) => `${m} cards + comments`,
     storyboard: (m) => `${m} nodes + pages`,
@@ -362,7 +360,6 @@
     const p = h.ref.ref;
     switch (p.kind) {
       case "note": app.selectNote(p.id); break;
-      case "article": app.selectArticle(p.id); break;
       case "blueprint": app.openBlueprint(p.id); break;
       case "board": app.openFeedbackBoard(p.id); break;
       case "storyboard": app.openStoryboard(p.id); break;
@@ -555,7 +552,7 @@
     <div class="center-note">Reflecting your library…</div>
   {:else if app.mirror && app.mirror.points.length === 0 && app.mirror.lists.length === 0}
     <div class="center-note">
-      Nothing to mirror yet. Create some notes, articles, blueprints, boards or storyboards.
+      Nothing to mirror yet. Create some notes, blueprints, boards or storyboards.
     </div>
   {/if}
 
@@ -565,7 +562,7 @@
       <h1 class="title">The Mirror</h1>
       <p class="caption">
         Your daily work as terrain — one bar per list, height &amp; colour = tasks. Above float your
-        <b>notes</b>; below, the <b>articles, blueprints, boards &amp; storyboards</b>, sized by
+        <b>notes</b>; below, the <b>blueprints, boards &amp; storyboards</b>, sized by
         weight. Click any orb to open it.
       </p>
     </div>

@@ -1,5 +1,4 @@
-// Shared markdown-it configuration for every markdown surface (notes,
-// articles). Centralizing it means the link behavior and the inline
+// Shared markdown-it configuration for every markdown surface (notes). Centralizing it means the link behavior and the inline
 // ```mermaid fence support live in one place instead of being copy-pasted
 // into each editor.
 
@@ -216,7 +215,7 @@ const CARD_SOLID = new Set([
 ]);
 const CARD_GRADIENT = new Set(["sunset", "ocean", "forest", "dusk", "candy"]);
 const CARD_ENTITY =
-  /^(note|list|article|flashcard|blueprint|storyboard):(\d+)$/;
+  /^(note|list|flashcard|blueprint|storyboard):(\d+)$/;
 
 // ```workflow → a numbered chain of steps. One step per non-empty line;
 // `backtick` segments render as tag badges (matching the old workflow entity's

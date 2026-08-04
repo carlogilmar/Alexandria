@@ -4,7 +4,6 @@
   type LinkKind =
     | "note"
     | "list"
-    | "article"
     | "flashcard"
     | "blueprint";
   type Item = { kind: LinkKind; id: number; title: string; sub: string };
@@ -25,7 +24,6 @@
 
   const KIND_HUE: Record<LinkKind, number> = {
     note: 217,
-    article: 268,
     list: 152,
     flashcard: 175,
     blueprint: 200,
@@ -38,10 +36,6 @@
     for (const n of app.notes) {
       if (n.archived) continue;
       out.push({ kind: "note", id: n.id, title: n.title, sub: n.date });
-    }
-    for (const a of app.articles) {
-      if (a.archived) continue;
-      out.push({ kind: "article", id: a.id, title: a.title, sub: "article" });
     }
     for (const l of app.lists) {
       if (l.archived) continue;
@@ -115,7 +109,7 @@
         bind:this={searchInput}
         bind:value={query}
         type="text"
-        placeholder="Link to a note, list, or article…"
+        placeholder="Link to a note or list…"
         class="w-full rounded-md border border-neutral-300/70 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/70 dark:bg-neutral-900/40 dark:text-neutral-100"
       />
     </div>

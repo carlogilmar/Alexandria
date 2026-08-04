@@ -48,8 +48,8 @@
     {
       title: "Links & embeds",
       rows: [
-        { syntax: "[label](note:5)", does: "Link to a note / article / list / flashcard / blueprint (use the link button)" },
-        { syntax: "{{note:5}}  (articles only, own line)", does: "Embed a note / article / list / todo / flashcard inline" },
+        { syntax: "[label](note:5)", does: "Link to a note / list / flashcard / blueprint (use the link button)" },
+        { syntax: "{{note:5}}  (own line)", does: "Embed a note / list / todo / flashcard inline" },
         { syntax: "![alt](url)  or paste an image", does: "Image (also via Insert image)" },
       ],
     },
@@ -59,7 +59,7 @@
         { syntax: "```cards … ```", does: "A grid of clickable tiles. One card per block, blocks separated by a --- line. Use the Insert cards button for a template." },
         { syntax: "title: My site", does: "Card heading (the only required field)" },
         { syntax: "desc: Short description", does: "Small description line" },
-        { syntax: "link: https://…  or  blueprint:12", does: "External URL (opens in browser) or an internal entity note/list/article/flashcard/blueprint:id (opens in-app). Omit for a non-clickable card." },
+        { syntax: "link: https://…  or  blueprint:12", does: "External URL (opens in browser) or an internal entity note/list/flashcard/blueprint:id (opens in-app). Omit for a non-clickable card." },
         { syntax: "color: blue", does: "Tint: red · orange · amber · green · teal · blue · violet · pink · gray · black.  Gradients: sunset · ocean · forest · dusk · candy" },
         { syntax: "filled: true", does: "Bold, darker saturated background with white text (solid colors only)" },
         { syntax: "icon: 📊", does: "Any emoji, shown top-left" },
@@ -89,7 +89,7 @@
         { syntax: "```progress … ```", does: "One labeled bar per `Label: value` line. Use the Progress bars slash command for a template." },
         { syntax: "Tasks: 4/10", does: "Value as a fraction (4/10), a percent (60%), or a bare 0–100." },
         { syntax: "Reading: 60% teal", does: "Optional trailing color or gradient (see “Colors & gradients”)." },
-        { syntax: "−  /  +  (fraction bars)", does: "In notes & articles a `n/d` bar shows −/+ buttons — click to step the count; it saves." },
+        { syntax: "−  /  +  (fraction bars)", does: "In notes a `n/d` bar shows −/+ buttons — click to step the count; it saves." },
         { syntax: "at 100%", does: "The bar turns solid green and shows COMPLETE." },
       ],
     },

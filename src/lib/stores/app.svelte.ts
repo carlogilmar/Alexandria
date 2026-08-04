@@ -89,14 +89,6 @@ import {
   deleteNote as deleteNoteIpc,
   setNotePinned,
   setNoteArchived,
-  setArticleArchived,
-  listArticles,
-  articleById,
-  createArticle as createArticleIpc,
-  renameArticle as renameArticleIpc,
-  updateArticleBody,
-  deleteArticle as deleteArticleIpc,
-  setArticlePinned,
   listBlueprints,
   createBlueprint as createBlueprintIpc,
   renameBlueprint as renameBlueprintIpc,
@@ -155,8 +147,6 @@ import {
   createFlashcardCategory as createFlashcardCategoryIpc,
   updateFlashcardCategory as updateFlashcardCategoryIpc,
   deleteFlashcardCategory as deleteFlashcardCategoryIpc,
-  type Article,
-  type ArticleSummary,
   type DayStats,
   type ActivityDay,
   type FeedbackBoardSummary,
@@ -187,14 +177,6 @@ export function todayIso(): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
-}
-
-const QUICK_ARTICLE_KEY = "quickArticleId";
-function readQuickArticleId(): number | null {
-  if (typeof localStorage === "undefined") return null;
-  const v = localStorage.getItem(QUICK_ARTICLE_KEY);
-  const n = v ? Number(v) : NaN;
-  return Number.isFinite(n) ? n : null;
 }
 
 export function defaultListTitleForDate(dateIso: string): string {
@@ -228,7 +210,6 @@ type NavLoc =
   | { view: "home" }
   | { view: "list"; id: number }
   | { view: "note"; id: number }
-  | { view: "article"; id: number }
   | { view: "feedback-board"; id: number }
   | { view: "blueprint"; id: number }
   | { view: "storyboard"; id: number }
@@ -250,7 +231,6 @@ class AppStore {
     | "list"
     | "note"
     | "index"
-    | "article"
     | "mirror"
     | "feedback"
     | "feedback-board"
@@ -290,11 +270,6 @@ class AppStore {
   notes = $state<NoteSummary[]>([]);
   selectedNote = $state<Note | null>(null);
 
-  articles = $state<ArticleSummary[]>([]);
-  selectedArticle = $state<Article | null>(null);
-  // A single "quick access" article the user designates (e.g. a references
-  // doc), openable via ⌘⇧A / a Stream Deck button. Persisted in localStorage.
-  quickArticleId = $state<number | null>(readQuickArticleId());
 
   allTodos = $state<TodoHit[]>([]);
 
@@ -316,7 +291,7 @@ class AppStore {
   searchResults = $state<TodoHit[]>([]);
   stats = $state<Stats>({ totalLists: 0, totalTodos: 0, streak: 0 });
   dailyStats = $state<DayStats[]>([]);
-  // Combined per-day activity (todos done + notes/articles/blueprints created)
+  // Combined per-day activity (todos done + notes/blueprints created)
   // for the Focus-mode contribution graph.
   activityStats = $state<ActivityDay[]>([]);
 
@@ -403,7 +378,6 @@ class AppStore {
       this.checkins = await listCheckins();
       this.allTags = await listTags();
       this.notes = await listNotes();
-      this.articles = await listArticles();
       this.allTodos = await listAllTodos();
       this.indexDoc = await getIndexDoc();
       await this.refreshFeedbackBoards();
@@ -431,10 +405,6 @@ class AppStore {
       case "note":
         return this.selectedNote
           ? { view: "note", id: this.selectedNote.id }
-          : null;
-      case "article":
-        return this.selectedArticle
-          ? { view: "article", id: this.selectedArticle.id }
           : null;
       case "feedback-board":
         return this.selectedFeedbackBoardId !== null
@@ -500,9 +470,6 @@ class AppStore {
         case "note":
           await this.selectNote(loc.id);
           break;
-        case "article":
-          await this.selectArticle(loc.id);
-          break;
         case "index":
           await this.openIndex();
           break;
@@ -548,7 +515,6 @@ class AppStore {
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
     this.selectedNote = null;
-    this.selectedArticle = null;
     if (focusToday) this.homeFocusedDate = todayIso();
     // Defensive: refresh stats + daily grid so the welcome page always
     // reflects the latest state, even if some mutation slipped past.
@@ -557,7 +523,6 @@ class AppStore {
       this.dailyStats = await getDailyStats(null, null);
       this.lists = await listAll();
       this.notes = await listNotes();
-      this.articles = await listArticles();
       this.allTodos = await listAllTodos();
       await this.refreshFeedbackBoards();
       await this.refreshFlashcards();
@@ -580,7 +545,6 @@ class AppStore {
       this.todos = [];
       this.selectedTodoId = null;
       this.selectedTodoTags = [];
-      this.selectedArticle = null;
       this.selectedNote = await noteById(id);
     } catch (e) {
       this.error = String(e);
@@ -663,7 +627,7 @@ class AppStore {
       this.focusTodos = await listTodos(list.id);
     }
     // Refresh the contribution graph data so it reflects everything created
-    // since the app loaded (notes/articles/blueprints as well as todos).
+    // since the app loaded (notes/blueprints as well as todos).
     this.activityStats = await getActivityStats();
     this.focusMode = true;
   }
@@ -743,29 +707,6 @@ class AppStore {
     await this.refreshLists();
   }
 
-  // Designate / clear the single "quick access" article.
-  toggleQuickArticle(id: number) {
-    this.quickArticleId = this.quickArticleId === id ? null : id;
-    if (typeof localStorage !== "undefined") {
-      if (this.quickArticleId === null) {
-        localStorage.removeItem(QUICK_ARTICLE_KEY);
-        this.setFlash("Quick article cleared");
-      } else {
-        localStorage.setItem(QUICK_ARTICLE_KEY, String(this.quickArticleId));
-        this.setFlash("Set as quick article (⌘⇧A)");
-      }
-    }
-  }
-
-  // Open the designated quick article, if it still exists.
-  async openQuickArticle() {
-    const id = this.quickArticleId;
-    if (id === null || !this.articles.some((a) => a.id === id)) {
-      this.setFlash("No quick article set — open an article and press the ★");
-      return;
-    }
-    await this.selectArticle(id);
-  }
 
   // ---- Index doc ----
 
@@ -777,7 +718,6 @@ class AppStore {
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
     this.selectedNote = null;
-    this.selectedArticle = null;
     try {
       this.indexDoc = await getIndexDoc();
     } catch (e) {
@@ -800,7 +740,6 @@ class AppStore {
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
     this.selectedNote = null;
-    this.selectedArticle = null;
 
     const fresh = Date.now() - this.mirrorLoadedAt < AppStore.MIRROR_TTL_MS;
     if (this.mirror && fresh && !force) return;
@@ -832,7 +771,6 @@ class AppStore {
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
     this.selectedNote = null;
-    this.selectedArticle = null;
     await this.refreshVault();
   }
 
@@ -966,7 +904,6 @@ class AppStore {
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
     this.selectedNote = null;
-    this.selectedArticle = null;
     this.selectedBlueprint = null;
     await this.refreshBlueprints();
   }
@@ -1289,7 +1226,6 @@ class AppStore {
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
     this.selectedNote = null;
-    this.selectedArticle = null;
   }
 
   async openStoryboards() {
@@ -1619,72 +1555,6 @@ class AppStore {
     }
   }
 
-  // ---- Articles ----
-
-  async refreshArticles() {
-    this.articles = await listArticles();
-  }
-
-  async selectArticle(id: number) {
-    this.recordNav();
-    try {
-      this.view = "article";
-      this.selected = null;
-      this.todos = [];
-      this.selectedTodoId = null;
-      this.selectedTodoTags = [];
-      this.selectedNote = null;
-      this.selectedArticle = await articleById(id);
-    } catch (e) {
-      this.error = String(e);
-    }
-  }
-
-  async newArticle(title = "New article") {
-    const created = await createArticleIpc(title);
-    await this.refreshArticles();
-    await this.selectArticle(created.id);
-  }
-
-  async renameSelectedArticle(title: string) {
-    if (!this.selectedArticle) return;
-    const updated = await renameArticleIpc(this.selectedArticle.id, title);
-    this.selectedArticle = updated;
-    await this.refreshArticles();
-  }
-
-  async updateSelectedArticleBody(body: string) {
-    if (!this.selectedArticle) return;
-    if (body === this.selectedArticle.body) return;
-    const updated = await updateArticleBody(this.selectedArticle.id, body);
-    this.selectedArticle = updated;
-    await this.refreshArticles();
-  }
-
-  async deleteSelectedArticle() {
-    if (!this.selectedArticle) return;
-    const ok = await confirm(
-      `"${this.selectedArticle.title}" will be permanently removed.`,
-      { title: "Delete this article?", kind: "warning" },
-    );
-    if (!ok) return;
-    await deleteArticleIpc(this.selectedArticle.id);
-    this.selectedArticle = null;
-    this.view = "home";
-    await this.refreshArticles();
-    this.setFlash("Article deleted");
-  }
-
-  async toggleSelectedArticlePin() {
-    if (!this.selectedArticle) return;
-    const next = !this.selectedArticle.pinned;
-    this.selectedArticle = await setArticlePinned(
-      this.selectedArticle.id,
-      next,
-    );
-    await this.refreshArticles();
-    this.setFlash(next ? "Pinned" : "Unpinned");
-  }
 
   // ---- Pin toggles (shared) ----
 
@@ -1712,12 +1582,6 @@ class AppStore {
     this.setFlash(pinned ? "Pinned" : "Unpinned");
   }
 
-  async setArticlePinnedById(id: number, pinned: boolean) {
-    await setArticlePinned(id, pinned);
-    await this.refreshArticles();
-    this.setFlash(pinned ? "Pinned" : "Unpinned");
-  }
-
   async setListPinnedById(id: number, pinned: boolean) {
     await setListPinned(id, pinned);
     await this.refreshLists();
@@ -1732,12 +1596,6 @@ class AppStore {
     this.setFlash(archived ? "Archived" : "Unarchived");
   }
 
-  async setArticleArchived(id: number, archived: boolean) {
-    await setArticleArchived(id, archived);
-    await this.refreshArticles();
-    this.setFlash(archived ? "Archived" : "Unarchived");
-  }
-
 
   async setListArchived(id: number, archived: boolean) {
     if (archived) await archiveList(id);
@@ -1749,15 +1607,13 @@ class AppStore {
   // ---- Generic "new entity" used by the sidebar's Add modal ----
 
   async newEntity(
-    kind: "note" | "article" | "flashcard" | "blueprint" | "storyboard",
+    kind: "note" | "flashcard" | "blueprint" | "storyboard",
     title: string,
   ) {
     const t = title.trim();
     if (kind === "note") {
       const finalTitle = t || `Note — ${defaultListTitleForDate(todayIso())}`;
       await this.newNote(undefined, finalTitle);
-    } else if (kind === "article") {
-      await this.newArticle(t || "New article");
     } else if (kind === "flashcard") {
       await this.openFlashDeck();
       await this.newFlashcard(t || "New card");
@@ -1784,25 +1640,10 @@ class AppStore {
     this.setFlash("Note deleted");
   }
 
-  async deleteArticleById(id: number) {
-    const article = this.articles.find((a) => a.id === id);
-    const label = article?.title ?? `article ${id}`;
-    const ok = await confirm(`"${label}" will be permanently removed.`, {
-      title: "Delete this article?",
-      kind: "warning",
-    });
-    if (!ok) return;
-    await deleteArticleIpc(id);
-    await this.refreshArticles();
-    if (this.selectedArticle?.id === id) this.selectedArticle = null;
-    this.setFlash("Article deleted");
-  }
-
   async select(id: number) {
     this.recordNav();
     this.view = "list";
     this.selectedNote = null;
-    this.selectedArticle = null;
     if (this.selected?.id === id) return;
     try {
       this.selected = await listById(id);
@@ -2130,7 +1971,6 @@ class AppStore {
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
     this.selectedNote = null;
-    this.selectedArticle = null;
     this.selectedFeedbackBoardId = null;
     this.selectedFeedbackCardId = null;
     await this.refreshFeedbackBoards();
@@ -2328,7 +2168,6 @@ class AppStore {
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
     this.selectedNote = null;
-    this.selectedArticle = null;
     this.selectedFlashcardId = null;
     await this.refreshFlashcards();
     await this.refreshFlashcardCategories();
@@ -2462,7 +2301,6 @@ class AppStore {
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
     this.selectedNote = null;
-    this.selectedArticle = null;
     await this.refreshWeeklyActivity();
   }
 

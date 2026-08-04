@@ -1,7 +1,7 @@
 # Alexandria
 
 A single-user desktop personal knowledge system: daily lists, notes,
-articles, design canvases ("Blueprints"), a kanban for
+design canvases ("Blueprints"), a kanban for
 feedback planning, and two visualizations of activity. All data lives
 on-device. (The original single shared canvas — the "Alexandria" map —
 was removed in Sprint 40; Blueprints superseded it.)
@@ -123,7 +123,7 @@ UI event in a *.svelte component
 destination, add a string to the union, add a `route` case, add a
 sidebar button.
 
-Current view values: `home · list · note · index · article ·
+Current view values: `home · list · note · index ·
 mirror · feedback · feedback-board · activity · flashdeck ·
 blueprints · blueprint · storyboards · storyboard · passwords`.
 
@@ -286,9 +286,11 @@ numbered, applied at startup. To add one:
 - `workflows` + `workflow_steps`: REMOVED in Sprint 50 (migration `0026`
   drops both). The workflow entity is gone — replaced by a ```workflow
   markdown block (numbered step chain; `renderWorkflow` in markdownit.ts).
-- `notes` / `articles`: markdown bodies, day-attached (notes) or
-  free-form (articles), with `{{kind:id}}` embed tokens parsed
-  client-side in articles.
+- `notes`: markdown bodies, day-attached (have a `date`), pinned/archived.
+  (The `articles` entity was REMOVED in Sprint 51 — migration `0027` drops
+  the table; powered markdown absorbed its "wrap other entities" role, so
+  it was just a note. The `{{kind:id}}` embed feature + `EmbedBlock` went
+  with it — notes never embedded.)
 - `index_doc`: legacy single-row markdown summary, preserved for data
   safety but unused in UI.
 - `map_nodes` + `map_edges`: **REMOVED in Sprint 40** (migration `0021`
@@ -409,7 +411,25 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 50 (Removed the Workflow entity; added a ```workflow
+Last updated: end of Sprint 51 (Removed the Article entity — powered markdown
+(link cards + entity links) absorbed its "wrap other entities" role, so articles
+were just notes; the author migrated them into notes manually. Full-stack removal
+mirroring Sprint 50: migration `0027_drop_articles.sql` (DROP `articles`); deleted
+`commands/articles.rs` (+ mod/8 handlers) and models `Article`/`ArticleSummary`;
+`WeeklyActivity` lost its `articles` count and `activity_stats`/`get_mirror` stopped
+querying articles (mirror test now expects 2 today-entities). Frontend: deleted
+`ArticleView`, `ArticleEditor`, and **`EmbedBlock`** (the sole `{{…}}` transclusion
+surface — gone with articles; notes never embedded), removed the article slice from
+the store (state, `article` view/NavLoc, all `*Article*` methods, the quick-article
+feature `quickArticleId`/`toggleQuickArticle`/`openQuickArticle`/⌘⇧A, nav switches),
+and the `article` kind everywhere — Library, Sidebar pins, AddEntityModal,
+CommandPalette, EntityLinkPicker, IdChip, MarkdownEditor (entity-link regex +
+navigate), markdownit CARD_ENTITY, Welcome (empty-state + Jump-back-in), MirrorView
+(type/hue/navigate/copy), HelpModal (⌘⇧A), `+page` (view/label/dispatch/shortcut).
+`ActivityView`'s Kandinsky weekly cell now shows 2 figures (notes·lists) not 3.
+Embeds + `{{…}}` are gone (old embeds/`article:` links are inert — acceptable).
+90 cargo tests + svelte-check + build all pass. See documentation/SPRINT51.md.
+— earlier: Sprint 50 (Removed the Workflow entity; added a ```workflow
 markdown block. The author doesn't create workflows, so the full CRUD entity was
 retired. NEW BLOCK: `renderWorkflow` in `$lib/markdownit.ts` (synchronous fence) —
 one step per non-empty line, `` `backtick` `` segments → tag badges; numbered blue

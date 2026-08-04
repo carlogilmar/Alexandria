@@ -66,11 +66,11 @@ export type DayStats = {
 
 export type ActivityDay = {
   date: string; // YYYY-MM-DD
-  count: number; // completed todos + notes/articles/blueprints created that day
+  count: number; // completed todos + notes/blueprints created that day
 };
 
 // "The Mirror" (Sprint 46) — a data-portrait of the whole corpus.
-export type MirrorKind = "note" | "article" | "blueprint" | "board" | "storyboard";
+export type MirrorKind = "note" | "blueprint" | "board" | "storyboard";
 export type MirrorPoint = {
   kind: MirrorKind;
   id: number;
@@ -112,25 +112,6 @@ export type IndexDoc = {
   body: string;
   updatedAt: string;
 };
-
-export type Article = {
-  id: number;
-  title: string;
-  body: string;
-  pinned: boolean;
-  archived: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type ArticleSummary = {
-  id: number;
-  title: string;
-  pinned: boolean;
-  archived: boolean;
-  updatedAt: string;
-};
-
 
 export type FeedbackBoard = {
   id: number;
@@ -184,7 +165,6 @@ export type FeedbackCardComment = {
 export type WeeklyActivity = {
   weekStart: string;
   notes: number;
-  articles: number;
   lists: number;
 };
 
@@ -266,22 +246,6 @@ export const setNotePinned = (id: number, pinned: boolean) =>
 export const setNoteArchived = (id: number, archived: boolean) =>
   invoke<Note>("set_note_archived", { id, archived });
 
-// Articles
-export const listArticles = () => invoke<ArticleSummary[]>("list_articles");
-export const articleById = (id: number) =>
-  invoke<Article>("article_by_id", { id });
-export const createArticle = (title: string) =>
-  invoke<Article>("create_article", { title });
-export const renameArticle = (id: number, title: string) =>
-  invoke<Article>("rename_article", { id, title });
-export const updateArticleBody = (id: number, body: string) =>
-  invoke<Article>("update_article_body", { id, body });
-export const deleteArticle = (id: number) =>
-  invoke<void>("delete_article", { id });
-export const setArticlePinned = (id: number, pinned: boolean) =>
-  invoke<Article>("set_article_pinned", { id, pinned });
-export const setArticleArchived = (id: number, archived: boolean) =>
-  invoke<Article>("set_article_archived", { id, archived });
 
 // Index doc
 export const getIndexDoc = () => invoke<IndexDoc>("get_index_doc");

@@ -13,7 +13,6 @@
   let isEmpty = $derived(
     app.lists.length === 0 &&
       app.notes.length === 0 &&
-      app.articles.length === 0 &&
       app.flashcards.length === 0 &&
       app.feedbackBoards.length === 0,
   );
@@ -62,13 +61,12 @@
   }
 
   // ----- Jump back in (recent entities across kinds) -----
-  type RKind = "note" | "article" | "blueprint" | "board" | "storyboard";
+  type RKind = "note" | "blueprint" | "board" | "storyboard";
   type Recent = { kind: RKind; id: number; title: string; ts: string };
   const toTs = (raw: string) => (raw.length <= 10 ? raw + "T00:00:00" : raw.replace(" ", "T"));
   let recent = $derived.by<Recent[]>(() => {
     const items: Recent[] = [
       ...app.notes.filter((n) => !n.archived).map((n) => ({ kind: "note" as const, id: n.id, title: n.title, ts: toTs(n.date) })),
-      ...app.articles.filter((a) => !a.archived).map((a) => ({ kind: "article" as const, id: a.id, title: a.title, ts: toTs(a.updatedAt) })),
       ...app.blueprints.filter((b) => !b.archived).map((b) => ({ kind: "blueprint" as const, id: b.id, title: b.title, ts: toTs(b.updatedAt) })),
       ...app.storyboards.filter((s) => !s.archived).map((s) => ({ kind: "storyboard" as const, id: s.id, title: s.title, ts: toTs(s.updatedAt) })),
       ...app.feedbackBoards.filter((b) => !b.archived).map((b) => ({ kind: "board" as const, id: b.id, title: b.title, ts: toTs(b.updatedAt) })),
@@ -77,20 +75,18 @@
   });
   function openRecent(r: Recent) {
     if (r.kind === "note") app.selectNote(r.id);
-    else if (r.kind === "article") app.selectArticle(r.id);
     else if (r.kind === "blueprint") app.openBlueprint(r.id);
     else if (r.kind === "storyboard") app.openStoryboard(r.id);
     else app.openFeedbackBoard(r.id);
   }
-  const HUE: Record<RKind, number> = { note: 217, article: 268, blueprint: 200, board: 350, storyboard: 158 };
+  const HUE: Record<RKind, number> = { note: 217, blueprint: 200, board: 350, storyboard: 158 };
   const RICON: Record<RKind, string> = {
     note: '<path d="M5 3h7l3 3v11H5z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 8h5M8 11h5M8 14h3" stroke="currentColor" stroke-width="1.5"/>',
-    article: '<rect x="3.5" y="4" width="13" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 8h8M6 11h8M6 14h5" stroke="currentColor" stroke-width="1.5"/>',
     blueprint: '<rect x="3" y="3" width="5" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="12" y="12" width="5" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 5.5h4v6.5" fill="none" stroke="currentColor" stroke-width="1.5"/>',
     board: '<rect x="3" y="3" width="4" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="8.5" y="3" width="4" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="3" width="3.5" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>',
     storyboard: '<rect x="3" y="5" width="14" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 5v10M13 5v10" stroke="currentColor" stroke-width="1.5"/>',
   };
-  const RLABEL: Record<RKind, string> = { note: "Note", article: "Article", blueprint: "Blueprint", board: "Board", storyboard: "Storyboard" };
+  const RLABEL: Record<RKind, string> = { note: "Note", blueprint: "Blueprint", board: "Board", storyboard: "Storyboard" };
   function fmtAgo(ts: string): string {
     const days = Math.floor((Date.now() - new Date(ts).getTime()) / 86400000);
     if (days <= 0) return "today";
@@ -231,7 +227,7 @@
         </button>
       </div>
       <ul class="flex flex-col gap-2 text-sm text-neutral-700 dark:text-neutral-200">
-        <li class="flex items-center gap-2"><kbd class="rounded border border-neutral-300/70 px-1.5 py-0.5 font-mono text-[11px] dark:border-neutral-600/70">＋ Add</kbd> a note, article, blueprint, or flashcard from the sidebar.</li>
+        <li class="flex items-center gap-2"><kbd class="rounded border border-neutral-300/70 px-1.5 py-0.5 font-mono text-[11px] dark:border-neutral-600/70">＋ Add</kbd> a note, blueprint, or flashcard from the sidebar.</li>
         <li class="flex items-center gap-2"><kbd class="rounded border border-neutral-300/70 px-1.5 py-0.5 font-mono text-[11px] dark:border-neutral-600/70">⌘K</kbd> search everything and jump to any section.</li>
         <li class="flex items-center gap-2"><kbd class="rounded border border-neutral-300/70 px-1.5 py-0.5 font-mono text-[11px] dark:border-neutral-600/70">?</kbd> see all shortcuts and the formatting reference.</li>
       </ul>

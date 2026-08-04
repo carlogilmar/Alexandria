@@ -88,7 +88,7 @@
   });
 
   // ----- Unified Pinned list (Sprint 49) -----
-  type PinKind = "note" | "article" | "blueprint" | "storyboard" | "board" | "flashcard";
+  type PinKind = "note" | "blueprint" | "storyboard" | "board" | "flashcard";
   type Pin = {
     key: string;
     kind: PinKind;
@@ -101,7 +101,6 @@
   };
   const ICON: Record<PinKind, string> = {
     note: '<path d="M5 3h7l3 3v11H5z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 8h5M8 11h5M8 14h3" stroke="currentColor" stroke-width="1.5"/>',
-    article: '<rect x="3.5" y="4" width="13" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 8h8M6 11h8M6 14h5" stroke="currentColor" stroke-width="1.5"/>',
     blueprint: '<rect x="3" y="3" width="5" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="12" y="12" width="5" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 5.5h4v6.5" fill="none" stroke="currentColor" stroke-width="1.5"/>',
     storyboard: '<rect x="3" y="5" width="14" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 5v10M13 5v10" stroke="currentColor" stroke-width="1.5"/>',
     board: '<rect x="3" y="3" width="4" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="8.5" y="3" width="4" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="3" width="3.5" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>',
@@ -110,7 +109,6 @@
 
   let allPins = $derived<Pin[]>([
     ...app.notes.filter((n) => n.pinned && !n.archived).map((n) => ({ key: `note:${n.id}`, kind: "note" as const, id: n.id, title: n.title, meta: n.date.slice(5), hue: 217, badge: false, selected: app.view === "note" && app.selectedNote?.id === n.id })),
-    ...app.articles.filter((a) => a.pinned && !a.archived).map((a) => ({ key: `article:${a.id}`, kind: "article" as const, id: a.id, title: a.title, meta: "", hue: 268, badge: false, selected: app.view === "article" && app.selectedArticle?.id === a.id })),
     ...app.blueprints.filter((b) => b.pinned && !b.archived).map((b) => ({ key: `blueprint:${b.id}`, kind: "blueprint" as const, id: b.id, title: b.title, meta: "", hue: 200, badge: false, selected: app.view === "blueprint" && app.selectedBlueprint?.id === b.id })),
     ...app.storyboards.filter((s) => s.pinned && !s.archived).map((s) => ({ key: `storyboard:${s.id}`, kind: "storyboard" as const, id: s.id, title: s.title, meta: "", hue: 158, badge: false, selected: app.view === "storyboard" && app.selectedStoryboard?.id === s.id })),
     ...app.feedbackBoards.filter((b) => b.pinned && !b.archived).map((b) => ({ key: `board:${b.id}`, kind: "board" as const, id: b.id, title: b.title, meta: "", hue: 350, badge: true, selected: app.view === "feedback-board" && app.selectedFeedbackBoardId === b.id })),
@@ -136,7 +134,6 @@
 
   function openPin(p: Pin) {
     if (p.kind === "note") app.selectNote(p.id);
-    else if (p.kind === "article") app.selectArticle(p.id);
     else if (p.kind === "blueprint") app.openBlueprint(p.id);
     else if (p.kind === "storyboard") app.openStoryboard(p.id);
     else if (p.kind === "board") app.openFeedbackBoard(p.id);
@@ -144,7 +141,6 @@
   }
   function unpin(p: Pin) {
     if (p.kind === "note") app.setNotePinnedById(p.id, false);
-    else if (p.kind === "article") app.setArticlePinnedById(p.id, false);
     else if (p.kind === "blueprint") app.setBlueprintPinned(p.id, false);
     else if (p.kind === "storyboard") app.setStoryboardPinned(p.id, false);
     else if (p.kind === "board") app.setFeedbackBoardPinned(p.id, false);

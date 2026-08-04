@@ -10,7 +10,6 @@
   import HelpModal from "$lib/components/HelpModal.svelte";
   import NoteView from "$lib/components/NoteView.svelte";
   import LibraryView from "$lib/components/LibraryView.svelte";
-  import ArticleView from "$lib/components/ArticleView.svelte";
   import MirrorView from "$lib/components/MirrorView.svelte";
   import FeedbackBoardView from "$lib/components/FeedbackBoardView.svelte";
   import ActivityView from "$lib/components/ActivityView.svelte";
@@ -33,7 +32,6 @@
     home: "Home",
     list: "List",
     note: "Note",
-    article: "Article",
     index: "Library",
     mirror: "The Mirror",
     feedback: "Library",
@@ -124,11 +122,6 @@
       // ⌘⇧S — Summary
       e.preventDefault();
       void app.openIndex();
-    } else if (e.shiftKey && (e.key === "A" || e.key === "a")) {
-      // ⌘⇧A — the designated quick article (references doc). NOT ⌘⇧R: that's
-      // the webview's force-reload accelerator (native, can't be prevented).
-      e.preventDefault();
-      void app.openQuickArticle();
     } else if (e.key === "1") {
       e.preventDefault();
       app.goHome(true);
@@ -216,8 +209,6 @@
       <NoteView />
     {:else if app.view === "index"}
       <LibraryView initialKind="all" />
-    {:else if app.view === "article"}
-      <ArticleView />
     {:else if app.view === "mirror"}
       <MirrorView />
     {:else if app.view === "feedback"}

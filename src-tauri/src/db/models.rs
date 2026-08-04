@@ -219,7 +219,7 @@ pub struct PinKey {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MirrorPoint {
-    pub kind: String, // note | article | blueprint | board | storyboard
+    pub kind: String, // note | blueprint | board | storyboard
     pub id: i64,
     pub title: String,
     pub created_at: String,
@@ -269,28 +269,6 @@ pub struct NoteSummary {
 #[serde(rename_all = "camelCase")]
 pub struct IndexDoc {
     pub body: String,
-    pub updated_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-#[serde(rename_all = "camelCase")]
-pub struct Article {
-    pub id: i64,
-    pub title: String,
-    pub body: String,
-    pub pinned: bool,
-    pub archived: bool,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, FromRow)]
-#[serde(rename_all = "camelCase")]
-pub struct ArticleSummary {
-    pub id: i64,
-    pub title: String,
-    pub pinned: bool,
-    pub archived: bool,
     pub updated_at: String,
 }
 
@@ -433,7 +411,6 @@ pub struct FeedbackCardComment {
 pub struct WeeklyActivity {
     pub week_start: String,
     pub notes: i64,
-    pub articles: i64,
     pub lists: i64,
 }
 
