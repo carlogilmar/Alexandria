@@ -271,6 +271,12 @@ export const getActivityStats = () =>
 
 export const getMirror = () => invoke<MirrorData>("get_mirror");
 
+// Sidebar pin order (Sprint 49).
+export type PinOrderRow = { kind: string; entityId: number; position: number };
+export const getPinOrder = () => invoke<PinOrderRow[]>("get_pin_order_cmd");
+export const setPinOrder = (order: { kind: string; entityId: number }[]) =>
+  invoke<void>("set_pin_order_cmd", { order });
+
 // Workflows
 export const listWorkflows = () =>
   invoke<WorkflowSummary[]>("list_workflows");

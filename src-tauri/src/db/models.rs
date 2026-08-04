@@ -196,6 +196,23 @@ pub struct ActivityDay {
     pub count: i64,
 }
 
+// Persisted sidebar pin order (Sprint 49). `PinKey` is the input shape the
+// frontend sends (an ordered list); `PinOrder` is what we return.
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct PinOrder {
+    pub kind: String,
+    pub entity_id: i64,
+    pub position: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PinKey {
+    pub kind: String,
+    pub entity_id: i64,
+}
+
 // "The Mirror" (Sprint 46): a data-portrait of the whole corpus. Each
 // artifact is a point with a type-native `mass` (the frontend log-normalises
 // across all points for its orb radius); lists form the terrain.

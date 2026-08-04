@@ -7,6 +7,7 @@ pub mod flashcards;
 pub mod images;
 pub mod lists;
 pub mod notes;
+pub mod pins;
 pub mod search;
 pub mod secrets;
 pub mod storyboards;

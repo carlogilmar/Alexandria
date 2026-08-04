@@ -27,6 +27,8 @@ import {
   getDailyStats,
   getActivityStats,
   getMirror,
+  getPinOrder,
+  setPinOrder,
   type MirrorData,
   vaultStatus,
   vaultSetup,
@@ -356,6 +358,29 @@ class AppStore {
   homeListId = $state<number | null>(null);
   homeTodos = $state<Todo[]>([]);
 
+  // Sidebar pin order (Sprint 49): "kind:id" → position. Drives the unified
+  // Pinned list's order; rewritten wholesale on drag-and-drop reorder.
+  pinOrder = $state<Record<string, number>>({});
+
+  async loadPinOrder() {
+    const rows = await getPinOrder();
+    const m: Record<string, number> = {};
+    for (const r of rows) m[`${r.kind}:${r.entityId}`] = r.position;
+    this.pinOrder = m;
+  }
+
+  // Persist a new pinned order (array of "kind:id" keys, top → bottom).
+  async reorderPins(keys: string[]) {
+    const order = keys.map((k) => {
+      const i = k.indexOf(":");
+      return { kind: k.slice(0, i), entityId: Number(k.slice(i + 1)) };
+    });
+    const m: Record<string, number> = {};
+    keys.forEach((k, idx) => (m[k] = idx));
+    this.pinOrder = m; // optimistic
+    await setPinOrder(order);
+  }
+
   // Backlog (Sprint 29): a single durable list for unscheduled tasks. `backlogId`
   // is cached once resolved; `backlogPending` drives the sidebar badge.
   backlogId = $state<number | null>(null);
@@ -408,6 +433,7 @@ class AppStore {
       await this.refreshFlashcardCategories();
       await this.refreshBlueprints();
       await this.refreshStoryboards();
+      await this.loadPinOrder();
     } catch (e) {
       this.error = String(e);
     } finally {

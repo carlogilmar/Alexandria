@@ -56,7 +56,8 @@ src/
   app.html
   lib/
     components/
-      Sidebar.svelte                 # left rail; ⌘1–6 destinations + pinned
+      Sidebar.svelte                 # left rail; search + Today/Backlog/Add +
+                                     #   unified drag-reorderable Pinned list (Sprint 49)
       Welcome.svelte                 # home view; Today card + Jump-back-in +
                                      #   contribution calendar (Sprint 48)
       HelpModal.svelte               # `?` shortcuts modal
@@ -406,7 +407,26 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 48 (Home, redesigned — `Welcome.svelte` rewritten to
+Last updated: end of Sprint 49 (Sidebar redesign + drag-to-reorder pins — the
+7 near-identical pinned blocks (Workflows/Articles/Notes/Blueprints/Storyboards/
+Boards/Flashcards) collapsed into ONE unified "Pinned" list: a flat, single-
+header list where a type-colored icon conveys kind (no per-type headers / repeated
+pin stars), hover reveals an unpin ✕, active entity highlighted. **Drag to
+reorder** is pointer-based (HTML5 DnD is unreliable in WKWebView — same reason the
+kanban uses pointer events): `pointerdown` + setPointerCapture, 5px click-vs-drag
+threshold, live insertion index from non-dragged rows' midpoints, `animate:flip`
+slides the rest, dragged row lifts; on drop the order persists. PERSISTENCE
+(full-stack): migration `0025_pin_order.sql` (`pin_order(kind, entity_id,
+position)`), `commands/pins.rs` `get_pin_order`/`set_pin_order` (wholesale-replace
+tx, self-heals; models `PinOrder`/`PinKey`; 1 test; registered as
+`get_pin_order_cmd`/`set_pin_order_cmd`), ipc `getPinOrder`/`setPinOrder`, store
+`pinOrder` (`"kind:id"→position`) + `loadPinOrder()` (in init) + `reorderPins`
+(optimistic then persist); sidebar sorts by it, unordered pins fall to the end.
+Today's-list card gained a mini progress bar; ＋ Add icon rotates on hover; entrance
+uses `$lib/anim` `reveal` (staggered, reduced-motion-safe). Search/brand-edit/
+commit popover/aurora/collapse/today-detection unchanged. 108 cargo tests +
+svelte-check + build all pass. See documentation/SPRINT49.md. — earlier:
+Sprint 48 (Home, redesigned — `Welcome.svelte` rewritten to
 lead with action, not counts. OUT: the Articles/Notes/Blueprints counter cards,
 the Library/Mirror quick-nav cards, and the per-kind bucket list (all redundant
 with the toolbar + Library). IN: (1) a time-aware **greeting** + a header New-list

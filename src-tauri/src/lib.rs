@@ -55,6 +55,8 @@ pub fn run() {
             commands::search::get_activity_stats,
             commands::search::get_weekly_activity,
             commands::search::get_mirror,
+            commands::pins::get_pin_order_cmd,
+            commands::pins::set_pin_order_cmd,
             commands::workflows::list_workflows,
             commands::workflows::workflow_by_id,
             commands::workflows::create_workflow,
