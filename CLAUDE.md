@@ -411,7 +411,19 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 51 (Removed the Article entity — powered markdown
+Last updated: end of Sprint 52 (Home visual — added a "Your activity" **ridge** + a
+dark Today card in `Welcome.svelte`. The ridge is a full-width canvas band, one bar
+per day spanning your history so far (first activity → today, capped ~52 weeks),
+height = tasks that day (from `app.dailyStats`),
+fixed Magma gradient, centered mirror-style; animates in on mount (rAF + per-bar
+stagger, reduced-motion-safe), and the whole card is a button that opens the Mirror
+(⌘4). Shown only when ≥1 day has tasks; sits BELOW the contribution calendar. The Today card is
+now a solid **dark** surface (`bg-neutral-900`, light text) in both themes so it
+reads as the hero (progress over white/10, emerald-400 checks/fill, white/15 backlog
+pill, dark add-task input). Frontend-only, no backend/store change. Picked from a
+4-option mockup (mini-Mirror / aurora / generative art / calendar-as-hero). svelte-
+check + build pass. See documentation/SPRINT52.md. — earlier:
+Sprint 51 (Removed the Article entity — powered markdown
 (link cards + entity links) absorbed its "wrap other entities" role, so articles
 were just notes; the author migrated them into notes manually. Full-stack removal
 mirroring Sprint 50: migration `0027_drop_articles.sql` (DROP `articles`); deleted

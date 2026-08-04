@@ -161,11 +161,107 @@
   let today = todayIso();
   let gridScroll: HTMLDivElement | undefined = $state();
 
+  // ----- "Your activity" ridge: one bar per day, height = tasks (a compact,
+  // Magma-tinted terrain that clicks through to the Mirror). Spans from your
+  // FIRST day of activity to today (capped to ~52 weeks) — so a young history
+  // fills the width with fat bars instead of a thin right-aligned sliver. -----
+  const RIDGE_MAX_DAYS = 364;
+  let ridgeVals = $derived.by<number[]>(() => {
+    const dated = app.dailyStats.filter((s) => s.date);
+    if (dated.length === 0) return [];
+    const d0 = new Date();
+    d0.setHours(0, 0, 0, 0);
+    const earliest = dated.map((s) => s.date).sort()[0];
+    let start = new Date(earliest + "T00:00:00");
+    const maxBack = new Date(d0);
+    maxBack.setDate(d0.getDate() - (RIDGE_MAX_DAYS - 1));
+    if (start < maxBack) start = maxBack;
+    const byDate = new Map(dated.map((s) => [s.date, s.total]));
+    const out: number[] = [];
+    const cur = new Date(start);
+    while (cur <= d0) {
+      out.push(byDate.get(isoDate(cur)) ?? 0);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return out;
+  });
+  let hasRidge = $derived(ridgeVals.some((v) => v > 0));
+
+  const reduceMotion =
+    typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const MAGMA = [
+    [27, 16, 53],
+    [182, 54, 121],
+    [252, 166, 54],
+    [252, 253, 191],
+  ];
+  function magma(x: number): string {
+    x = x < 0 ? 0 : x > 1 ? 1 : x;
+    const n = MAGMA.length - 1;
+    const f = x * n;
+    const i = Math.min(n - 1, Math.floor(f));
+    const l = f - i;
+    const a = MAGMA[i];
+    const b = MAGMA[i + 1];
+    return `rgb(${(a[0] + (b[0] - a[0]) * l) | 0},${(a[1] + (b[1] - a[1]) * l) | 0},${(a[2] + (b[2] - a[2]) * l) | 0})`;
+  }
+  let ridgeCanvas = $state<HTMLCanvasElement | undefined>();
+  let ridgeStart = 0;
+  let ridgeStarted = false;
+  $effect(() => {
+    if (!ridgeStarted && hasRidge) {
+      ridgeStarted = true;
+      ridgeStart = performance.now();
+    }
+  });
+  function drawRidge() {
+    const cv = ridgeCanvas;
+    if (!cv) return;
+    const w = cv.clientWidth;
+    const h = cv.clientHeight;
+    if (w === 0 || h === 0) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(h * dpr);
+    const c = cv.getContext("2d");
+    if (!c) return;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, w, h);
+    const vals = ridgeVals;
+    const N = vals.length || 1;
+    const maxV = Math.max(1, ...vals);
+    const el = ridgeStart ? performance.now() - ridgeStart : 0;
+    const mx = 4;
+    const pw = w - mx * 2;
+    const bw = pw / N;
+    const maxH = h * 0.86;
+    const barW = Math.max(1, bw * 0.82);
+    for (let i = 0; i < vals.length; i++) {
+      const p = reduceMotion ? 1 : Math.min(1, Math.max(0, (el - i * 2) / 360));
+      if (p <= 0) continue;
+      const empty = vals[i] === 0;
+      // Empty days (no list) draw a faint baseline tick so the ridge reads as a
+      // continuous day-by-day timeline instead of leaving confusing blank gaps.
+      const bh = empty ? 2 * p : Math.max(1.5, (vals[i] / maxV) * maxH * p);
+      c.fillStyle = empty ? "rgb(148,163,184)" : magma(vals[i] / maxV);
+      c.globalAlpha = empty ? 0.16 : 0.95;
+      c.fillRect(mx + i * bw, h / 2 - bh / 2, barW, bh);
+    }
+    c.globalAlpha = 1;
+  }
+
   onMount(() => {
     void app.loadHomeToday();
     requestAnimationFrame(() => {
       if (gridScroll) gridScroll.scrollLeft = gridScroll.scrollWidth;
     });
+    let raf = 0;
+    const loop = () => {
+      drawRidge();
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
   });
 
   // `app.lists` may load AFTER this mounts (init is async), or change while
@@ -234,57 +330,55 @@
     </section>
   {/if}
 
-  <!-- TODAY -->
-  <section class="mb-8 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900" use:reveal={{ delay: 120 }}>
+  <!-- TODAY (dark hero card) -->
+  <section class="mb-6 rounded-2xl border border-neutral-800 bg-neutral-900 p-5 text-neutral-100 shadow-md" use:reveal={{ delay: 120 }}>
     {#if app.homeListId === null}
       <div class="flex flex-col items-center gap-3 py-6 text-center">
-        <p class="text-sm text-neutral-500 dark:text-neutral-400">No list for today yet. Start one to plan your day.</p>
-        <button type="button" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600" onclick={() => app.createHomeToday()}>＋ Create today's list</button>
+        <p class="text-sm text-neutral-400">No list for today yet. Start one to plan your day.</p>
+        <button type="button" class="rounded-lg bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-400" onclick={() => app.createHomeToday()}>＋ Create today's list</button>
         {#if app.backlogPending > 0}
-          <button type="button" class="text-xs text-neutral-400 hover:text-blue-500 dark:text-neutral-500" onclick={() => app.openBacklog()}>
-            You have <span class="font-semibold text-blue-500">{app.backlogPending}</span> {app.backlogPending === 1 ? "task" : "tasks"} in your backlog →
+          <button type="button" class="text-xs text-neutral-500 hover:text-blue-400" onclick={() => app.openBacklog()}>
+            You have <span class="font-semibold text-blue-400">{app.backlogPending}</span> {app.backlogPending === 1 ? "task" : "tasks"} in your backlog →
           </button>
         {/if}
       </div>
     {:else}
       <div class="mb-3 flex items-center gap-3">
-        <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100">Today</h2>
+        <h2 class="text-base font-semibold text-white">Today</h2>
         {#if app.backlogPending > 0}
-          <button type="button" class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-neutral-200 px-2.5 py-1 text-xs text-neutral-500 transition-colors hover:border-blue-400 hover:text-neutral-800 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-100" onclick={() => app.openBacklog()} title="Open backlog">
-            Backlog <span class="font-semibold text-blue-500">{app.backlogPending}</span> →
+          <button type="button" class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-white/15 px-2.5 py-1 text-xs text-neutral-300 transition-colors hover:border-blue-400 hover:text-white" onclick={() => app.openBacklog()} title="Open backlog">
+            Backlog <span class="font-semibold text-blue-400">{app.backlogPending}</span> →
           </button>
         {/if}
-        <span class="text-xs tabular-nums text-neutral-400 dark:text-neutral-500" class:ml-auto={app.backlogPending === 0}>{todoDone}/{todoTotal} done</span>
+        <span class="text-xs tabular-nums text-neutral-400" class:ml-auto={app.backlogPending === 0}>{todoDone}/{todoTotal} done</span>
       </div>
-      <div class="mb-3 h-1.5 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
-        <div class="h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out dark:bg-emerald-400" style="width: {progressPct}%"></div>
+      <div class="mb-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+        <div class="h-full rounded-full bg-emerald-400 transition-[width] duration-300 ease-out" style="width: {progressPct}%"></div>
       </div>
       <div class="flex flex-col">
         {#each app.homeTodos as todo (todo.id)}
-          <button type="button" class="flex items-center gap-3 rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-neutral-100/70 dark:hover:bg-neutral-800/40" onclick={() => app.toggleHomeTodo(todo)}>
+          <button type="button" class="flex items-center gap-3 rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-white/5" onclick={() => app.toggleHomeTodo(todo)}>
             <span
-              class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md border text-white"
-              class:border-neutral-300={!todo.completed}
-              class:dark:border-neutral-600={!todo.completed}
-              class:border-emerald-500={todo.completed}
-              class:bg-emerald-500={todo.completed}
-              class:dark:border-emerald-400={todo.completed}
-              class:dark:bg-emerald-400={todo.completed}
+              class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md border text-neutral-900"
+              class:border-neutral-500={!todo.completed}
+              class:border-emerald-400={todo.completed}
+              class:bg-emerald-400={todo.completed}
             >
               {#if todo.completed}
                 <svg viewBox="0 0 20 20" fill="currentColor" class="hcheck h-3 w-3"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L4.3 10.7a1 1 0 011.4-1.4l2.8 2.79 6.8-6.79a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
               {/if}
             </span>
-            <span class="text-sm" class:text-neutral-800={!todo.completed} class:dark:text-neutral-200={!todo.completed} class:text-neutral-400={todo.completed} class:line-through={todo.completed} class:dark:text-neutral-500={todo.completed}>{todo.text}</span>
+            <span class="text-sm" class:text-neutral-200={!todo.completed} class:text-neutral-500={todo.completed} class:line-through={todo.completed}>{todo.text}</span>
           </button>
         {/each}
         <div class="flex items-center gap-3 px-1 pb-0.5 pt-1.5">
-          <span class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md border border-dashed border-neutral-300 text-xs text-neutral-400 dark:border-neutral-600 dark:text-neutral-500">+</span>
-          <input bind:value={newTaskText} onkeydown={onTaskKey} placeholder="Add a task…" class="flex-1 border-none bg-transparent text-sm text-neutral-800 outline-none placeholder:text-neutral-400 dark:text-neutral-200" />
+          <span class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md border border-dashed border-neutral-600 text-xs text-neutral-500">+</span>
+          <input bind:value={newTaskText} onkeydown={onTaskKey} placeholder="Add a task…" class="flex-1 border-none bg-transparent text-sm text-neutral-100 outline-none placeholder:text-neutral-500" />
         </div>
       </div>
     {/if}
   </section>
+
 
   <!-- JUMP BACK IN -->
   {#if recent.length > 0}
@@ -378,6 +472,22 @@
       </div>
     </div>
   </section>
+
+  <!-- "YOUR ACTIVITY" ridge → the Mirror (below the calendar) -->
+  {#if hasRidge}
+    <button
+      type="button"
+      class="mt-8 block w-full rounded-2xl border border-neutral-200 bg-white p-4 text-left shadow-sm transition-colors hover:border-blue-300 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-blue-600"
+      onclick={() => app.openMirror()}
+      title="Open the Mirror"
+    >
+      <div class="mb-2 flex items-baseline justify-between">
+        <span class="text-[11px] font-semibold uppercase tracking-widest text-neutral-400 dark:text-neutral-500">Your activity</span>
+        <span class="text-xs font-medium text-blue-500 dark:text-blue-400">Open the Mirror →</span>
+      </div>
+      <canvas bind:this={ridgeCanvas} class="block h-[104px] w-full"></canvas>
+    </button>
+  {/if}
 
   {#if tip}
     <div class="pointer-events-none fixed z-[60] -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium text-white shadow-lg dark:bg-neutral-100 dark:text-neutral-900" style="left: {tip.x}px; top: {tip.y}px;">
