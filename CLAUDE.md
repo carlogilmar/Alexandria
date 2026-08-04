@@ -422,7 +422,13 @@ now a solid **dark** surface (`bg-neutral-900`, light text) in both themes so it
 reads as the hero (progress over white/10, emerald-400 checks/fill, white/15 backlog
 pill, dark add-task input). Frontend-only, no backend/store change. Picked from a
 4-option mockup (mini-Mirror / aurora / generative art / calendar-as-hero). svelte-
-check + build pass. See documentation/SPRINT52.md. — earlier:
+check + build pass. See documentation/SPRINT52.md. Also (post-52 fixes): camera
+check-ins now fire from `createHomeToday`/`createFocusToday` too (they created lists
+without calling `maybeCaptureCheckin` — the Home "Create today's list" button was
+silently skipping the capture); and ListView gained a **camera button** to
+take/replace a list's check-in on demand (`app.captureListCheckin(listId)` — captures
+a GIF, deletes the list's existing check-ins, adds the new one; ignores the opt-in
+toggle since the click is explicit consent). — earlier:
 Sprint 51 (Removed the Article entity — powered markdown
 (link cards + entity links) absorbed its "wrap other entities" role, so articles
 were just notes; the author migrated them into notes manually. Full-stack removal

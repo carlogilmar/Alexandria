@@ -193,6 +193,26 @@
           </button>
         {/if}
         {#if !isBacklog}
+          <!-- Take / replace this list's camera check-in. -->
+          <button
+            type="button"
+            class="rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-neutral-200 hover:text-neutral-700 disabled:opacity-50 dark:text-neutral-500 dark:hover:bg-neutral-700 dark:hover:text-neutral-200"
+            disabled={app.capturingCheckin}
+            title={listCheckins.length > 0 ? "Retake check-in (replaces the current one)" : "Take a camera check-in"}
+            aria-label="Take a camera check-in"
+            onclick={() => app.selected && app.captureListCheckin(app.selected.id)}
+          >
+            {#if app.capturingCheckin}
+              <svg viewBox="0 0 20 20" fill="none" class="h-4 w-4 animate-spin"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2" stroke-dasharray="34" stroke-dashoffset="10" stroke-linecap="round"/></svg>
+            {:else}
+              <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+                <path d="M4 5a2 2 0 00-2 2v7a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.382a1 1 0 01-.894-.553l-.448-.894A1 1 0 0011.382 3H8.618a1 1 0 00-.894.553l-.448.894A1 1 0 016.382 5H4z"/>
+                <circle cx="10" cy="10.5" r="2.75" fill="none" stroke="white" stroke-width="1.2"/>
+              </svg>
+            {/if}
+          </button>
+        {/if}
+        {#if !isBacklog}
         <button
           type="button"
           class="rounded-md p-1.5 transition-colors"

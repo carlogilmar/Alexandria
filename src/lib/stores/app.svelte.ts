@@ -646,6 +646,8 @@ class AppStore {
     this.focusListTitle = created.title;
     this.focusTodos = await listTodos(created.id);
     await this.refreshLists();
+    // "lolcommits"-style camera check-in (opt-in) — same as newList().
+    void this.maybeCaptureCheckin(created.id);
   }
 
   // Toggle a todo shown in Focus. Updates the independent focus state, and —
@@ -687,6 +689,8 @@ class AppStore {
     this.homeListId = created.id;
     this.homeTodos = [];
     await this.refreshLists();
+    // "lolcommits"-style camera check-in (opt-in) — same as newList().
+    void this.maybeCaptureCheckin(created.id);
   }
 
   async toggleHomeTodo(todo: Todo) {
@@ -704,6 +708,11 @@ class AppStore {
     if (!t || this.homeListId === null) return;
     const created = await createTodo(this.homeListId, t);
     this.homeTodos = [...this.homeTodos, created];
+    // Keep the list view's todos in sync if that same list is open behind Home
+    // (select() short-circuits on re-selecting it, so it won't reload otherwise).
+    if (this.selected && this.selected.id === this.homeListId) {
+      this.todos = [...this.todos, created];
+    }
     await this.refreshLists();
   }
 
@@ -1805,6 +1814,33 @@ class AppStore {
       this.setFlash("📸 Check-in saved");
     } catch {
       this.setFlash("Check-in skipped — camera unavailable");
+    } finally {
+      this.capturingCheckin = false;
+    }
+  }
+
+  // Manually (re)take a check-in for a list, REPLACING any existing one. Unlike
+  // maybeCaptureCheckin this ignores the opt-in toggle — clicking the button is
+  // itself explicit consent.
+  async captureListCheckin(listId: number) {
+    if (this.capturingCheckin) return;
+    this.capturingCheckin = true;
+    try {
+      const bytes = await captureCheckinGif();
+      const path = await saveImageBytes(Array.from(bytes), "gif");
+      // Remove existing check-ins for this list first (this replaces them).
+      for (const c of this.checkins.filter((c) => c.listId === listId)) {
+        try {
+          await deleteCheckinIpc(c.id);
+        } catch {
+          /* best-effort */
+        }
+      }
+      const created = await addCheckinIpc(path, listId);
+      this.checkins = [created, ...this.checkins.filter((c) => c.listId !== listId)];
+      this.setFlash("📸 Check-in updated");
+    } catch {
+      this.setFlash("Check-in failed — camera unavailable");
     } finally {
       this.capturingCheckin = false;
     }

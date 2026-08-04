@@ -343,14 +343,17 @@
         {/if}
       </div>
     {:else}
-      <div class="mb-3 flex items-center gap-3">
+      <div class="mb-3 flex items-center gap-2.5">
         <h2 class="text-base font-semibold text-white">Today</h2>
+        <span class="ml-auto text-xs tabular-nums text-neutral-400">{todoDone}/{todoTotal} done</span>
         {#if app.backlogPending > 0}
-          <button type="button" class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-white/15 px-2.5 py-1 text-xs text-neutral-300 transition-colors hover:border-blue-400 hover:text-white" onclick={() => app.openBacklog()} title="Open backlog">
+          <button type="button" class="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-2.5 py-1 text-xs text-neutral-300 transition-colors hover:border-blue-400 hover:text-white" onclick={() => app.openBacklog()} title="Open backlog">
             Backlog <span class="font-semibold text-blue-400">{app.backlogPending}</span> →
           </button>
         {/if}
-        <span class="text-xs tabular-nums text-neutral-400" class:ml-auto={app.backlogPending === 0}>{todoDone}/{todoTotal} done</span>
+        <button type="button" class="inline-flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1 text-xs font-medium text-neutral-200 transition-colors hover:border-blue-400 hover:bg-white/5 hover:text-white" onclick={() => app.homeListId !== null && app.select(app.homeListId)} title="Open the full list">
+          Open list →
+        </button>
       </div>
       <div class="mb-3 h-1.5 overflow-hidden rounded-full bg-white/10">
         <div class="h-full rounded-full bg-emerald-400 transition-[width] duration-300 ease-out" style="width: {progressPct}%"></div>
