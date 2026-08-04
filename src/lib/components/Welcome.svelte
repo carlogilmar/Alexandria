@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { app, todayIso } from "$lib/stores/app.svelte";
-  import type { DayStats, ListSummary, NoteSummary, Todo } from "$lib/ipc";
-  import IdChip from "$lib/components/IdChip.svelte";
+  import type { DayStats } from "$lib/ipc";
   import { reveal } from "$lib/anim";
 
   // First-run orientation. Shown until there's any content or the user dismisses
@@ -184,27 +183,15 @@
     if (id !== app.homeListId) void app.loadHomeToday();
   });
 
-  // ----- Day detail panel (kept) -----
-  let selectedDate = $state<string | null>(app.homeFocusedDate);
-  $effect(() => {
-    if (app.homeFocusedDate) {
-      selectedDate = app.homeFocusedDate;
-      app.homeFocusedDate = null;
-    }
-  });
-  let selectedListsForDay = $derived<ListSummary[]>(
-    selectedDate ? app.lists.filter((l) => l.date === selectedDate) : [],
-  );
-  let selectedNotesForDay = $derived<NoteSummary[]>(
-    selectedDate ? app.notes.filter((n) => n.date === selectedDate) : [],
-  );
-  let selectedDateLabel = $derived(
-    selectedDate
-      ? new Date(selectedDate + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })
-      : "",
-  );
-  function pickCell(cell: Cell) {
-    selectedDate = cell.date;
+  // ----- Calendar cell click → go to that day's list -----
+  // One list per day (Sprint 19), so a click just opens it. If none exists
+  // yet, create it for that date (past or future). Existing lists are opened
+  // via `select` — NOT `newList` — so we never fire a camera check-in just
+  // for navigating.
+  async function openDay(cell: Cell) {
+    const existing = app.lists.find((l) => l.date === cell.date && !l.archived);
+    if (existing) await app.select(existing.id);
+    else await app.newList(undefined, cell.date);
   }
   function cellLabel(cell: Cell): string {
     if (cell.state === "future-empty") return "Plan a list";
@@ -215,14 +202,6 @@
   function showTip(e: Event, cell: Cell) {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     tip = { x: r.left + r.width / 2, y: r.top - 6, text: cellLabel(cell) };
-  }
-  async function createForSelectedDay() {
-    if (!selectedDate) return;
-    await app.newList(undefined, selectedDate);
-  }
-  async function createNoteForSelectedDay() {
-    if (!selectedDate) return;
-    await app.newNote(selectedDate);
   }
 </script>
 
@@ -393,15 +372,11 @@
               class:ring-2={cell.date === today}
               class:ring-blue-500={cell.date === today}
               class:dark:ring-blue-400={cell.date === today}
-              class:outline-2={selectedDate === cell.date}
-              class:outline={selectedDate === cell.date}
-              class:outline-neutral-900={selectedDate === cell.date}
-              class:dark:outline-neutral-100={selectedDate === cell.date}
               onmouseenter={(e) => showTip(e, cell)}
               onmouseleave={() => (tip = null)}
               onfocus={(e) => showTip(e, cell)}
               onblur={() => (tip = null)}
-              onclick={() => pickCell(cell)}
+              onclick={() => openDay(cell)}
             ></button>
           {/each}
         </div>
@@ -415,57 +390,6 @@
     </div>
   {/if}
 
-  {#if selectedDate}
-    <section class="mt-8 rounded-xl border border-neutral-200/60 bg-white/60 p-5 dark:border-neutral-700/60 dark:bg-neutral-900/40">
-      <header class="mb-3 flex items-center justify-between">
-        <div>
-          <h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100">{selectedDateLabel}</h3>
-          <p class="text-xs text-neutral-400 dark:text-neutral-500">{selectedDate}</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600" onclick={createForSelectedDay}>+ New list</button>
-          <button type="button" class="rounded-md border border-neutral-300/60 bg-white/60 px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm transition-colors hover:bg-neutral-100 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-200 dark:hover:bg-neutral-800" onclick={createNoteForSelectedDay}>+ New note</button>
-          <button type="button" class="rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-200/60 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-200" aria-label="Close" onclick={() => (selectedDate = null)}>
-            <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-          </button>
-        </div>
-      </header>
-
-      {#if selectedListsForDay.length === 0 && selectedNotesForDay.length === 0}
-        <p class="text-sm text-neutral-400 dark:text-neutral-500">Nothing on this day yet.</p>
-      {:else}
-        {#if selectedListsForDay.length > 0}
-          <p class="mb-1 text-[11px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500">Lists</p>
-          <ul class="mb-3 flex flex-col gap-1">
-            {#each selectedListsForDay as list (list.id)}
-              <li class="flex items-center gap-2 rounded-md px-1 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800">
-                <button type="button" class="flex flex-1 items-center justify-between rounded-md px-2 py-2 text-left" onclick={() => app.select(list.id)}>
-                  <span class="truncate text-sm text-neutral-800 dark:text-neutral-200">{list.title}</span>
-                  <span class="ml-3 shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">{#if list.total > 0}{list.done}/{list.total}{:else}empty{/if}</span>
-                </button>
-                <IdChip kind="list" id={list.id} />
-              </li>
-            {/each}
-          </ul>
-        {/if}
-
-        {#if selectedNotesForDay.length > 0}
-          <p class="mb-1 text-[11px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500">Notes</p>
-          <ul class="flex flex-col gap-1">
-            {#each selectedNotesForDay as note (note.id)}
-              <li class="flex items-center gap-2 rounded-md px-1 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800">
-                <button type="button" class="flex flex-1 items-center justify-between rounded-md px-2 py-2 text-left" onclick={() => app.selectNote(note.id)}>
-                  <span class="truncate text-sm text-neutral-800 dark:text-neutral-200">{note.title}</span>
-                  <span class="ml-3 shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">note</span>
-                </button>
-                <IdChip kind="note" id={note.id} />
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      {/if}
-    </section>
-  {/if}
 </main>
 
 <style>
