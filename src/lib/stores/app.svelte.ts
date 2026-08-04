@@ -26,6 +26,8 @@ import {
   getStats,
   getDailyStats,
   getActivityStats,
+  getMirror,
+  type MirrorData,
   vaultStatus,
   vaultSetup,
   vaultUnlock,
@@ -192,7 +194,6 @@ import {
   type WorkflowStep,
   type WorkflowSummary,
 } from "$lib/ipc";
-import { buildGraph, type GardenGraph } from "$lib/garden";
 
 export function todayIso(): string {
   const d = new Date();
@@ -249,7 +250,7 @@ type NavLoc =
   | {
       view:
         | "index"
-        | "garden"
+        | "mirror"
         | "feedback"
         | "activity"
         | "flashdeck"
@@ -266,7 +267,7 @@ class AppStore {
     | "note"
     | "index"
     | "article"
-    | "garden"
+    | "mirror"
     | "feedback"
     | "feedback-board"
     | "activity"
@@ -318,12 +319,12 @@ class AppStore {
 
   indexDoc = $state<IndexDoc>({ body: "", updatedAt: "" });
 
-  // Garden cache. Built lazily on openGarden(); rebuilt when stale or after
-  // any mutation that might affect the graph.
-  gardenGraph = $state<GardenGraph | null>(null);
-  gardenLoading = $state(false);
-  private gardenBuiltAt = 0;
-  private static GARDEN_TTL_MS = 30_000;
+  // The Mirror (Sprint 46). Loaded lazily on openMirror(); refetched when
+  // stale or after any list/entity mutation (invalidateMirror in refreshLists).
+  mirror = $state<MirrorData | null>(null);
+  mirrorLoading = $state(false);
+  private mirrorLoadedAt = 0;
+  private static MIRROR_TTL_MS = 15_000;
 
 
   // When the home page is shown, this is the date pre-selected in the
@@ -541,7 +542,7 @@ class AppStore {
           ? { view: "storyboard", id: this.selectedStoryboard.id }
           : { view: "storyboards" };
       case "index":
-      case "garden":
+      case "mirror":
       case "feedback":
       case "activity":
       case "flashdeck":
@@ -601,8 +602,8 @@ class AppStore {
         case "index":
           await this.openIndex();
           break;
-        case "garden":
-          await this.openGarden();
+        case "mirror":
+          await this.openMirror();
           break;
         case "feedback":
           await this.openFeedback();
@@ -847,11 +848,11 @@ class AppStore {
     this.indexDoc = await updateIndexDoc(body);
   }
 
-  // ---- Garden ----
+  // ---- The Mirror ----
 
-  async openGarden(force = false) {
+  async openMirror(force = false) {
     this.recordNav();
-    this.view = "garden";
+    this.view = "mirror";
     this.selected = null;
     this.todos = [];
     this.selectedTodoId = null;
@@ -861,29 +862,22 @@ class AppStore {
     this.selectedNote = null;
     this.selectedArticle = null;
 
-    const fresh = Date.now() - this.gardenBuiltAt < AppStore.GARDEN_TTL_MS;
-    if (this.gardenGraph && fresh && !force) return;
+    const fresh = Date.now() - this.mirrorLoadedAt < AppStore.MIRROR_TTL_MS;
+    if (this.mirror && fresh && !force) return;
 
-    this.gardenLoading = true;
+    this.mirrorLoading = true;
     try {
-      const graph = await buildGraph({
-        notes: this.notes,
-        articles: this.articles,
-        workflows: this.workflows,
-        lists: this.lists,
-        indexDoc: this.indexDoc,
-      });
-      this.gardenGraph = graph;
-      this.gardenBuiltAt = Date.now();
+      this.mirror = await getMirror();
+      this.mirrorLoadedAt = Date.now();
     } catch (e) {
       this.error = String(e);
     } finally {
-      this.gardenLoading = false;
+      this.mirrorLoading = false;
     }
   }
 
-  invalidateGarden() {
-    this.gardenBuiltAt = 0;
+  invalidateMirror() {
+    this.mirrorLoadedAt = 0;
   }
 
   // ---- Master Map ----
@@ -1940,6 +1934,8 @@ class AppStore {
     this.dailyStats = await getDailyStats(null, null);
     this.activityStats = await getActivityStats();
     this.backlogPending = await listBacklogPending();
+    // The Mirror's terrain depends on lists/tasks — refetch next open.
+    this.invalidateMirror();
   }
 
   // ---- Backlog (Sprint 29) ----

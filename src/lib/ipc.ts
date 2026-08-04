@@ -69,6 +69,26 @@ export type ActivityDay = {
   count: number; // completed todos + notes/articles/blueprints created that day
 };
 
+// "The Mirror" (Sprint 46) — a data-portrait of the whole corpus.
+export type MirrorKind = "note" | "article" | "blueprint" | "board" | "storyboard";
+export type MirrorPoint = {
+  kind: MirrorKind;
+  id: number;
+  title: string;
+  createdAt: string;
+  mass: number; // unit-native per type; normalised client-side
+};
+export type MirrorList = {
+  id: number;
+  date: string; // YYYY-MM-DD
+  tasks: number;
+  done: number;
+};
+export type MirrorData = {
+  points: MirrorPoint[];
+  lists: MirrorList[];
+};
+
 export type Workflow = {
   id: number;
   title: string;
@@ -248,6 +268,8 @@ export const getDailyStats = (from: string | null, to: string | null) =>
   invoke<DayStats[]>("get_daily_stats", { from, to });
 export const getActivityStats = () =>
   invoke<ActivityDay[]>("get_activity_stats");
+
+export const getMirror = () => invoke<MirrorData>("get_mirror");
 
 // Workflows
 export const listWorkflows = () =>

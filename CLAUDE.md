@@ -27,7 +27,8 @@ was removed in Sprint 40; Blueprints superseded it.)
   on macOS. Migrations run automatically at startup via
   `sqlx::migrate!("./migrations")`.
 - **Canvas / visualization libs**: `@xyflow/svelte` (Alexandria + the
-  feedback connectors), `d3-force` + `d3-scale` (Visualization view).
+  feedback connectors). ("The Mirror" — the former Visualization —
+  renders on a plain `<canvas>`, no chart lib; Sprint 46.)
 
 Bundle ID: `com.alertmedia.bigpicture`. Window has transparent
 `titleBarStyle` + macOS sidebar vibrancy (see `tauri.conf.json`).
@@ -61,7 +62,7 @@ src/
       AddEntityModal.svelte          # "+ Add" picker from sidebar
       ListView/NoteView/ArticleView/WorkflowView.svelte
       SummaryView.svelte             # formerly IndexView — tabbed list
-      GardenView.svelte              # "Visualization" — d3-force layouts
+      MirrorView.svelte              # "The Mirror" — canvas data-portrait (Sprint 46)
       MapTextNode / MapCommentNode / MapTitleNode  # decorative canvas nodes,
                                      #   now used ONLY by Blueprints (the
                                      #   Alexandria map was removed, Sprint 40)
@@ -77,7 +78,7 @@ src/
       app.svelte.ts                  # SINGLE AppStore class — view + data + actions
       theme.svelte.ts                # light/dark/system
     ipc.ts                           # all types + Tauri `invoke` wrappers
-    garden.ts                        # client-side graph builder for Garden
+                                     # (garden.ts removed in Sprint 46)
   routes/
     +layout.ts                       # exports `ssr = false`
     +layout.svelte
@@ -118,7 +119,7 @@ destination, add a string to the union, add a `route` case, add a
 sidebar button.
 
 Current view values: `home · list · workflow · note · index · article ·
-garden · feedback · feedback-board · activity · flashdeck ·
+mirror · feedback · feedback-board · activity · flashdeck ·
 blueprints · blueprint · storyboards · storyboard · passwords`.
 
 UI labels diverge from internal names where renames happened — the
@@ -132,7 +133,7 @@ unchanged:
 | home     | Home (also logo)     | ⌘1       |
 | blueprints| Blueprints          | ⌘2 (Sprint 40 — promoted into the freed slot; has a toolbar icon + active on `blueprints`/`blueprint`) |
 | index    | Summary              | ⌘3       |
-| garden   | Visualization        | ⌘4       |
+| mirror   | The Mirror           | ⌘4 (Sprint 46 — replaced the Garden/Visualization) |
 | feedback | Feedback             | ⌘5       |
 | activity | Activity             | ⌘6       |
 | flashdeck| Flash Deck           | ⌘7       |
@@ -236,10 +237,17 @@ not surfaced anywhere. `app.view = "index"` now renders
 `SummaryView.svelte` (tabbed list of all entities with
 pin/archive/delete actions).
 
-### Garden default layout is `radial`
+### "The Mirror" is a single `<canvas>` (Sprint 46)
 
-Force / radial / timeline; radial is best for "how much of each kind
-do I have?" and is the entry default (Sprint 11).
+`MirrorView.svelte` draws everything imperatively (bars + orbs) on one
+canvas via `requestAnimationFrame`, with its own camera (wheel-zoom /
+drag-pan in world coords) and a hand-rolled easing/stagger build
+animation — no chart lib, no d3-force, CSP/offline-clean. Data comes
+from the backend `get_mirror` command (`app.mirror`); orb radius is a
+global `log(1+mass)` normalisation so types compare fairly. Bars are
+contiguous & centered; orbs beeswarm (notes above, other types below).
+Clicking an orb navigates to its entity. The Garden (`GardenView` +
+`garden.ts`, d3-force) it replaced was deleted.
 
 ## Database
 
@@ -391,7 +399,30 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 45 (Note editor "stay where you were" — two
+Last updated: end of Sprint 46 ("The Mirror" — replaced the Visualization/Garden.
+A data-portrait of the whole corpus on one time axis: centered contiguous **bars**
+= todo lists (height & Magma-gradient colour = task count), **orbs** = every
+artifact (notes float above, articles/blueprints/boards/storyboards below), sized
+by a global `log(1+mass)` normalisation, placed at creation time, beeswarmed,
+each a **click-through link** to its entity (+ hover tooltip). Zoom/pan (scene
+wider than the window), a time-lapse build animation, light/dark, reduced-motion
+safe — all on ONE `<canvas>` in `MirrorView.svelte` (no chart lib/d3; hand-rolled
+camera + easing; CSP/offline-clean). Backend `get_mirror` (`commands/search.rs`,
+models `MirrorPoint{kind,id,title,createdAt,mass}`/`MirrorList{id,date,tasks,done}`
+/`MirrorData`) computes per-type mass in SQL (notes/articles = `length(body)`;
+blueprint = nodes+edges; board = cards+comments; storyboard = nodes+pages) + the
+lists terrain (archived+backlog excluded); 1 test. ipc `getMirror`; store
+`openMirror`/`invalidateMirror` (in refreshLists) + `mirror`/`mirrorLoading` state,
+view `garden`→`mirror` (⌘4, TopNav/palette/Welcome/Help updated). Bars pick one
+of six magnitude ramps (Magma/Ember/Sunset/Ocean/Viridis/Forest) at RANDOM per
+open (+ a 🎨 shuffle button); the five orb/type colours are DERIVED as a
+complement (opposite hue) of the active ramp so a shuffle re-themes the whole
+scene at once (HSL helpers in-component). The info/legend panel is collapsible
+(collapsed by default) so it never blocks the view. REMOVED
+`GardenView.svelte` + `garden.ts` + the garden store slice + `buildGraph` (no DB
+change — Garden owned no tables). Prototyped as an approved Artifact mockup first.
+107 cargo tests + svelte-check + build all pass. See documentation/SPRINT46.md.
+— earlier: Sprint 45 (Note editor "stay where you were" — two
 long-note fixes in `MarkdownEditor`, both powered by a new source-line map.
 `$lib/markdownit.ts` `addLineNumbers` is a core rule (`line_numbers`, pushed
 last) that stamps each top-level block token with `data-line="<0-based source

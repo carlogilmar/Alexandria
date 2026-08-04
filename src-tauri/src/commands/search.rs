@@ -1,5 +1,7 @@
 use crate::commands::AppState;
-use crate::db::models::{ActivityDay, DayStats, Stats, TodoHit, WeeklyActivity};
+use crate::db::models::{
+    ActivityDay, DayStats, MirrorData, MirrorList, MirrorPoint, Stats, TodoHit, WeeklyActivity,
+};
 use crate::error::AppResult;
 use sqlx::SqlitePool;
 use tauri::State;
@@ -260,6 +262,93 @@ pub async fn get_weekly_activity(
             .await?,
     };
     weekly_activity(pool, &from, &to).await
+}
+
+// ---------- The Mirror (Sprint 46) ----------
+
+// One row per artifact of a single kind; `kind` is stamped in Rust.
+#[derive(sqlx::FromRow)]
+struct RawPoint {
+    id: i64,
+    title: String,
+    created_at: String,
+    mass: i64,
+}
+
+pub(crate) async fn mirror(pool: &SqlitePool) -> AppResult<MirrorData> {
+    // Per-kind mass in unit-native terms; the frontend normalises across all.
+    let queries: [(&str, &str); 5] = [
+        (
+            "note",
+            "SELECT id, title, created_at, length(body) AS mass
+               FROM notes WHERE archived = 0",
+        ),
+        (
+            "article",
+            "SELECT id, title, created_at, length(body) AS mass
+               FROM articles WHERE archived = 0",
+        ),
+        (
+            "blueprint",
+            "SELECT b.id AS id, b.title AS title, b.created_at AS created_at,
+                    (SELECT COUNT(*) FROM blueprint_nodes n WHERE n.blueprint_id = b.id)
+                  + (SELECT COUNT(*) FROM blueprint_edges e WHERE e.blueprint_id = b.id) AS mass
+               FROM blueprints b WHERE b.archived = 0",
+        ),
+        (
+            "board",
+            "SELECT b.id AS id, b.title AS title, b.created_at AS created_at,
+                    (SELECT COUNT(*) FROM feedback_cards c WHERE c.board_id = b.id)
+                  + (SELECT COUNT(*) FROM feedback_card_comments fc
+                       JOIN feedback_cards c ON c.id = fc.card_id
+                      WHERE c.board_id = b.id) AS mass
+               FROM feedback_boards b WHERE b.archived = 0",
+        ),
+        (
+            "storyboard",
+            "SELECT s.id AS id, s.title AS title, s.created_at AS created_at,
+                    (SELECT COUNT(*) FROM storyboard_nodes n
+                       JOIN storyboard_pages p ON p.id = n.page_id
+                      WHERE p.storyboard_id = s.id)
+                  + (SELECT COUNT(*) FROM storyboard_pages p2 WHERE p2.storyboard_id = s.id) AS mass
+               FROM storyboards s WHERE s.archived = 0",
+        ),
+    ];
+
+    let mut points: Vec<MirrorPoint> = Vec::new();
+    for (kind, sql) in queries {
+        let rows = sqlx::query_as::<_, RawPoint>(sql).fetch_all(pool).await?;
+        for r in rows {
+            points.push(MirrorPoint {
+                kind: kind.to_string(),
+                id: r.id,
+                title: r.title,
+                created_at: r.created_at,
+                mass: r.mass,
+            });
+        }
+    }
+
+    // Terrain: daily lists with at least one task (archived + backlog excluded).
+    let lists = sqlx::query_as::<_, MirrorList>(
+        "SELECT l.id AS id, l.date AS date,
+                COUNT(t.id) AS tasks,
+                COALESCE(SUM(t.completed), 0) AS done
+           FROM lists l LEFT JOIN todos t ON t.list_id = l.id
+          WHERE l.archived = 0 AND l.is_backlog = 0 AND l.date <> ''
+          GROUP BY l.id
+         HAVING COUNT(t.id) > 0
+          ORDER BY l.date ASC",
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(MirrorData { points, lists })
+}
+
+#[tauri::command]
+pub async fn get_mirror(state: State<'_, AppState>) -> AppResult<MirrorData> {
+    mirror(&state.pool).await
 }
 
 // ---------- Tests ----------
@@ -599,5 +688,40 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(stats(&pool).await.unwrap().streak, 1);
+    }
+
+    #[tokio::test]
+    async fn mirror_collects_points_and_terrain() {
+        let pool = test_pool().await;
+        // A list dated 2026-05-10 with 2 tasks, 1 completed.
+        let l = lists::create(&pool, "L", "2026-05-10").await.unwrap();
+        let t = todos::create(&pool, l.id, "done").await.unwrap();
+        todos::create(&pool, l.id, "open").await.unwrap();
+        todos::toggle(&pool, t.id).await.unwrap();
+        // A note (mass = length of body) + an archived note (excluded).
+        sqlx::query(
+            "INSERT INTO notes (title, body, date, created_at, updated_at)
+             VALUES ('N', 'hello world', '2026-05-10', datetime('now'), datetime('now'))",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO notes (title, body, date, archived, created_at, updated_at)
+             VALUES ('gone', 'x', '2026-05-10', 1, datetime('now'), datetime('now'))",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let data = mirror(&pool).await.unwrap();
+        // Terrain: one list, 2 tasks, 1 done.
+        assert_eq!(data.lists.len(), 1);
+        assert_eq!(data.lists[0].tasks, 2);
+        assert_eq!(data.lists[0].done, 1);
+        // Points: exactly the one non-archived note, mass = 11 chars.
+        let notes: Vec<&MirrorPoint> = data.points.iter().filter(|p| p.kind == "note").collect();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].mass, 11);
     }
 }

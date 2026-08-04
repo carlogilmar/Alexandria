@@ -281,7 +281,7 @@
         <li class="flex items-center gap-2"><kbd class="rounded border border-neutral-300/70 px-1.5 py-0.5 font-mono text-[11px] dark:border-neutral-600/70">?</kbd> see all shortcuts and the formatting reference.</li>
       </ul>
       <p class="mt-3 text-xs text-neutral-500 dark:text-neutral-500">
-        The icons top-right are your sections: <strong>Blueprints</strong> (design canvases), <strong>Summary</strong>, <strong>Visualization</strong>, <strong>Feedback</strong>, <strong>Activity</strong>, <strong>Flash Deck</strong> — hover any for its name &amp; shortcut.
+        The icons top-right are your sections: <strong>Blueprints</strong> (design canvases), <strong>Summary</strong>, <strong>The Mirror</strong>, <strong>Feedback</strong>, <strong>Activity</strong>, <strong>Flash Deck</strong> — hover any for its name &amp; shortcut.
       </p>
     </section>
   {/if}
@@ -331,14 +331,13 @@
     </button>
     <button
       type="button"
-      onclick={() => app.openGarden()}
+      onclick={() => app.openMirror()}
       class="flex flex-col justify-between rounded-xl border border-neutral-200 bg-white p-4 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-blue-600 dark:hover:bg-blue-950/30"
     >
-      <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-emerald-500 dark:text-emerald-400">
-        <path d="M10 3.5a2 2 0 100 4 2 2 0 000-4zM4 12a2 2 0 114 0 2 2 0 01-4 0zm8 2a2 2 0 100 4 2 2 0 000-4z"/>
-        <path fill-rule="evenodd" d="M10 6.5v3m0 0l-3.2 2.2M10 9.5l2.6 4" stroke="currentColor" stroke-width="1.2" fill="none"/>
+      <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-pink-500 dark:text-pink-400">
+        <path d="M10 2a6 6 0 016 6c0 2.6-1.7 4.8-4 5.6V16a1 1 0 01-1 1H9a1 1 0 01-1-1v-2.4C5.7 12.8 4 10.6 4 8a6 6 0 016-6zm0 2a4 4 0 00-4 4c0 1.9 1.3 3.4 3 3.9V8a1 1 0 112 0v3.9c1.7-.5 3-2 3-3.9a4 4 0 00-4-4z"/>
       </svg>
-      <p class="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">Visualization</p>
+      <p class="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">The Mirror</p>
     </button>
   </section>
 

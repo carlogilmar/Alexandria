@@ -12,7 +12,7 @@
   import NoteView from "$lib/components/NoteView.svelte";
   import SummaryView from "$lib/components/SummaryView.svelte";
   import ArticleView from "$lib/components/ArticleView.svelte";
-  import GardenView from "$lib/components/GardenView.svelte";
+  import MirrorView from "$lib/components/MirrorView.svelte";
   import FeedbackBoardsView from "$lib/components/FeedbackBoardsView.svelte";
   import FeedbackBoardView from "$lib/components/FeedbackBoardView.svelte";
   import ActivityView from "$lib/components/ActivityView.svelte";
@@ -40,7 +40,7 @@
     article: "Article",
     workflow: "Workflow",
     index: "Summary",
-    garden: "Visualization",
+    mirror: "The Mirror",
     feedback: "Feedback",
     "feedback-board": "Feedback",
     activity: "Activity",
@@ -145,7 +145,7 @@
       app.openIndex();
     } else if (e.key === "4") {
       e.preventDefault();
-      app.openGarden();
+      app.openMirror();
     } else if (e.key === "5") {
       e.preventDefault();
       app.openFeedback();
@@ -225,8 +225,8 @@
       <SummaryView />
     {:else if app.view === "article"}
       <ArticleView />
-    {:else if app.view === "garden"}
-      <GardenView />
+    {:else if app.view === "mirror"}
+      <MirrorView />
     {:else if app.view === "feedback"}
       <FeedbackBoardsView />
     {:else if app.view === "feedback-board"}

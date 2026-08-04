@@ -196,6 +196,35 @@ pub struct ActivityDay {
     pub count: i64,
 }
 
+// "The Mirror" (Sprint 46): a data-portrait of the whole corpus. Each
+// artifact is a point with a type-native `mass` (the frontend log-normalises
+// across all points for its orb radius); lists form the terrain.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MirrorPoint {
+    pub kind: String, // note | article | blueprint | board | storyboard
+    pub id: i64,
+    pub title: String,
+    pub created_at: String,
+    pub mass: i64,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct MirrorList {
+    pub id: i64,
+    pub date: String,
+    pub tasks: i64,
+    pub done: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MirrorData {
+    pub points: Vec<MirrorPoint>,
+    pub lists: Vec<MirrorList>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct Workflow {

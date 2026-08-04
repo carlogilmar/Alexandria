@@ -54,6 +54,7 @@ pub fn run() {
             commands::search::get_daily_stats,
             commands::search::get_activity_stats,
             commands::search::get_weekly_activity,
+            commands::search::get_mirror,
             commands::workflows::list_workflows,
             commands::workflows::workflow_by_id,
             commands::workflows::create_workflow,

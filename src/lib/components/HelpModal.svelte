@@ -11,7 +11,7 @@
         { keys: "⌘ 1", label: "Home — today & activity" },
         { keys: "⌘ 2", label: "Blueprints — design canvases" },
         { keys: "⌘ 3", label: "Summary — catalog of everything" },
-        { keys: "⌘ 4", label: "Visualization — graph of links" },
+        { keys: "⌘ 4", label: "The Mirror — a portrait of your library" },
         { keys: "⌘ 5", label: "Feedback — kanban boards" },
         { keys: "⌘ 6", label: "Activity — when you've worked" },
         { keys: "⌘ 7", label: "Flash Deck — flashcards" },
