@@ -115,6 +115,7 @@
         minHeight="18rem"
         onCommit={commitBody}
         outline
+        floatingEdit
       />
     {/key}
 

@@ -391,7 +391,23 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 44 (Icons in powered markdown — the curated
+Last updated: end of Sprint 45 (Note editor "stay where you were" — two
+long-note fixes in `MarkdownEditor`, both powered by a new source-line map.
+`$lib/markdownit.ts` `addLineNumbers` is a core rule (`line_numbers`, pushed
+last) that stamps each top-level block token with `data-line="<0-based source
+line>"` via the default `renderToken` (custom fences ignore attrs → no line,
+inert on all non-note surfaces). (1) **Scroll-to-edited**: `commit()` records
+`pendingScrollLine` = caret's source line at blur; an `$effect` keyed on
+`previewEl` (undefined→defined on the edit→preview swap) scrolls the block with
+the largest `data-line ≤` that line into view (center), so leaving the editor no
+longer jumps to the top. (2) **Floating Edit FAB** (new `floatingEdit` prop,
+NoteView passes it): hides the inline top-right + bottom Edit buttons and shows a
+single pill FAB fixed bottom-right (`fixed bottom-6 right-6 z-20`), always
+reachable while reading; a plain preview click does nothing (reading stays
+uninterrupted). Helper `lineAtOffset` for the scroll restore. Notes only;
+Articles/other surfaces keep the inline buttons. No dep/backend/migration.
+svelte-check 0/0, build clean. See documentation/SPRINT45.md. — earlier:
+Sprint 44 (Icons in powered markdown — the curated
 Storyboard icon set (Lucide concept line icons + Devicon brand logos, from
 `$lib/storyIcons.ts`) is now usable INLINE in notes/articles via a `:name:`
 shortcode. `addIconShortcodes` in `$lib/markdownit.ts` adds an inline rule

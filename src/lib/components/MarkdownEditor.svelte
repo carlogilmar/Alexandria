@@ -26,6 +26,9 @@
     // Show a floating right-side outline of the document's headings (used by
     // notes to navigate long texts).
     outline?: boolean;
+    // Replace the inline top/bottom Edit buttons with a single floating FAB in
+    // the bottom-right corner, so reading isn't interrupted (used by notes).
+    floatingEdit?: boolean;
   };
 
   let {
@@ -35,6 +38,7 @@
     onCommit,
     onLinkClick,
     outline = false,
+    floatingEdit = false,
   }: Props = $props();
 
   const md = createMarkdownIt();
@@ -46,6 +50,18 @@
   let savedSel = { start: 0, end: 0 };
   let previewEl: HTMLDivElement | undefined = $state();
   let isLarge = $state(false);
+  // After committing, scroll the fresh preview to the block we last edited
+  // (the source line of the caret at blur time), instead of jumping to the top.
+  let pendingScrollLine: number | null = $state(null);
+
+  // 0-based source line containing a char offset — used to scroll the preview
+  // back to the block that held the caret at blur time.
+  function lineAtOffset(src: string, offset: number): number {
+    let line = 0;
+    const stop = Math.min(offset, src.length);
+    for (let i = 0; i < stop; i++) if (src[i] === "\n") line++;
+    return line;
+  }
 
   const btnCls =
     "inline-flex items-center gap-1 rounded-md border border-neutral-200/70 bg-white/60 px-2 py-0.5 text-[11px] text-neutral-600 transition-colors hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/40 dark:text-neutral-300 dark:hover:bg-neutral-800";
@@ -125,6 +141,30 @@
     return () => ro.disconnect();
   });
 
+  // Once the preview has (re)mounted after a commit, scroll it to the block we
+  // were editing. previewEl transitions undefined→defined on the edit→preview
+  // swap, which re-runs this; pendingScrollLine is only set by commit(), so it
+  // no-ops on every other render.
+  $effect(() => {
+    const el = previewEl;
+    const line = pendingScrollLine;
+    if (!el || line == null) return;
+    pendingScrollLine = null;
+    let best: Element | null = null;
+    let bestLine = -1;
+    for (const n of el.querySelectorAll("[data-line]")) {
+      const l = Number(n.getAttribute("data-line"));
+      if (Number.isFinite(l) && l <= line && l > bestLine) {
+        bestLine = l;
+        best = n;
+      }
+    }
+    (best ?? el.querySelector("[data-line]"))?.scrollIntoView({
+      behavior: "auto",
+      block: "center",
+    });
+  });
+
   function startEditing() {
     editing = true;
     queueMicrotask(() => textarea?.focus());
@@ -134,6 +174,9 @@
     // Focusing the link/icon picker blurs the textarea; don't exit edit mode
     // while one is open — we resume editing once it closes.
     if (linkPickerOpen || iconPickerOpen) return;
+    // Remember where the caret was so the preview lands on the same block.
+    const caret = textarea?.selectionStart;
+    if (typeof caret === "number") pendingScrollLine = lineAtOffset(draft, caret);
     editing = false;
     await onCommit(draft);
   }
@@ -202,8 +245,9 @@
       }
       return;
     }
-    // A plain click in the preview does nothing — editing is only via the
-    // Edit button. (Link clicks handled above still navigate.)
+    // A plain click in the preview does nothing — editing is via the Edit
+    // button (or the floating FAB for notes). Link/checkbox clicks above still
+    // act. This keeps reading uninterrupted.
   }
 
   async function toggleTask(idx: number) {
@@ -509,17 +553,19 @@
   {/if}
 {:else if rendered}
   <div class="relative">
-    <button
-      type="button"
-      class="absolute right-2 top-2 z-10 inline-flex items-center justify-center rounded-md border border-neutral-200/70 bg-white/80 p-1.5 text-neutral-600 opacity-80 shadow-sm transition-colors hover:bg-neutral-100 hover:opacity-100 dark:border-neutral-700/70 dark:bg-neutral-900/70 dark:text-neutral-300 dark:hover:bg-neutral-800"
-      onclick={startEditing}
-      title="Edit"
-      aria-label="Edit"
-    >
-      <svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
-        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-      </svg>
-    </button>
+    {#if !floatingEdit}
+      <button
+        type="button"
+        class="absolute right-2 top-2 z-10 inline-flex items-center justify-center rounded-md border border-neutral-200/70 bg-white/80 p-1.5 text-neutral-600 opacity-80 shadow-sm transition-colors hover:bg-neutral-100 hover:opacity-100 dark:border-neutral-700/70 dark:bg-neutral-900/70 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        onclick={startEditing}
+        title="Edit"
+        aria-label="Edit"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
+          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+        </svg>
+      </button>
+    {/if}
     <div
       bind:this={previewEl}
       role="presentation"
@@ -556,7 +602,7 @@
         </ul>
       </nav>
     {/if}
-    {#if isLarge}
+    {#if isLarge && !floatingEdit}
       <div class="mt-2 flex justify-center">
         <button
           type="button"
@@ -569,6 +615,22 @@
           Edit
         </button>
       </div>
+    {/if}
+    {#if floatingEdit}
+      <!-- One floating Edit FAB in the bottom-right — always reachable while
+           reading, replacing the inline top/bottom buttons (notes). -->
+      <button
+        type="button"
+        onclick={startEditing}
+        title="Edit note"
+        aria-label="Edit note"
+        class="fixed bottom-6 right-6 z-20 inline-flex items-center gap-2 rounded-full border border-neutral-200/70 bg-white/90 px-4 py-2.5 text-sm font-medium text-neutral-700 shadow-lg backdrop-blur transition-colors hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/85 dark:text-neutral-200 dark:hover:bg-neutral-800"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+        </svg>
+        Edit
+      </button>
     {/if}
   </div>
 {:else}

@@ -155,10 +155,31 @@ export function createMarkdownIt(): MarkdownIt {
   // GitHub-style task lists: `- [ ] todo` / `- [x] done` → checkbox items.
   addTaskLists(md);
 
+  // Tag each top-level block with its source line (`data-line`). Inert almost
+  // everywhere; the note editor uses it to (a) scroll the preview to the block
+  // you last edited and (b) place the caret when you click a block to edit.
+  addLineNumbers(md);
+
   // One delegated listener powers the copy buttons across every surface.
   installCodeCopy();
 
   return md;
+}
+
+// Set `data-line="<0-based source line>"` on every top-level block token that
+// carries source-map info. Runs as a core rule after all block parsing, so it
+// sees final tokens; the default `renderToken` emits the attribute. Custom
+// fence renderers (mermaid/cards/chart/…) build HTML by hand and ignore token
+// attrs, so those blocks simply won't carry a line — acceptable.
+function addLineNumbers(md: MarkdownIt): void {
+  md.core.ruler.push("line_numbers", (state) => {
+    for (const token of state.tokens) {
+      // level 0 = top-level; nesting >= 0 = open or self-closing (skip closes).
+      if (token.level === 0 && token.nesting >= 0 && token.map) {
+        token.attrSet("data-line", String(token.map[0]));
+      }
+    }
+  });
 }
 
 // The copy button injected into each non-mermaid fenced block. Two icons —
