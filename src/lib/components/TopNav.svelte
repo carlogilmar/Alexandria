@@ -234,28 +234,35 @@
     onclick={() => (paletteOpen = false)}
   ></button>
   <div
-    class="absolute right-0 top-full z-50 mt-2 w-52 rounded-lg border border-neutral-200/70 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-neutral-700/70 dark:bg-neutral-900/95"
+    class="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-neutral-200/70 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-neutral-700/70 dark:bg-neutral-900/95"
   >
     <p class="mb-2 text-[11px] font-medium uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
       Sidebar color
     </p>
-    <div class="flex flex-wrap gap-2">
+    <div class="flex max-h-[60vh] flex-col gap-0.5 overflow-y-auto">
       {#each SIDEBAR_TINTS as tint (tint.name)}
         <button
           type="button"
-          class="h-6 w-6 rounded-full border transition-transform hover:scale-110"
-          class:ring-2={theme.sidebarTint === tint.name}
-          class:ring-offset-1={theme.sidebarTint === tint.name}
-          class:ring-blue-500={theme.sidebarTint === tint.name}
-          class:dark:ring-offset-neutral-900={theme.sidebarTint === tint.name}
-          style:background={swatchColor(tint)}
-          style:border-color={tint.hue == null && !tint.dark
-            ? "rgba(120,120,120,0.5)"
-            : "rgba(255,255,255,0.25)"}
-          title={tint.label}
-          aria-label={tint.label}
+          class="flex items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-[13px] transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800 {theme.sidebarTint ===
+          tint.name
+            ? 'bg-blue-500/10 text-neutral-900 dark:text-neutral-100'
+            : 'text-neutral-600 dark:text-neutral-300'}"
           onclick={() => theme.setSidebarTint(tint.name)}
-        ></button>
+        >
+          <span
+            class="h-4 w-4 shrink-0 rounded-full border"
+            style:background={swatchColor(tint)}
+            style:border-color={tint.hue == null && !tint.dark
+              ? "rgba(120,120,120,0.5)"
+              : "rgba(255,255,255,0.25)"}
+          ></span>
+          <span class="flex-1 truncate">{tint.label}</span>
+          {#if theme.sidebarTint === tint.name}
+            <svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5 shrink-0 text-blue-500">
+              <path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0l-3.5-3.5a1 1 0 011.4-1.4l2.8 2.79 6.8-6.79a1 1 0 011.4 0z" clip-rule="evenodd"/>
+            </svg>
+          {/if}
+        </button>
       {/each}
     </div>
     <button
