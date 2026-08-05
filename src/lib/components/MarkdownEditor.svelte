@@ -170,11 +170,28 @@
     queueMicrotask(() => textarea?.focus());
   }
 
+  // Blur handler on the textarea. For notes (floatingEdit) edit mode is LOCKED:
+  // losing focus (clicking away, switching windows/apps) only *saves* the draft
+  // and stays in edit mode — so it never renders or scroll-jumps behind your
+  // back, and you can switch windows and come right back to keep editing. You
+  // leave edit mode explicitly via the Done button. Other surfaces keep the
+  // classic click-outside-to-preview.
   async function commit() {
-    // Focusing the link/icon picker blurs the textarea; don't exit edit mode
-    // while one is open — we resume editing once it closes.
+    // Focusing the link/icon picker blurs the textarea; don't act while one is
+    // open — we resume editing once it closes.
     if (linkPickerOpen || iconPickerOpen) return;
-    // Remember where the caret was so the preview lands on the same block.
+    if (floatingEdit) {
+      await onCommit(draft); // save only; stay in edit mode
+      return;
+    }
+    const caret = textarea?.selectionStart;
+    if (typeof caret === "number") pendingScrollLine = lineAtOffset(draft, caret);
+    editing = false;
+    await onCommit(draft);
+  }
+
+  // Explicit exit → render the note, landing on the block you were editing.
+  async function finishEditing() {
     const caret = textarea?.selectionStart;
     if (typeof caret === "number") pendingScrollLine = lineAtOffset(draft, caret);
     editing = false;
@@ -544,6 +561,20 @@
   </div>
   {#if iconPickerOpen}
     <IconPicker onPick={insertIcon} onClose={() => (iconPickerOpen = false)} />
+  {/if}
+  {#if floatingEdit}
+    <!-- Locked edit mode: leave it explicitly (blur only saves). Toggle of the
+         preview's Edit FAB. -->
+    <button
+      type="button"
+      onclick={finishEditing}
+      title="Finish editing — show the rendered note"
+      aria-label="Finish editing"
+      class="fixed bottom-6 right-6 z-20 inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg transition-colors hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+    >
+      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L4.3 10.7a1 1 0 011.4-1.4l2.8 2.79 6.8-6.79a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
+      Done
+    </button>
   {/if}
 {:else if rendered}
   <div class="relative">

@@ -106,6 +106,7 @@ export type NoteSummary = {
   date: string;
   pinned: boolean;
   archived: boolean;
+  updatedAt: string;
 };
 
 export type IndexDoc = {

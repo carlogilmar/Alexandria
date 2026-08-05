@@ -10,7 +10,7 @@ use tauri::State;
 
 pub(crate) async fn all(pool: &SqlitePool) -> AppResult<Vec<NoteSummary>> {
     sqlx::query_as::<_, NoteSummary>(
-        "SELECT id, title, date, pinned, archived FROM notes ORDER BY date DESC, id DESC",
+        "SELECT id, title, date, pinned, archived, updated_at FROM notes ORDER BY date DESC, id DESC",
     )
     .fetch_all(pool)
     .await
@@ -19,7 +19,7 @@ pub(crate) async fn all(pool: &SqlitePool) -> AppResult<Vec<NoteSummary>> {
 
 pub(crate) async fn for_date(pool: &SqlitePool, date: &str) -> AppResult<Vec<NoteSummary>> {
     sqlx::query_as::<_, NoteSummary>(
-        "SELECT id, title, date, pinned, archived FROM notes WHERE date = ?1 ORDER BY id ASC",
+        "SELECT id, title, date, pinned, archived, updated_at FROM notes WHERE date = ?1 ORDER BY id ASC",
     )
     .bind(date)
     .fetch_all(pool)

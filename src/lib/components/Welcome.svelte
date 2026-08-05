@@ -66,7 +66,7 @@
   const toTs = (raw: string) => (raw.length <= 10 ? raw + "T00:00:00" : raw.replace(" ", "T"));
   let recent = $derived.by<Recent[]>(() => {
     const items: Recent[] = [
-      ...app.notes.filter((n) => !n.archived).map((n) => ({ kind: "note" as const, id: n.id, title: n.title, ts: toTs(n.date) })),
+      ...app.notes.filter((n) => !n.archived).map((n) => ({ kind: "note" as const, id: n.id, title: n.title, ts: toTs(n.updatedAt) })),
       ...app.blueprints.filter((b) => !b.archived).map((b) => ({ kind: "blueprint" as const, id: b.id, title: b.title, ts: toTs(b.updatedAt) })),
       ...app.storyboards.filter((s) => !s.archived).map((s) => ({ kind: "storyboard" as const, id: s.id, title: s.title, ts: toTs(s.updatedAt) })),
       ...app.feedbackBoards.filter((b) => !b.archived).map((b) => ({ kind: "board" as const, id: b.id, title: b.title, ts: toTs(b.updatedAt) })),

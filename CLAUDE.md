@@ -428,7 +428,14 @@ without calling `maybeCaptureCheckin` — the Home "Create today's list" button 
 silently skipping the capture); and ListView gained a **camera button** to
 take/replace a list's check-in on demand (`app.captureListCheckin(listId)` — captures
 a GIF, deletes the list's existing check-ins, adds the new one; ignores the opt-in
-toggle since the click is explicit consent). — earlier:
+toggle since the click is explicit consent). Also: `addHomeTodo` now syncs `this.todos`
+when the same list is open (the Home Today card + list view are separate arrays and
+`select()` short-circuits, so adding on Home didn't show in the list until a reload).
+Also: the note editor (MarkdownEditor with `floatingEdit`) now has a **LOCKED edit
+mode** — blur only SAVES the draft and stays in edit mode (so switching windows/apps
+never renders or scroll-jumps behind your back, and you resume editing on return); you
+leave edit mode explicitly via a **Done** FAB (toggle of the preview's Edit FAB).
+Non-note MarkdownEditor surfaces keep the classic click-outside-to-preview. — earlier:
 Sprint 51 (Removed the Article entity — powered markdown
 (link cards + entity links) absorbed its "wrap other entities" role, so articles
 were just notes; the author migrated them into notes manually. Full-stack removal

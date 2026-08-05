@@ -263,6 +263,7 @@ pub struct NoteSummary {
     pub date: String,
     pub pinned: bool,
     pub archived: bool,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, FromRow)]
