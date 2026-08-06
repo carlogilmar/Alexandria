@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { app, todayIso } from "$lib/stores/app.svelte";
+  import { theme } from "$lib/stores/theme.svelte";
   import type { DayStats } from "$lib/ipc";
   import { reveal } from "$lib/anim";
 
@@ -330,53 +331,64 @@
     </section>
   {/if}
 
-  <!-- TODAY (dark hero card) -->
-  <section class="mb-6 rounded-2xl border border-neutral-800 bg-neutral-900 p-5 text-neutral-100 shadow-md" use:reveal={{ delay: 120 }}>
+  <!-- TODAY — surface + text follow the sidebar tint, so the tint picker
+       customizes this card too (var(--sidebar-bg) + isSidebarDark, like the
+       sidebar). `class:dark` makes inner dark: variants respond to a dark tint
+       even in light app mode. -->
+  <section
+    class="mb-6 rounded-2xl border p-5 text-neutral-800 shadow-md dark:text-neutral-100"
+    class:dark={theme.isSidebarDark}
+    style="background: var(--sidebar-bg); border-color: var(--sidebar-border);"
+    use:reveal={{ delay: 120 }}
+  >
     {#if app.homeListId === null}
       <div class="flex flex-col items-center gap-3 py-6 text-center">
-        <p class="text-sm text-neutral-400">No list for today yet. Start one to plan your day.</p>
-        <button type="button" class="rounded-lg bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-400" onclick={() => app.createHomeToday()}>＋ Create today's list</button>
+        <p class="text-sm text-neutral-500 dark:text-neutral-400">No list for today yet. Start one to plan your day.</p>
+        <button type="button" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400" onclick={() => app.createHomeToday()}>＋ Create today's list</button>
         {#if app.backlogPending > 0}
-          <button type="button" class="text-xs text-neutral-500 hover:text-blue-400" onclick={() => app.openBacklog()}>
-            You have <span class="font-semibold text-blue-400">{app.backlogPending}</span> {app.backlogPending === 1 ? "task" : "tasks"} in your backlog →
+          <button type="button" class="text-xs text-neutral-400 hover:text-blue-600 dark:text-neutral-500 dark:hover:text-blue-400" onclick={() => app.openBacklog()}>
+            You have <span class="font-semibold text-blue-500 dark:text-blue-400">{app.backlogPending}</span> {app.backlogPending === 1 ? "task" : "tasks"} in your backlog →
           </button>
         {/if}
       </div>
     {:else}
       <div class="mb-3 flex items-center gap-2.5">
-        <h2 class="text-base font-semibold text-white">Today</h2>
-        <span class="ml-auto text-xs tabular-nums text-neutral-400">{todoDone}/{todoTotal} done</span>
+        <h2 class="text-base font-semibold text-neutral-900 dark:text-white">Today</h2>
+        <span class="ml-auto text-xs tabular-nums text-neutral-500 dark:text-neutral-400">{todoDone}/{todoTotal} done</span>
         {#if app.backlogPending > 0}
-          <button type="button" class="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-2.5 py-1 text-xs text-neutral-300 transition-colors hover:border-blue-400 hover:text-white" onclick={() => app.openBacklog()} title="Open backlog">
-            Backlog <span class="font-semibold text-blue-400">{app.backlogPending}</span> →
+          <button type="button" class="inline-flex items-center gap-1.5 rounded-full border border-neutral-300 px-2.5 py-1 text-xs text-neutral-500 transition-colors hover:border-blue-400 hover:text-neutral-900 dark:border-white/15 dark:text-neutral-300 dark:hover:text-white" onclick={() => app.openBacklog()} title="Open backlog">
+            Backlog <span class="font-semibold text-blue-500 dark:text-blue-400">{app.backlogPending}</span> →
           </button>
         {/if}
-        <button type="button" class="inline-flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1 text-xs font-medium text-neutral-200 transition-colors hover:border-blue-400 hover:bg-white/5 hover:text-white" onclick={() => app.homeListId !== null && app.select(app.homeListId)} title="Open the full list">
+        <button type="button" class="inline-flex items-center gap-1 rounded-full border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-600 transition-colors hover:border-blue-400 hover:bg-black/5 hover:text-neutral-900 dark:border-white/15 dark:text-neutral-200 dark:hover:bg-white/5 dark:hover:text-white" onclick={() => app.homeListId !== null && app.select(app.homeListId)} title="Open the full list">
           Open list →
         </button>
       </div>
-      <div class="mb-3 h-1.5 overflow-hidden rounded-full bg-white/10">
-        <div class="h-full rounded-full bg-emerald-400 transition-[width] duration-300 ease-out" style="width: {progressPct}%"></div>
+      <div class="mb-3 h-1.5 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+        <div class="h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out dark:bg-emerald-400" style="width: {progressPct}%"></div>
       </div>
       <div class="flex flex-col">
         {#each app.homeTodos as todo (todo.id)}
-          <button type="button" class="flex items-center gap-3 rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-white/5" onclick={() => app.toggleHomeTodo(todo)}>
+          <button type="button" class="flex items-center gap-3 rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5" onclick={() => app.toggleHomeTodo(todo)}>
             <span
-              class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md border text-neutral-900"
-              class:border-neutral-500={!todo.completed}
-              class:border-emerald-400={todo.completed}
-              class:bg-emerald-400={todo.completed}
+              class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md border text-white"
+              class:border-neutral-400={!todo.completed}
+              class:dark:border-neutral-500={!todo.completed}
+              class:border-emerald-500={todo.completed}
+              class:bg-emerald-500={todo.completed}
+              class:dark:border-emerald-400={todo.completed}
+              class:dark:bg-emerald-400={todo.completed}
             >
               {#if todo.completed}
                 <svg viewBox="0 0 20 20" fill="currentColor" class="hcheck h-3 w-3"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L4.3 10.7a1 1 0 011.4-1.4l2.8 2.79 6.8-6.79a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
               {/if}
             </span>
-            <span class="text-sm" class:text-neutral-200={!todo.completed} class:text-neutral-500={todo.completed} class:line-through={todo.completed}>{todo.text}</span>
+            <span class="text-sm" class:text-neutral-800={!todo.completed} class:dark:text-neutral-200={!todo.completed} class:text-neutral-400={todo.completed} class:dark:text-neutral-500={todo.completed} class:line-through={todo.completed}>{todo.text}</span>
           </button>
         {/each}
         <div class="flex items-center gap-3 px-1 pb-0.5 pt-1.5">
-          <span class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md border border-dashed border-neutral-600 text-xs text-neutral-500">+</span>
-          <input bind:value={newTaskText} onkeydown={onTaskKey} placeholder="Add a task…" class="flex-1 border-none bg-transparent text-sm text-neutral-100 outline-none placeholder:text-neutral-500" />
+          <span class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md border border-dashed border-neutral-300 text-xs text-neutral-400 dark:border-neutral-600 dark:text-neutral-500">+</span>
+          <input bind:value={newTaskText} onkeydown={onTaskKey} placeholder="Add a task…" class="flex-1 border-none bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-neutral-100 dark:placeholder:text-neutral-500" />
         </div>
       </div>
     {/if}

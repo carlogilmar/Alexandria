@@ -411,16 +411,90 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 52 (Home visual — added a "Your activity" **ridge** + a
+Last updated: end of Sprint 58 (Dark stats & spec widgets — the ```stats and ```spec
+blocks are now DARK in every theme (`--dark-surface` #0f1620 / `--dark-ink` on
+`.md-stats-panel`/`.md-spec`), with the header bar overridden to match the dark body
+(`.md-stats-panel .md-bhead`/`.md-spec .md-bhead`) instead of the shared light neutral bar.
+Stat cards are dark-accent gradients (`acc 26%→10%, #141b27`) with brighter border/glow +
+light value/green-red; spec key column accent lightened for dark + dark-friendly inline code.
+files/cards unchanged (shared `.md-bhead` base untouched). `installBlockImageCopy` now derives
+the capture background from the block's own panel bg (first child's opaque computed bg, else
+theme surface) so dark widgets rasterize dark. CSS-only + the one capture tweak. svelte-check +
+build pass. See documentation/SPRINT58.md. — earlier: Sprint 57 (Shared GitHub-style header bar — the files block's
+tinted header (label left, metric right) is now a shared `blockHeader(title,sub,meta,md)`
+→ `.md-bhead` used by files/cards/spec/stats (```stats gained a `heading:` line → header bar
++ metric count, grid wrapped in `.md-stats-panel`/`.md-stats-body`). ```cards: the `heading:`/`desc:` first block now
+renders as the header BAR with a card count on the right and wraps the grid in a bordered
+panel (`.md-cards-panel`/`.md-cards-body`), replacing the old big-title `.md-cards-head*`.
+```spec: an optional `heading:` line → the header bar with a field count. ```files unchanged
+but `.md-files-head` shares the `.md-bhead` container CSS (grouped selector). Backward-compatible
+(no `heading:` → bare grid / header-less sheet). Slash `spec` template + FormattingHelp + demo
+updated. svelte-check + build pass. See documentation/SPRINT57.md. — earlier: Sprint 56 (PR blocks III — restyled the stats/spec/files blocks
+for reviewers, all still CSS-only/synchronous + image-copyable. ```stats: cards are
+accent-tinted (`--acc`) with a gentle breathing glow (`@keyframes md-stat-pulse`,
+reduced-motion-safe); accent = optional trailing color word per line, else fence color
+(`stats <color>`), else auto (pure `+N`→green / `−N`→red / else blue); `renderStats` now
+takes info-string opts. ```spec: the KEY COLUMN is accent-tinted (fence color via `--acc`,
+default blue — accent text + soft bg + divider) and VALUES take inline markdown
+(`md.renderInline`: `code`/**bold**/links/`:icons:`); `renderSpec` takes opts. ```files:
+status now colors the row (left rail `--st` + chip), the path splits into dimmed `dir/` +
+bold filename inside a mono badge, a header sums `N files changed` + total `+adds −dels`,
+and the per-file note is a description row with inline markdown. Fence dispatch updated to
+`info.startsWith("stats "/"spec ")`. Accent colors reuse `NAMED_COLORS`. Slash templates +
+FormattingHelp rows updated. svelte-check + build pass. See documentation/SPRINT56.md.
+— earlier: Sprint 55 (Collapsible toggle sections — a heading whose text
+starts with `>` (e.g. `## > Roadmap`) becomes a `<details>` section COLLAPSED by
+default, body = every block down to the next same-or-higher heading. `addCollapsibleSections`
+in `$lib/markdownit.ts` is a core rule (after `line_numbers`) that wraps toggle headings
+with `section_open`/`section_body_open`/`section_close` marker tokens (level-stack close
+rule; strips the `>` from the heading's inline content + first text child); render rules
+emit `<details><summary>…</summary><div class="md-section-body">…</div></details>`.
+`installSectionToggle()` is a capture-phase delegated click listener (like `installCodeCopy`)
+that owns the toggle — `preventDefault`+`stopPropagation` so it never trips a surface's
+click-to-edit, flips `details.open` (a link inside the heading still navigates).
+`.md-section*` CSS (disclosure triangle `::before` rotates when open). Opt-in by the marker
+→ plain headings/existing notes untouched; nested toggles nest. Slash "Toggle section" +
+FormattingHelp row. ALSO fixed the Sprint 54 copy-as-image (gray bg + clipped bottom/right
+borders in WKWebView): `installBlockImageCopy` now forces a solid `background` on the capture
+root (masks WebKit's dropped `foreignObject` bg), pads via `content-box` + an oversized
+canvas (`w/h + 2·pad`, no clip), awaits `document.fonts.ready`, and does a warm-up `toBlob`
+pass (WebKit under-measures height on first render). svelte-check + build pass. Image capture
+still needs a live webview run to verify the clipboard write. See documentation/SPRINT55.md.
+— earlier: Sprint 54 (PR blocks II — the `files` block's `— note` now
+renders as a full **description row** under each file (`.md-file-top` + `.md-file-desc`,
+column layout). NEW ```stats (`renderStats`: `Label: value` lines → metric cards,
+value big with `+N`/`-N` auto-colored) and ```spec (`renderSpec`: `Label: value` →
+a label→value sheet). NEW **copy-as-image**: files/stats/spec/cards blocks wrap in
+`.md-block` (`withImgCopy`) with a hover 📷 button; a delegated listener
+`installBlockImageCopy` (like `installCodeCopy`) rasterizes the block via html-to-image
+`toBlob` (2×, solid body bg, 12px pad, button filtered) and copies a PNG — prefers the
+native Tauri `copy_image_to_clipboard`, falls back to `navigator.clipboard.write`;
+html-to-image + ipc dynamic-imported. Slash "Stat cards"/"Spec sheet" + FormattingHelp
+rows. All synchronous/CSS-only. Image capture needs a live webview run to verify the
+clipboard write. svelte-check + build pass. See documentation/SPRINT54.md. — earlier:
+Sprint 53 (PR/code-doc markdown blocks — for writing PR
+descriptions in Alexandria. NEW ```files block (`renderFiles` in markdownit.ts): a
+changed-files list, one file per line `<A|M|D|R> path [+adds] [-dels] [— note]` →
+colored status chip + mono path + green/red line counts + muted note; `.md-files`
+CSS. The ```cards block gained an optional SECTION HEADER: if the first block
+declares `heading:` (+ optional `desc:`) it renders as a title+subtitle above the
+grid (`.md-cards-section`/`.md-cards-head`), backward-compatible. Slash commands
+("Changed files"; cards template shows the heading) + FormattingHelp rows. Both are
+synchronous/CSS-only (render in note/article previews + blueprint cards, screenshot-
+friendly). Picked from an explored mockup menu; deferred fast-follows: diff/annotate/
+badges/spec/terminal/stats + extra callouts. svelte-check + build pass. See
+documentation/SPRINT53.md. — earlier: Sprint 52 (Home visual — added a "Your activity" **ridge** + a
 dark Today card in `Welcome.svelte`. The ridge is a full-width canvas band, one bar
 per day spanning your history so far (first activity → today, capped ~52 weeks),
 height = tasks that day (from `app.dailyStats`),
 fixed Magma gradient, centered mirror-style; animates in on mount (rAF + per-bar
 stagger, reduced-motion-safe), and the whole card is a button that opens the Mirror
-(⌘4). Shown only when ≥1 day has tasks; sits BELOW the contribution calendar. The Today card is
-now a solid **dark** surface (`bg-neutral-900`, light text) in both themes so it
-reads as the hero (progress over white/10, emerald-400 checks/fill, white/15 backlog
-pill, dark add-task input). Frontend-only, no backend/store change. Picked from a
+(⌘4). Shown only when ≥1 day has tasks; sits BELOW the contribution calendar. The Today card's
+surface + text **follow the sidebar tint** — it uses `var(--sidebar-bg)`/`--sidebar-border`
++ `class:dark={theme.isSidebarDark}` (same mechanism as the Sidebar), so the tint picker
+customizes it too (Ink default → black card; a colored tint tints the card; inner controls use
+light/dark Tailwind variants that respond to the local `.dark`). Frontend-only, no backend/store
+change. Picked from a
 4-option mockup (mini-Mirror / aurora / generative art / calendar-as-hero). svelte-
 check + build pass. See documentation/SPRINT52.md. Also (post-52 fixes): camera
 check-ins now fire from `createHomeToday`/`createFocusToday` too (they created lists

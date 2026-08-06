@@ -33,10 +33,22 @@
   const MERMAID = "\n```mermaid\nflowchart TD\n  A[Start] --> B[End]\n```\n";
   const CARDS =
     "\n```cards\n" +
+    "heading: Key links\ndesc: Optional section header above the grid\n" +
+    "---\n" +
     "title: My site\ndesc: Short description\nlink: https://example.com\ncolor: blue\nicon: 🔗\n" +
     "---\n" +
     "title: A blueprint\ndesc: Bold filled card\nlink: blueprint:1\ncolor: violet\nfilled: true\n" +
     "```\n";
+  const FILES =
+    "\n```files\n" +
+    "M src/lib/foo.ts +40 -12 — extracted the `home-today` slice\n" +
+    "A src/lib/bar.ts +58 — **new** module\n" +
+    "D src/lib/old.ts -120\n" +
+    "```\n";
+  const STATS =
+    "\n```stats\nheading: At a glance\nLines: +452 / −611\nFiles: 14\nMigrations: 1\nTests: 90 ✓\n```\n";
+  const SPEC =
+    "\n```spec\nheading: Migration plan\nRisk: **Low**\nMigration: `0027_drop_articles.sql`\nRollback: revert the migration\nTouches: notes · search · ipc\n```\n";
   const BAR_CHART =
     "\n```chart\ntype: bar\ntitle: Weekly commits\ncolor: blue\n" +
     "Mon: 5\nTue: 8\nWed: 3\nThu: 6\nFri: 9\n```\n";
@@ -51,6 +63,8 @@
   const LETTERING = "\n```lettering violet\nRemember the deadline\n```\n";
   const WORKFLOW =
     "\n```workflow\nOpen a `pull request`\nGet two approvals\nMerge to `main`\nDeploy\n```\n";
+  const SECTION =
+    "\n## > Section title\n\nHidden until you expand it. Everything down to the next same-level heading is inside.\n";
 
   const COMMANDS: Cmd[] = [
     { id: "h1", label: "Heading 1", icon: "H₁", hint: "# ", keywords: "title heading", snippet: "# " },
@@ -61,10 +75,14 @@
     { id: "todo", label: "Checklist", icon: "☑", keywords: "task todo checkbox", snippet: "- [ ] " },
     { id: "quote", label: "Quote", icon: "❝", keywords: "blockquote", snippet: "> " },
     { id: "callout", label: "Callout", icon: "💡", keywords: "note tip warning admonition", snippet: "> [!NOTE]\n> " },
+    { id: "section", label: "Toggle section", icon: "▸", keywords: "collapsible collapse fold toggle section details summary expand hide", snippet: SECTION },
     { id: "code", label: "Code block", icon: "‹›", keywords: "fence pre snippet", snippet: "```\n\n```\n", caretOffset: 4 },
     { id: "table", label: "Table", icon: "▦", keywords: "grid rows columns", snippet: TABLE },
     { id: "diagram", label: "Diagram", icon: "📈", keywords: "mermaid flowchart graph", snippet: MERMAID },
-    { id: "cards", label: "Cards", icon: "▤", keywords: "dashboard links tiles", snippet: CARDS },
+    { id: "cards", label: "Cards", icon: "▤", keywords: "dashboard links tiles heading section", snippet: CARDS },
+    { id: "files", label: "Changed files", icon: "🗂", keywords: "files changed diff pr status added modified deleted", snippet: FILES },
+    { id: "stats", label: "Stat cards", icon: "▦", keywords: "stats metrics numbers summary pr counts", snippet: STATS },
+    { id: "spec", label: "Spec sheet", icon: "▤", keywords: "spec fields key value risk rollback metadata pr", snippet: SPEC },
     { id: "bar-chart", label: "Bar chart", icon: "▊", keywords: "chart graph bar data viz", snippet: BAR_CHART },
     { id: "donut-chart", label: "Donut chart", icon: "◑", keywords: "chart pie donut data viz", snippet: DONUT_CHART },
     { id: "marquee", label: "Marquee banner", icon: "🎞", keywords: "marquee scroll banner ticker announcement", snippet: MARQUEE },

@@ -385,6 +385,503 @@ html.dark .markdown-body .md-code .md-copy-btn.md-copied {
 /* High specificity (.markdown-body .md-cards …) so card anchors beat */
 /* the link-chip pill styling in the editor components.               */
 /* ------------------------------------------------------------------ */
+/* Shared GitHub-style block header bar — files/cards/spec (Sprint 57). */
+.markdown-body .md-files-head,
+.markdown-body .md-bhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.45rem 0.8rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.025);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(0, 0, 0, 0.5);
+}
+html.dark .markdown-body .md-files-head,
+html.dark .markdown-body .md-bhead {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.55);
+}
+.markdown-body .md-bhead-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+.markdown-body .md-bhead-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.markdown-body .md-bhead-sub {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.76rem;
+  opacity: 0.8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.markdown-body .md-bhead-meta {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ```cards section panel (header + grid), Sprint 53 / restyled Sprint 57. */
+.markdown-body .md-cards-panel {
+  margin: 0.9rem 0;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+}
+html.dark .markdown-body .md-cards-panel {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #171e29;
+}
+.markdown-body .md-cards-body {
+  padding: 0.65rem;
+}
+.markdown-body .md-cards-body .md-cards {
+  margin: 0;
+}
+
+/* Collapsible "toggle" sections — `## > Title` (Sprint 55). Collapsed by
+   default; native <details>, toggled via installSectionToggle. */
+.markdown-body .md-section {
+  margin: 0.5rem 0;
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  border-radius: 10px;
+  overflow: hidden;
+  background: color-mix(in srgb, currentColor 3%, transparent);
+}
+html.dark .markdown-body .md-section {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.markdown-body .md-section-sum {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.1rem 0.7rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.markdown-body .md-section-sum::-webkit-details-marker {
+  display: none;
+}
+/* Disclosure triangle, rotates when open. */
+.markdown-body .md-section-sum::before {
+  content: "";
+  flex: none;
+  width: 0;
+  height: 0;
+  border-left: 6px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  opacity: 0.45;
+  transition: transform 0.15s ease;
+}
+.markdown-body .md-section[open] > .md-section-sum::before {
+  transform: rotate(90deg);
+}
+.markdown-body .md-section-sum:hover::before {
+  opacity: 0.8;
+}
+/* The heading inside the summary: drop its default block margins / h1 rule. */
+.markdown-body .md-section-sum > :where(h1, h2, h3, h4, h5, h6) {
+  margin: 0;
+  border: 0;
+  padding: 0.3rem 0;
+}
+.markdown-body .md-section-body {
+  padding: 0.1rem 0.95rem 0.55rem;
+}
+.markdown-body .md-section-body > :first-child {
+  margin-top: 0.2rem;
+}
+.markdown-body .md-section-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* ```files — a changed-files list for PR/code docs (Sprint 53; restyled
+   Sprint 56 — status-colored rail, dir/name split, path badge, header). */
+.markdown-body .md-files {
+  margin: 0.7rem 0;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+}
+html.dark .markdown-body .md-files {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #171e29;
+}
+/* .md-files-head shares the block-header bar styles (see .md-bhead above). */
+.markdown-body .md-file {
+  padding: 0.5rem 0.75rem 0.5rem 0.65rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-left: 3px solid var(--st, #d97706);
+  font-size: 0.85rem;
+}
+html.dark .markdown-body .md-file {
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+}
+.markdown-body .md-file:last-child {
+  border-bottom: 0;
+}
+.markdown-body .md-file-top {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+/* Per-file description row, aligned under the path badge. */
+.markdown-body .md-file-desc {
+  margin-top: 0.3rem;
+  margin-left: calc(18px + 0.55rem);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.62);
+}
+html.dark .markdown-body .md-file-desc {
+  color: rgba(255, 255, 255, 0.62);
+}
+.markdown-body .md-file-desc code {
+  font-size: 0.75rem;
+}
+.markdown-body .md-file-st {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #fff;
+  background: var(--st, #d97706);
+}
+/* Path badge: dir + name are plain continuous inline text (NOT flex items) so
+   they never split. Truncation lives on the badge itself — a per-span
+   overflow:hidden box left a gap before the filename when the mono font
+   substituted during image capture. */
+/* Path as plain mono text (GitHub-style: dimmed dir + bold name). No pill
+   background — a fixed-width pill left a gap in the copied image when the mono
+   font substituted during rasterization. */
+.markdown-body .md-file-path {
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.markdown-body .md-file-dir {
+  opacity: 0.5;
+}
+.markdown-body .md-file-name {
+  font-weight: 600;
+}
+.markdown-body .md-file-num {
+  flex: none;
+  margin-left: auto;
+  display: inline-flex;
+  gap: 0.4rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.markdown-body .md-file-num .p {
+  color: #16a34a;
+}
+.markdown-body .md-file-num .m {
+  color: #dc2626;
+}
+html.dark .markdown-body .md-file-num .p {
+  color: #34d399;
+}
+html.dark .markdown-body .md-file-num .m {
+  color: #f87171;
+}
+
+/* ```stats — accent-tinted metric cards with a gentle pulse (Sprint 54;
+   restyled Sprint 56). Accent hue rides in on `--acc`. */
+.markdown-body .md-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.6rem;
+  margin: 0.7rem 0;
+}
+/* stats + spec are themeable widgets. A surface THEME (fence keyword) sets
+   these CSS vars via a `.md-theme-*` class; with no theme the fallbacks below
+   apply → the default DARK look. Themes: dark (default) · midnight · slate ·
+   light · github. The accent hue rides in separately on `--acc`. */
+.markdown-body .md-theme-dark {
+  --surf: #0f1620;
+  --ink: #e6eaf2;
+  --line: rgba(255, 255, 255, 0.09);
+  --head-bg: rgba(255, 255, 255, 0.035);
+  --head-fg: rgba(255, 255, 255, 0.55);
+  --card-base: #141b27;
+  --code-bg: rgba(255, 255, 255, 0.12);
+  --code-fg: #f1f5f9;
+  --neutral: #cbd5e1;
+  --pos: #4ade80;
+  --neg: #f87171;
+}
+.markdown-body .md-theme-midnight {
+  --surf: #080b12;
+  --ink: #e6eaf2;
+  --line: rgba(255, 255, 255, 0.08);
+  --head-bg: rgba(255, 255, 255, 0.03);
+  --head-fg: rgba(255, 255, 255, 0.5);
+  --card-base: #0e131e;
+  --code-bg: rgba(255, 255, 255, 0.12);
+  --code-fg: #f1f5f9;
+  --neutral: #cbd5e1;
+  --pos: #4ade80;
+  --neg: #f87171;
+}
+.markdown-body .md-theme-slate {
+  --surf: #1b2333;
+  --ink: #e8ecf3;
+  --line: rgba(255, 255, 255, 0.1);
+  --head-bg: rgba(255, 255, 255, 0.05);
+  --head-fg: rgba(255, 255, 255, 0.6);
+  --card-base: #232c3d;
+  --code-bg: rgba(255, 255, 255, 0.12);
+  --code-fg: #f1f5f9;
+  --neutral: #cbd5e1;
+  --pos: #4ade80;
+  --neg: #f87171;
+}
+.markdown-body .md-theme-light {
+  --surf: #ffffff;
+  --ink: #1f2530;
+  --line: rgba(0, 0, 0, 0.12);
+  --head-bg: rgba(0, 0, 0, 0.025);
+  --head-fg: rgba(0, 0, 0, 0.5);
+  --card-base: #ffffff;
+  --code-bg: rgba(0, 0, 0, 0.06);
+  --code-fg: #1f2530;
+  --neutral: #475569;
+  --pos: #15803d;
+  --neg: #dc2626;
+}
+/* GitHub-style light gray (the "files changed" look). */
+.markdown-body .md-theme-github {
+  --surf: #f6f8fa;
+  --ink: #1f2328;
+  --line: #d0d7de;
+  --head-bg: #eaeef2;
+  --head-fg: #57606a;
+  --card-base: #ffffff;
+  --code-bg: rgba(27, 31, 36, 0.07);
+  --code-fg: #1f2328;
+  --neutral: #57606a;
+  --pos: #1a7f37;
+  --neg: #cf222e;
+}
+/* Header bar inside a stats/spec widget — follows the widget theme. */
+.markdown-body .md-stats-panel .md-bhead,
+.markdown-body .md-spec .md-bhead {
+  background: var(--head-bg, rgba(255, 255, 255, 0.035));
+  border-bottom-color: var(--line, rgba(255, 255, 255, 0.09));
+  color: var(--head-fg, rgba(255, 255, 255, 0.55));
+}
+
+/* Optional header-bar panel (a `heading:` line) — matches cards/files/spec. */
+.markdown-body .md-stats-panel {
+  margin: 0.9rem 0;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.09));
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surf, #0f1620);
+  color: var(--ink, #e6eaf2);
+}
+.markdown-body .md-stats-body {
+  padding: 0.7rem;
+}
+.markdown-body .md-stats-body .md-stats {
+  margin: 0;
+}
+.markdown-body .md-stat {
+  color: var(--ink, #e6eaf2);
+  background: var(--card-base, #141b27);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.09));
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+}
+.markdown-body .md-stat-v {
+  display: block;
+  position: relative;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.markdown-body .md-stat-v .p {
+  color: var(--pos, #4ade80);
+}
+.markdown-body .md-stat-v .m {
+  color: var(--neg, #f87171);
+}
+.markdown-body .md-stat-k {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--neutral, #cbd5e1);
+}
+
+/* ```spec — a themeable label→value sheet with an accent-tinted key column
+   (Sprint 54; restyled Sprint 56/58). Accent hue rides in on `--acc`. */
+.markdown-body .md-spec {
+  margin: 0.7rem 0;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.09));
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surf, #0f1620);
+  color: var(--ink, #e6eaf2);
+}
+.markdown-body .md-spec-row {
+  display: grid;
+  grid-template-columns: minmax(104px, 170px) 1fr;
+  border-bottom: 1px solid var(--line, rgba(255, 255, 255, 0.09));
+}
+.markdown-body .md-spec-row:last-child {
+  border-bottom: 0;
+}
+.markdown-body .md-spec-k {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: var(--neutral, #cbd5e1);
+  background: var(--head-bg, rgba(255, 255, 255, 0.035));
+  border-right: 1px solid var(--line, rgba(255, 255, 255, 0.09));
+}
+.markdown-body .md-spec-v {
+  padding: 0.5rem 0.85rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+.markdown-body .md-spec-v > :first-child {
+  margin-top: 0;
+}
+.markdown-body .md-spec-v > :last-child {
+  margin-bottom: 0;
+}
+/* Inline code inside the widgets follows the theme. */
+.markdown-body .md-spec-v code {
+  background: var(--code-bg, rgba(255, 255, 255, 0.12));
+  color: var(--code-fg, #f1f5f9);
+  border: 0;
+}
+
+/* Per-item `pulse` flag — a gentle, neutral breathing highlight on a single
+   stat card / spec row / file row. Overlay (inset, not a glow) so it isn't
+   clipped by the panel's overflow. Neutral = the theme text color. */
+.markdown-body .md-pulse {
+  position: relative;
+}
+.markdown-body .md-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: color-mix(in srgb, currentColor 22%, transparent);
+  /* Inset ring reads even inside the panel's overflow:hidden (a glow would be
+     clipped). */
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, currentColor 40%, transparent);
+  opacity: 0.18;
+  animation: md-pulse-breathe 1.5s ease-in-out infinite;
+}
+@keyframes md-pulse-breathe {
+  0%,
+  100% {
+    opacity: 0.18;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .markdown-body .md-pulse::after {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* Doc-block wrapper + "copy as image" button (Sprint 54). */
+.markdown-body .md-block {
+  position: relative;
+}
+.markdown-body .md-img-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.85);
+  color: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.12s,
+    background 0.12s;
+  backdrop-filter: blur(4px);
+}
+.markdown-body .md-block:hover .md-img-copy {
+  opacity: 1;
+}
+.markdown-body .md-img-copy:hover {
+  color: rgba(0, 0, 0, 0.9);
+}
+html.dark .markdown-body .md-img-copy {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(20, 26, 36, 0.85);
+  color: rgba(255, 255, 255, 0.6);
+}
+html.dark .markdown-body .md-img-copy:hover {
+  color: rgba(255, 255, 255, 0.95);
+}
+.markdown-body .md-img-copy .md-copy-i {
+  width: 15px;
+  height: 15px;
+}
+.markdown-body .md-img-copy .md-copy-check {
+  width: 15px;
+  height: 15px;
+  display: none;
+  color: #16a34a;
+}
+.markdown-body .md-img-copy.md-copied .md-copy-i {
+  display: none;
+}
+.markdown-body .md-img-copy.md-copied .md-copy-check {
+  display: block;
+}
+.markdown-body .md-img-copy.md-copied {
+  opacity: 1;
+}
+
 .markdown-body .md-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));

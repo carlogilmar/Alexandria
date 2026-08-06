@@ -116,6 +116,18 @@ export function createMarkdownIt(): MarkdownIt {
     if (info === "workflow") {
       return renderWorkflow(tokens[idx].content, md);
     }
+    // ```files → a changed-files list (status chip · path · ±lines · note).
+    if (info === "files") {
+      return renderFiles(tokens[idx].content, md);
+    }
+    // ```stats → a row of metric cards.  ```spec → a label→value sheet.
+    // Both take an optional accent color in the fence info (e.g. `spec violet`).
+    if (info === "stats" || info.startsWith("stats ")) {
+      return renderStats(tokens[idx].content, info.split(/\s+/).slice(1), md);
+    }
+    if (info === "spec" || info.startsWith("spec ")) {
+      return renderSpec(tokens[idx].content, info.split(/\s+/).slice(1), md);
+    }
     // Every other fenced block gets a GitHub-style copy button. The button is
     // static HTML (no per-instance handler survives `{@html}` re-renders); a
     // single delegated document listener — installCodeCopy — handles the click
@@ -164,10 +176,101 @@ export function createMarkdownIt(): MarkdownIt {
   // you last edited and (b) place the caret when you click a block to edit.
   addLineNumbers(md);
 
+  // Toggle headings: `## > Title` → a collapsible <details> section (collapsed
+  // by default) so a long note reads as a summary you expand on demand. Runs
+  // after line_numbers so the heading tokens keep their data-line.
+  addCollapsibleSections(md);
+
   // One delegated listener powers the copy buttons across every surface.
   installCodeCopy();
+  installBlockImageCopy();
+  installSectionToggle();
 
   return md;
+}
+
+// Collapsible "toggle" sections. A heading whose text starts with `>` (e.g.
+// `## > Roadmap`) becomes a <details> section, COLLAPSED by default, whose body
+// is every block down to the next heading of the same-or-higher level. Opt-in
+// by the marker, so plain headings and existing notes are untouched.
+function addCollapsibleSections(md: MarkdownIt): void {
+  md.core.ruler.push("collapsible_sections", (state) => {
+    const src = state.tokens;
+    const out: typeof src = [];
+    const stack: number[] = []; // levels of currently-open toggle sections
+
+    const closeThrough = (level: number) => {
+      while (stack.length && stack[stack.length - 1] >= level) {
+        stack.pop();
+        out.push(new state.Token("section_close", "", -1));
+      }
+    };
+
+    for (let i = 0; i < src.length; i++) {
+      const tok = src[i];
+      if (
+        tok.type === "heading_open" &&
+        src[i + 1]?.type === "inline" &&
+        src[i + 2]?.type === "heading_close"
+      ) {
+        const level = Number(tok.tag.slice(1)) || 1; // h2 → 2
+        // A new heading closes any open section at its level or deeper.
+        closeThrough(level);
+        const inline = src[i + 1];
+        if (/^>\s?/.test(inline.content)) {
+          // Strip the `>` marker from the rendered heading text.
+          inline.content = inline.content.replace(/^>\s?/, "");
+          const first = inline.children?.[0];
+          if (first && first.type === "text") {
+            first.content = first.content.replace(/^>\s?/, "");
+          }
+          out.push(new state.Token("section_open", "", 1));
+          out.push(tok, inline, src[i + 2]);
+          out.push(new state.Token("section_body_open", "", 0));
+          stack.push(level);
+        } else {
+          out.push(tok, inline, src[i + 2]);
+        }
+        i += 2;
+        continue;
+      }
+      out.push(tok);
+    }
+    closeThrough(0); // close any still-open sections at EOF
+    state.tokens = out;
+  });
+
+  md.renderer.rules.section_open = () =>
+    '<details class="md-section"><summary class="md-section-sum">';
+  md.renderer.rules.section_body_open = () =>
+    '</summary><div class="md-section-body">';
+  md.renderer.rules.section_close = () => "</div></details>";
+}
+
+// Native <details> toggling is intercepted here (capture phase) so a click on a
+// section header toggles it WITHOUT tripping a surface's click-to-edit, and so
+// the behaviour is identical across every markdown surface. A link inside the
+// heading is left alone so it can navigate.
+let sectionToggleInstalled = false;
+function installSectionToggle(): void {
+  if (sectionToggleInstalled || typeof document === "undefined") return;
+  sectionToggleInstalled = true;
+  document.addEventListener(
+    "click",
+    (e) => {
+      const target = e.target as Element | null;
+      const sum = target?.closest?.(".md-section-sum") as HTMLElement | null;
+      if (!sum) return;
+      if (target?.closest?.("a")) return; // let links navigate
+      e.stopPropagation();
+      e.preventDefault();
+      const details = sum.closest(
+        "details.md-section",
+      ) as HTMLDetailsElement | null;
+      if (details) details.open = !details.open;
+    },
+    true,
+  );
 }
 
 // Set `data-line="<0-based source line>"` on every top-level block token that
@@ -196,6 +299,41 @@ const CODE_COPY_BTN =
   '<svg class="md-copy-check" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">' +
   '<path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.42 0l-3.5-3.5a1 1 0 011.42-1.42l2.79 2.8 6.79-6.8a1 1 0 011.42 0z" clip-rule="evenodd"/></svg>' +
   "</button>";
+
+// "Copy as image" button — injected into doc blocks (files/stats/spec/cards).
+// A delegated listener (installBlockImageCopy) rasterizes the block and copies
+// a PNG to the clipboard so it can be pasted straight into a PR / chat.
+const IMG_COPY_BTN =
+  '<button class="md-img-copy" type="button" title="Copy as image" aria-label="Copy as image">' +
+  '<svg class="md-copy-i" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">' +
+  '<rect x="3" y="4" width="14" height="12" rx="2"/><circle cx="8" cy="9" r="1.6"/><path d="M4 15l4-4 3 3 3-3 2 2"/></svg>' +
+  '<svg class="md-copy-check" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">' +
+  '<path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.42 0l-3.5-3.5a1 1 0 011.42-1.42l2.79 2.8 6.79-6.8a1 1 0 011.42 0z" clip-rule="evenodd"/></svg>' +
+  "</button>";
+
+// Wrap a block so it gets a hover "copy as image" button (positioned by CSS).
+function withImgCopy(inner: string): string {
+  return `<div class="md-block" data-md-block>${inner}${IMG_COPY_BTN}</div>`;
+}
+
+// Shared GitHub-style header bar (tinted strip: title + optional subtitle on
+// the left, a metric/count on the right). Used by files/cards/spec.
+function blockHeader(
+  title: string,
+  sub: string,
+  meta: string,
+  md: MarkdownIt,
+): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  return (
+    `<div class="md-bhead"><span class="md-bhead-left">` +
+    `<span class="md-bhead-title">${esc(title)}</span>` +
+    (sub ? `<span class="md-bhead-sub">${esc(sub)}</span>` : "") +
+    `</span>` +
+    (meta ? `<span class="md-bhead-meta">${esc(meta)}</span>` : "") +
+    `</div>`
+  );
+}
 
 // ```cards renderer. Cards are separated by a `---` line; each card is
 // `key: value` lines (title / desc / link / color / icon). Emits a grid of
@@ -246,6 +384,26 @@ function renderWorkflow(source: string, md: MarkdownIt): string {
 function renderCards(source: string, md: MarkdownIt): string {
   const esc = (s: string) => md.utils.escapeHtml(s);
   const blocks = source.split(/^\s*-{3,}\s*$/m);
+
+  // Optional section header: if the FIRST block declares `heading:`, render a
+  // GitHub-style header bar (title + optional `desc:` subtitle + card count)
+  // ABOVE the grid. Backward-compatible — cards without `heading:` are a bare
+  // grid.
+  let headingText = "";
+  let descText = "";
+  if (blocks.length > 0) {
+    const first: Record<string, string> = {};
+    for (const line of blocks[0].split("\n")) {
+      const m = /^\s*([a-zA-Z]+)\s*:\s*(.*)$/.exec(line);
+      if (m) first[m[1].toLowerCase()] = m[2].trim();
+    }
+    if (first.heading) {
+      headingText = first.heading;
+      descText = first.desc ?? "";
+      blocks.shift();
+    }
+  }
+
   const cards: string[] = [];
   for (const block of blocks) {
     const f: Record<string, string> = {};
@@ -299,8 +457,232 @@ function renderCards(source: string, md: MarkdownIt): string {
         : `<div class="md-card ${cls}">${inner}</div>`,
     );
   }
+  const n = cards.length;
+  const bar = headingText
+    ? blockHeader(headingText, descText, `${n} card${n === 1 ? "" : "s"}`, md)
+    : "";
+  if (n === 0) {
+    return bar ? withImgCopy(`<div class="md-cards-panel">${bar}</div>`) : "";
+  }
+  const grid = `<div class="md-cards">${cards.join("")}</div>`;
+  return withImgCopy(
+    bar
+      ? `<div class="md-cards-panel">${bar}<div class="md-cards-body">${grid}</div></div>`
+      : grid,
+  );
+}
+
+// Surface themes for the stats/spec widgets, chosen by a fence keyword (e.g.
+// ```stats slate` / ```spec github`). Each maps to a `.md-theme-*` class that
+// sets the surface CSS vars. Default is github (the light-gray "files changed"
+// look). `gray` is an alias for github.
+const SURFACE_THEMES: Record<string, string> = {
+  dark: "md-theme-dark",
+  midnight: "md-theme-midnight",
+  slate: "md-theme-slate",
+  light: "md-theme-light",
+  github: "md-theme-github",
+  gray: "md-theme-github",
+};
+function surfaceThemeClass(opts: string[]): string {
+  for (const o of opts) {
+    const t = o.toLowerCase();
+    if (SURFACE_THEMES[t]) return SURFACE_THEMES[t];
+  }
+  return "md-theme-github"; // default
+}
+
+// Per-item `pulse` flag: a standalone trailing `pulse` word marks that single
+// card / row / file for the breathing animation. Returns the text with it
+// removed + whether it was present. Shared by stats / spec / files.
+function peelPulse(s: string): { text: string; pulse: boolean } {
+  const m = /\s+pulse\s*$/i.exec(s);
+  if (m) return { text: s.slice(0, m.index).trim(), pulse: true };
+  return { text: s.trim(), pulse: false };
+}
+
+// Status → accent color / long label, shared by the files block.
+const FILE_STATUS_COLOR: Record<string, string> = {
+  A: "#16a34a",
+  M: "#d97706",
+  D: "#dc2626",
+  R: "#2563eb",
+};
+const FILE_STATUS_LABEL: Record<string, string> = {
+  A: "added",
+  M: "modified",
+  D: "deleted",
+  R: "renamed",
+};
+
+// ```files → a changed-files list for PR/code docs. One file per line:
+//   <STATUS> <path> [+adds] [-dels] [— note]
+// STATUS is A/M/D/R (add/modify/delete/rename; case-insensitive, default M).
+// `+N` / `-N` are optional line counts (any order). A note follows ` — `,
+// ` -- `, or ` # ` and renders as a description row (basic inline markdown).
+// A header sums the file count + total ±lines to orient the reviewer.
+function renderFiles(source: string, md: MarkdownIt): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  const rows: string[] = [];
+  let nFiles = 0;
+  let totalAdds = 0;
+  let totalDels = 0;
+  for (const raw of source.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    // Peel off a trailing note after — / -- / #.
+    let note = "";
+    let main = line;
+    const nm = /\s+(?:—|--|#)\s+(.*)$/.exec(line);
+    if (nm) {
+      note = nm[1].trim();
+      main = line.slice(0, nm.index).trim();
+    }
+    // A trailing `pulse` (before the note) makes this file row breathe.
+    let pulse = false;
+    ({ text: main, pulse } = peelPulse(main));
+    const parts = main.split(/\s+/);
+    let status = "M";
+    let idx = 0;
+    if (/^[AMDR]$/i.test(parts[0])) {
+      status = parts[0].toUpperCase();
+      idx = 1;
+    }
+    const path = parts[idx] ?? "";
+    if (!path) continue;
+    let adds = "";
+    let dels = "";
+    for (let i = idx + 1; i < parts.length; i++) {
+      const m = /^([+-])(\d+)$/.exec(parts[i]);
+      if (m) {
+        if (m[1] === "+") adds = m[2];
+        else dels = m[2];
+      }
+    }
+    nFiles++;
+    if (adds) totalAdds += Number(adds);
+    if (dels) totalDels += Number(dels);
+    // Split dir/ from the filename so the reviewer's eye lands on the file:
+    // the directory is dimmed, the filename bold, both inside a mono badge.
+    const slash = path.lastIndexOf("/");
+    const dir = slash >= 0 ? path.slice(0, slash + 1) : "";
+    const name = slash >= 0 ? path.slice(slash + 1) : path;
+    const pathHtml =
+      (dir ? `<span class="md-file-dir">${esc(dir)}</span>` : "") +
+      `<span class="md-file-name">${esc(name)}</span>`;
+    const nums =
+      adds || dels
+        ? `<span class="md-file-num">${adds ? `<span class="p">+${adds}</span>` : ""}${dels ? `<span class="m">−${dels}</span>` : ""}</span>`
+        : "";
+    const acc = FILE_STATUS_COLOR[status] ?? FILE_STATUS_COLOR.M;
+    rows.push(
+      `<div class="md-file${pulse ? " md-pulse" : ""}" style="--st:${acc}">` +
+        `<div class="md-file-top">` +
+        `<span class="md-file-st" title="${FILE_STATUS_LABEL[status]}">${status}</span>` +
+        `<span class="md-file-path">${pathHtml}</span>${nums}</div>` +
+        // The note supports basic inline markdown (`code`, **bold**, links).
+        (note ? `<div class="md-file-desc">${md.renderInline(note)}</div>` : "") +
+        `</div>`,
+    );
+  }
+  if (rows.length === 0) return "";
+  const totalNums =
+    totalAdds || totalDels
+      ? `<span class="md-file-num">${totalAdds ? `<span class="p">+${totalAdds}</span>` : ""}${totalDels ? `<span class="m">−${totalDels}</span>` : ""}</span>`
+      : "";
+  const head =
+    `<div class="md-files-head"><span class="md-files-count">${nFiles} file${nFiles === 1 ? "" : "s"} changed</span>${totalNums}</div>`;
+  return withImgCopy(`<div class="md-files">${head}${rows.join("")}</div>`);
+}
+
+// ```stats [theme] → a row of metric cards. One `Label: value` per line; the
+// value is free text (big), the label small. `+N` / `-N` inside the value are
+// colored (green/red). Cards follow the widget theme (default github). A
+// trailing `pulse` on a line makes that card breathe; a trailing color word is
+// accepted but ignored (legacy).
+function renderStats(source: string, opts: string[], md: MarkdownIt): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  const colorNums = (s: string) =>
+    esc(s)
+      .replace(/\+(\d[\d,]*)/g, '<span class="p">+$1</span>')
+      .replace(/[−-](\d[\d,]*)/g, '<span class="m">−$1</span>');
+  // An optional `heading:` line becomes a GitHub-style header bar (title +
+  // metric count); every other `Label: value` line is a metric card.
+  let headingText = "";
+  const cards: string[] = [];
+  for (const raw of source.split("\n")) {
+    const hm = /^\s*heading\s*:\s*(.*)$/i.exec(raw);
+    if (hm) {
+      headingText = hm[1].trim();
+      continue;
+    }
+    const m = /^\s*([^:]+?)\s*:\s*(.*)$/.exec(raw);
+    if (!m) continue;
+    const label = m[1].trim();
+    let value = m[2].trim();
+    if (!label && !value) continue;
+    // Peel a trailing `pulse` flag, then strip a legacy trailing color word.
+    let pulse = false;
+    ({ text: value, pulse } = peelPulse(value));
+    const cm = /\s+([a-zA-Z]+)$/.exec(value);
+    if (cm && NAMED_COLORS[cm[1].toLowerCase()]) {
+      value = value.slice(0, cm.index).trim();
+    }
+    cards.push(
+      `<div class="md-stat${pulse ? " md-pulse" : ""}"><span class="md-stat-v">${colorNums(value)}</span><span class="md-stat-k">${esc(label)}</span></div>`,
+    );
+  }
   if (cards.length === 0) return "";
-  return `<div class="md-cards">${cards.join("")}</div>`;
+  const surf = surfaceThemeClass(opts);
+  if (!headingText) {
+    return withImgCopy(`<div class="md-stats ${surf}">${cards.join("")}</div>`);
+  }
+  const n = cards.length;
+  const bar = blockHeader(
+    headingText,
+    "",
+    `${n} metric${n === 1 ? "" : "s"}`,
+    md,
+  );
+  return withImgCopy(
+    `<div class="md-stats-panel ${surf}">${bar}<div class="md-stats-body"><div class="md-stats">${cards.join("")}</div></div></div>`,
+  );
+}
+
+// ```spec [theme] → a label→value "spec sheet". One `Label: value` per line.
+// The key column follows the widget theme (default github); values support
+// basic inline markdown (`code`, **bold**, links, :icons:).
+function renderSpec(source: string, opts: string[], md: MarkdownIt): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  // An optional `heading:` line becomes a GitHub-style header bar (title +
+  // field count); every other `Label: value` line is a row.
+  let headingText = "";
+  const rows: string[] = [];
+  for (const raw of source.split("\n")) {
+    const hm = /^\s*heading\s*:\s*(.*)$/i.exec(raw);
+    if (hm) {
+      headingText = hm[1].trim();
+      continue;
+    }
+    const m = /^\s*([^:]+?)\s*:\s*(.*)$/.exec(raw);
+    if (!m) continue;
+    const label = m[1].trim();
+    // A trailing `pulse` makes this row breathe.
+    const { text: value, pulse } = peelPulse(m[2].trim());
+    if (!label && !value) continue;
+    rows.push(
+      `<div class="md-spec-row${pulse ? " md-pulse" : ""}"><span class="md-spec-k">${esc(label)}</span><span class="md-spec-v">${md.renderInline(value)}</span></div>`,
+    );
+  }
+  if (rows.length === 0) return "";
+  const n = rows.length;
+  const bar = headingText
+    ? blockHeader(headingText, "", `${n} field${n === 1 ? "" : "s"}`, md)
+    : "";
+  const surf = surfaceThemeClass(opts);
+  return withImgCopy(
+    `<div class="md-spec ${surf}">${bar}${rows.join("")}</div>`,
+  );
 }
 
 // ```chart renderer. Same `key: value` line shape as ```cards: `type` / `title`
@@ -972,6 +1354,104 @@ function installCodeCopy(): void {
           /* clipboard denied — no-op */
         },
       );
+    },
+    true,
+  );
+}
+
+// Delegated handler for the "copy as image" buttons on doc blocks. Rasterizes
+// the parent `[data-md-block]` via html-to-image and copies a PNG — preferring
+// the native Tauri clipboard (reliable in WKWebView), falling back to the web
+// Clipboard API. html-to-image + the ipc are dynamic-imported so they don't
+// weigh on markdown surfaces that never copy.
+let blockImgCopyInstalled = false;
+function installBlockImageCopy(): void {
+  if (blockImgCopyInstalled || typeof document === "undefined") return;
+  blockImgCopyInstalled = true;
+  document.addEventListener(
+    "click",
+    (e) => {
+      const btn = (e.target as Element | null)?.closest?.(
+        ".md-img-copy",
+      ) as HTMLButtonElement | null;
+      if (!btn) return;
+      e.stopPropagation();
+      e.preventDefault();
+      const block = btn.closest("[data-md-block]") as HTMLElement | null;
+      if (!block || btn.classList.contains("md-busy")) return;
+      btn.classList.add("md-busy");
+      // Force every opaque background inline so WKWebView's foreignObject
+      // rasterizer captures the widget's OWN surface reliably (it otherwise
+      // drops CSS backgrounds). Same colors → no visible flash; restored in
+      // `finally`. This lets the surrounding PADDING stay white (below) while a
+      // dark-themed widget still renders dark — so pasting into a light PR shows
+      // a clean card on white instead of a big dark rectangle.
+      const painted: { el: HTMLElement; prev: string }[] = [];
+      // Zero the inner block's own vertical margin (each block type has a
+      // different one) so every captured image has equal top/bottom padding.
+      const innerBlock = block.firstElementChild as HTMLElement | null;
+      const prevMargin = innerBlock?.style.margin ?? "";
+      if (innerBlock) innerBlock.style.margin = "0";
+      void (async () => {
+        try {
+          const { toBlob } = await import("html-to-image");
+          block.querySelectorAll<HTMLElement>("*").forEach((el) => {
+            if (el.classList.contains("md-img-copy")) return;
+            const bg = getComputedStyle(el).backgroundColor;
+            if (bg && !/,\s*0\s*\)/.test(bg) && bg !== "transparent") {
+              painted.push({ el, prev: el.style.background });
+              el.style.background = bg;
+            }
+          });
+          // The padding blends into the (light) PR page. Padding is applied with
+          // `content-box` + an oversized canvas (width/height include the pad)
+          // so nothing clips.
+          const surface = "#ffffff";
+          const pad = 20;
+          const w = block.offsetWidth;
+          const h = block.offsetHeight;
+          const opts = {
+            pixelRatio: 2,
+            width: w + pad * 2,
+            height: h + pad * 2,
+            backgroundColor: surface,
+            style: {
+              boxSizing: "content-box",
+              width: `${w}px`,
+              height: `${h}px`,
+              padding: `${pad}px`,
+              margin: "0",
+              background: surface,
+            },
+            filter: (n: Node) =>
+              !(n instanceof HTMLElement && n.classList.contains("md-img-copy")),
+          };
+          // Fonts must be loaded before rasterizing or the reflow truncates the
+          // bottom; a throwaway warm-up pass works around a WebKit first-render
+          // sizing bug (the second pass is the reliable one).
+          await (document.fonts?.ready ?? Promise.resolve()).catch(() => {});
+          await toBlob(block, opts).catch(() => null);
+          const blob = await toBlob(block, opts);
+          if (!blob) return;
+          const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
+          try {
+            const { copyImageToClipboard } = await import("$lib/ipc");
+            await copyImageToClipboard(bytes);
+          } catch {
+            await navigator.clipboard.write([
+              new ClipboardItem({ [blob.type]: blob }),
+            ]);
+          }
+          btn.classList.add("md-copied");
+          window.setTimeout(() => btn.classList.remove("md-copied"), 1400);
+        } catch {
+          /* rasterize / clipboard failed — no-op */
+        } finally {
+          painted.forEach((p) => (p.el.style.background = p.prev));
+          if (innerBlock) innerBlock.style.margin = prevMargin;
+          btn.classList.remove("md-busy");
+        }
+      })();
     },
     true,
   );
