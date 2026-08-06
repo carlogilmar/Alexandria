@@ -411,38 +411,33 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 58 (Dark stats & spec widgets — the ```stats and ```spec
-blocks are now DARK in every theme (`--dark-surface` #0f1620 / `--dark-ink` on
-`.md-stats-panel`/`.md-spec`), with the header bar overridden to match the dark body
-(`.md-stats-panel .md-bhead`/`.md-spec .md-bhead`) instead of the shared light neutral bar.
-Stat cards are dark-accent gradients (`acc 26%→10%, #141b27`) with brighter border/glow +
-light value/green-red; spec key column accent lightened for dark + dark-friendly inline code.
-files/cards unchanged (shared `.md-bhead` base untouched). `installBlockImageCopy` now derives
-the capture background from the block's own panel bg (first child's opaque computed bg, else
-theme surface) so dark widgets rasterize dark. CSS-only + the one capture tweak. svelte-check +
-build pass. See documentation/SPRINT58.md. — earlier: Sprint 57 (Shared GitHub-style header bar — the files block's
-tinted header (label left, metric right) is now a shared `blockHeader(title,sub,meta,md)`
-→ `.md-bhead` used by files/cards/spec/stats (```stats gained a `heading:` line → header bar
-+ metric count, grid wrapped in `.md-stats-panel`/`.md-stats-body`). ```cards: the `heading:`/`desc:` first block now
-renders as the header BAR with a card count on the right and wraps the grid in a bordered
-panel (`.md-cards-panel`/`.md-cards-body`), replacing the old big-title `.md-cards-head*`.
-```spec: an optional `heading:` line → the header bar with a field count. ```files unchanged
-but `.md-files-head` shares the `.md-bhead` container CSS (grouped selector). Backward-compatible
-(no `heading:` → bare grid / header-less sheet). Slash `spec` template + FormattingHelp + demo
-updated. svelte-check + build pass. See documentation/SPRINT57.md. — earlier: Sprint 56 (PR blocks III — restyled the stats/spec/files blocks
-for reviewers, all still CSS-only/synchronous + image-copyable. ```stats: cards are
-accent-tinted (`--acc`) with a gentle breathing glow (`@keyframes md-stat-pulse`,
-reduced-motion-safe); accent = optional trailing color word per line, else fence color
-(`stats <color>`), else auto (pure `+N`→green / `−N`→red / else blue); `renderStats` now
-takes info-string opts. ```spec: the KEY COLUMN is accent-tinted (fence color via `--acc`,
-default blue — accent text + soft bg + divider) and VALUES take inline markdown
-(`md.renderInline`: `code`/**bold**/links/`:icons:`); `renderSpec` takes opts. ```files:
-status now colors the row (left rail `--st` + chip), the path splits into dimmed `dir/` +
-bold filename inside a mono badge, a header sums `N files changed` + total `+adds −dels`,
-and the per-file note is a description row with inline markdown. Fence dispatch updated to
-`info.startsWith("stats "/"spec ")`. Accent colors reuse `NAMED_COLORS`. Slash templates +
-FormattingHelp rows updated. svelte-check + build pass. See documentation/SPRINT56.md.
-— earlier: Sprint 55 (Collapsible toggle sections — a heading whose text
+Last updated: end of Sprint 54 (PR / code-doc markdown blocks — a family of powered-markdown
+blocks in `$lib/markdownit.ts` for writing PR descriptions / code findings, all synchronous/
+CSS-only (render in note previews + blueprint cards) and copy-as-image-able. ```files
+(`renderFiles`): one file per line `<A|M|D|R> path [+adds] [-dels] [pulse] [— note]` — status
+colors the row (left rail `--st` + chip), path = dimmed `dir/` + bold filename (plain mono text,
+NO pill — a pill left a gap in the copied image on mono-font substitution), a header sums
+`N files changed` + total `±lines`, note = description row w/ inline markdown. ```stats
+[theme] (`renderStats`): `Label: value` → metric cards (`+N`/`−N` green/red); optional `heading:`
+→ header bar + metric count in a panel. ```spec [theme] (`renderSpec`): `Label: value` sheet,
+theme-tinted neutral key column, values take inline markdown (`md.renderInline`); optional
+`heading:` → header bar + field count. ```cards: optional `heading:`/`desc:` first block →
+header bar + card count in a panel. SHARED: `blockHeader()`→`.md-bhead` GitHub-style header
+(files/stats/spec/cards). SURFACE THEMES (stats/spec only): a fence keyword → `.md-theme-*`
+class (`surfaceThemeClass`) setting CSS vars (`--surf/--ink/--line/--head-bg/--card-base/
+--neutral/--pos/--neg`); themes github (DEFAULT) · light · dark · midnight · slate. NO accent
+color (tried + removed as noisy) — blocks are theme-only. PER-ITEM `pulse`: trailing `pulse` on
+a stat card / spec row / file row (`peelPulse`) → `.md-pulse` neutral breathing overlay+ring
+(currentColor, reduced-motion-safe). COPY-AS-IMAGE: files/stats/spec/cards wrap in `.md-block`
+(`withImgCopy`) + hover 📷; `installBlockImageCopy` (delegated capture-phase, like
+`installCodeCopy`) rasterizes via html-to-image `toBlob` 2× and copies a PNG (native Tauri
+`copy_image_to_clipboard`, else `navigator.clipboard.write`; both dynamic-imported). WKWebView
+robustness: WHITE padding (blends into a light PR), force every opaque bg inline before capture
+(foreignObject drops CSS bg), zero the inner block's margin (equal padding across block types),
+`content-box`+oversized canvas (no clip), `await document.fonts.ready` + a warm-up pass. Slash
+(Changed files/Stat cards/Spec sheet) + FormattingHelp + `pr-blocks-demo.md`. svelte-check +
+build pass; the image CLIPBOARD WRITE still needs a live webview run to verify. See
+documentation/SPRINT54.md. — earlier: Sprint 55 (Collapsible toggle sections — a heading whose text
 starts with `>` (e.g. `## > Roadmap`) becomes a `<details>` section COLLAPSED by
 default, body = every block down to the next same-or-higher heading. `addCollapsibleSections`
 in `$lib/markdownit.ts` is a core rule (after `line_numbers`) that wraps toggle headings
@@ -454,36 +449,10 @@ that owns the toggle — `preventDefault`+`stopPropagation` so it never trips a 
 click-to-edit, flips `details.open` (a link inside the heading still navigates).
 `.md-section*` CSS (disclosure triangle `::before` rotates when open). Opt-in by the marker
 → plain headings/existing notes untouched; nested toggles nest. Slash "Toggle section" +
-FormattingHelp row. ALSO fixed the Sprint 54 copy-as-image (gray bg + clipped bottom/right
-borders in WKWebView): `installBlockImageCopy` now forces a solid `background` on the capture
-root (masks WebKit's dropped `foreignObject` bg), pads via `content-box` + an oversized
-canvas (`w/h + 2·pad`, no clip), awaits `document.fonts.ready`, and does a warm-up `toBlob`
-pass (WebKit under-measures height on first render). svelte-check + build pass. Image capture
-still needs a live webview run to verify the clipboard write. See documentation/SPRINT55.md.
-— earlier: Sprint 54 (PR blocks II — the `files` block's `— note` now
-renders as a full **description row** under each file (`.md-file-top` + `.md-file-desc`,
-column layout). NEW ```stats (`renderStats`: `Label: value` lines → metric cards,
-value big with `+N`/`-N` auto-colored) and ```spec (`renderSpec`: `Label: value` →
-a label→value sheet). NEW **copy-as-image**: files/stats/spec/cards blocks wrap in
-`.md-block` (`withImgCopy`) with a hover 📷 button; a delegated listener
-`installBlockImageCopy` (like `installCodeCopy`) rasterizes the block via html-to-image
-`toBlob` (2×, solid body bg, 12px pad, button filtered) and copies a PNG — prefers the
-native Tauri `copy_image_to_clipboard`, falls back to `navigator.clipboard.write`;
-html-to-image + ipc dynamic-imported. Slash "Stat cards"/"Spec sheet" + FormattingHelp
-rows. All synchronous/CSS-only. Image capture needs a live webview run to verify the
-clipboard write. svelte-check + build pass. See documentation/SPRINT54.md. — earlier:
-Sprint 53 (PR/code-doc markdown blocks — for writing PR
-descriptions in Alexandria. NEW ```files block (`renderFiles` in markdownit.ts): a
-changed-files list, one file per line `<A|M|D|R> path [+adds] [-dels] [— note]` →
-colored status chip + mono path + green/red line counts + muted note; `.md-files`
-CSS. The ```cards block gained an optional SECTION HEADER: if the first block
-declares `heading:` (+ optional `desc:`) it renders as a title+subtitle above the
-grid (`.md-cards-section`/`.md-cards-head`), backward-compatible. Slash commands
-("Changed files"; cards template shows the heading) + FormattingHelp rows. Both are
-synchronous/CSS-only (render in note/article previews + blueprint cards, screenshot-
-friendly). Picked from an explored mockup menu; deferred fast-follows: diff/annotate/
-badges/spec/terminal/stats + extra callouts. svelte-check + build pass. See
-documentation/SPRINT53.md. — earlier: Sprint 52 (Home visual — added a "Your activity" **ridge** + a
+FormattingHelp row. See documentation/SPRINT55.md.
+(Sprint 54 numbering note: SPRINT54.md now consolidates the whole PR-blocks feature; the old
+per-pass docs 53/56/57/58 were folded into it.)
+— earlier: Sprint 52 (Home visual — added a "Your activity" **ridge** + a
 dark Today card in `Welcome.svelte`. The ridge is a full-width canvas band, one bar
 per day spanning your history so far (first activity → today, capped ~52 weeks),
 height = tasks that day (from `app.dailyStats`),

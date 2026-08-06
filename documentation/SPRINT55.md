@@ -1,6 +1,4 @@
-# Sprint 55 — Collapsible toggle sections + image-copy fix
-
-## Toggle sections
+# Sprint 55 — Collapsible toggle sections
 
 A heading whose text starts with `>` (e.g. `## > Roadmap`) becomes a
 collapsible **`<details>` section, collapsed by default**, so a long
@@ -25,17 +23,9 @@ reference note reads as a summary you expand on demand.
   Works on every markdown surface (notes especially). Nested toggles nest.
 - Slash command "Toggle section" + FormattingHelp row.
 
-## Image-copy fix (follow-up to Sprint 54)
-
-The copy-as-image button produced a gray background + clipped bottom/right
-borders in WKWebView. Root cause: WebKit's `foreignObject` rasterizer drops
-an element's own `background` and under-measures height on first render.
-Fix in `installBlockImageCopy`: force a solid `background` on the capture
-root (masks the dropped inner bg), apply padding with `content-box` + an
-oversized canvas (`w/h + 2·pad`) so nothing clips, `await document.fonts.ready`,
-and do a throwaway warm-up `toBlob` before the real pass.
+(The PR-blocks copy-as-image work that was iterated in the same period lives in
+`SPRINT54.md`.)
 
 ## Checks
 
-`svelte-check` 0/0, `pnpm build` clean. Image capture still needs a live
-`pnpm tauri dev` run to confirm the clipboard write.
+`svelte-check` 0/0, `pnpm build` clean.
