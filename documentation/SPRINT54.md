@@ -75,6 +75,18 @@ copies a PNG — native Tauri `copy_image_to_clipboard` first, `navigator.clipbo
   document.fonts.ready` + a throwaway warm-up pass (WebKit under-measures the
   first render).
 
+### Save as GIF (pulsing blocks)
+
+A `files`/`stats`/`spec` block that contains a `pulse` item also shows a **GIF**
+button (`installGifSave`) that saves a looping GIF of the breathing animation —
+because clipboards can't carry animation, this is a **save** (native dialog;
+browser fallback = a download), which you drag into the PR. It rasterizes the
+block **once** as a clean base (the live pulse hidden via a temporary
+`.md-nopulse` class), then composites the breathing overlay over each
+`.md-pulse` item's rect per frame on a `<canvas>` (one raster + compositing, not
+N rasterizations) and encodes ~20 frames with `gifenc` as an infinite loop. The
+per-frame alpha follows the same `0.18→1` ease as the CSS `@keyframes`.
+
 ## Discoverability
 
 Slash commands (Changed files · Stat cards · Spec sheet; cards template shows the

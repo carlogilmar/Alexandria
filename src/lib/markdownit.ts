@@ -184,6 +184,7 @@ export function createMarkdownIt(): MarkdownIt {
   // One delegated listener powers the copy buttons across every surface.
   installCodeCopy();
   installBlockImageCopy();
+  installGifSave();
   installSectionToggle();
 
   return md;
@@ -311,9 +312,16 @@ const IMG_COPY_BTN =
   '<path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.42 0l-3.5-3.5a1 1 0 011.42-1.42l2.79 2.8 6.79-6.8a1 1 0 011.42 0z" clip-rule="evenodd"/></svg>' +
   "</button>";
 
+// "Save as GIF" button — shown only on files/stats/spec blocks that contain a
+// `pulse` item. Saves a looping GIF of the breathing animation (installGifSave).
+const GIF_SAVE_BTN =
+  '<button class="md-gif-save" type="button" title="Save as animated GIF (pulse)" aria-label="Save as animated GIF">GIF</button>';
+
 // Wrap a block so it gets a hover "copy as image" button (positioned by CSS).
-function withImgCopy(inner: string): string {
-  return `<div class="md-block" data-md-block>${inner}${IMG_COPY_BTN}</div>`;
+// `opts.gif` adds the "Save as GIF" button (blocks with a pulse item).
+function withImgCopy(inner: string, opts: { gif?: boolean } = {}): string {
+  const gif = opts.gif ? GIF_SAVE_BTN : "";
+  return `<div class="md-block" data-md-block>${inner}${IMG_COPY_BTN}${gif}</div>`;
 }
 
 // Shared GitHub-style header bar (tinted strip: title + optional subtitle on
@@ -527,6 +535,7 @@ function renderFiles(source: string, md: MarkdownIt): string {
   let nFiles = 0;
   let totalAdds = 0;
   let totalDels = 0;
+  let anyPulse = false;
   for (const raw of source.split("\n")) {
     const line = raw.trim();
     if (!line) continue;
@@ -541,6 +550,7 @@ function renderFiles(source: string, md: MarkdownIt): string {
     // A trailing `pulse` (before the note) makes this file row breathe.
     let pulse = false;
     ({ text: main, pulse } = peelPulse(main));
+    anyPulse ||= pulse;
     const parts = main.split(/\s+/);
     let status = "M";
     let idx = 0;
@@ -592,7 +602,9 @@ function renderFiles(source: string, md: MarkdownIt): string {
       : "";
   const head =
     `<div class="md-files-head"><span class="md-files-count">${nFiles} file${nFiles === 1 ? "" : "s"} changed</span>${totalNums}</div>`;
-  return withImgCopy(`<div class="md-files">${head}${rows.join("")}</div>`);
+  return withImgCopy(`<div class="md-files">${head}${rows.join("")}</div>`, {
+    gif: anyPulse,
+  });
 }
 
 // ```stats [theme] → a row of metric cards. One `Label: value` per line; the
@@ -609,6 +621,7 @@ function renderStats(source: string, opts: string[], md: MarkdownIt): string {
   // An optional `heading:` line becomes a GitHub-style header bar (title +
   // metric count); every other `Label: value` line is a metric card.
   let headingText = "";
+  let anyPulse = false;
   const cards: string[] = [];
   for (const raw of source.split("\n")) {
     const hm = /^\s*heading\s*:\s*(.*)$/i.exec(raw);
@@ -624,6 +637,7 @@ function renderStats(source: string, opts: string[], md: MarkdownIt): string {
     // Peel a trailing `pulse` flag, then strip a legacy trailing color word.
     let pulse = false;
     ({ text: value, pulse } = peelPulse(value));
+    anyPulse ||= pulse;
     const cm = /\s+([a-zA-Z]+)$/.exec(value);
     if (cm && NAMED_COLORS[cm[1].toLowerCase()]) {
       value = value.slice(0, cm.index).trim();
@@ -635,7 +649,9 @@ function renderStats(source: string, opts: string[], md: MarkdownIt): string {
   if (cards.length === 0) return "";
   const surf = surfaceThemeClass(opts);
   if (!headingText) {
-    return withImgCopy(`<div class="md-stats ${surf}">${cards.join("")}</div>`);
+    return withImgCopy(`<div class="md-stats ${surf}">${cards.join("")}</div>`, {
+      gif: anyPulse,
+    });
   }
   const n = cards.length;
   const bar = blockHeader(
@@ -646,6 +662,7 @@ function renderStats(source: string, opts: string[], md: MarkdownIt): string {
   );
   return withImgCopy(
     `<div class="md-stats-panel ${surf}">${bar}<div class="md-stats-body"><div class="md-stats">${cards.join("")}</div></div></div>`,
+    { gif: anyPulse },
   );
 }
 
@@ -657,6 +674,7 @@ function renderSpec(source: string, opts: string[], md: MarkdownIt): string {
   // An optional `heading:` line becomes a GitHub-style header bar (title +
   // field count); every other `Label: value` line is a row.
   let headingText = "";
+  let anyPulse = false;
   const rows: string[] = [];
   for (const raw of source.split("\n")) {
     const hm = /^\s*heading\s*:\s*(.*)$/i.exec(raw);
@@ -669,6 +687,7 @@ function renderSpec(source: string, opts: string[], md: MarkdownIt): string {
     const label = m[1].trim();
     // A trailing `pulse` makes this row breathe.
     const { text: value, pulse } = peelPulse(m[2].trim());
+    anyPulse ||= pulse;
     if (!label && !value) continue;
     rows.push(
       `<div class="md-spec-row${pulse ? " md-pulse" : ""}"><span class="md-spec-k">${esc(label)}</span><span class="md-spec-v">${md.renderInline(value)}</span></div>`,
@@ -680,9 +699,9 @@ function renderSpec(source: string, opts: string[], md: MarkdownIt): string {
     ? blockHeader(headingText, "", `${n} field${n === 1 ? "" : "s"}`, md)
     : "";
   const surf = surfaceThemeClass(opts);
-  return withImgCopy(
-    `<div class="md-spec ${surf}">${bar}${rows.join("")}</div>`,
-  );
+  return withImgCopy(`<div class="md-spec ${surf}">${bar}${rows.join("")}</div>`, {
+    gif: anyPulse,
+  });
 }
 
 // ```chart renderer. Same `key: value` line shape as ```cards: `type` / `title`
@@ -1449,6 +1468,222 @@ function installBlockImageCopy(): void {
         } finally {
           painted.forEach((p) => (p.el.style.background = p.prev));
           if (innerBlock) innerBlock.style.margin = prevMargin;
+          btn.classList.remove("md-busy");
+        }
+      })();
+    },
+    true,
+  );
+}
+
+// Build an `rgba(...)` string from a hex (#rgb/#rrggbb) or rgb/rgba color.
+function withAlpha(color: string, alpha: number): string {
+  const c = color.trim();
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(c);
+  if (hex) {
+    let h = hex[1];
+    if (h.length === 3)
+      h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    r = parseInt(h.slice(0, 2), 16);
+    g = parseInt(h.slice(2, 4), 16);
+    b = parseInt(h.slice(4, 6), 16);
+  } else {
+    const nums = (c.match(/-?\d+(?:\.\d+)?/g) ?? ["0", "0", "0"]).map(Number);
+    [r = 0, g = 0, b = 0] = nums;
+  }
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// "Save as GIF" for a pulsing block (files/stats/spec). Rasterizes the block
+// ONCE as a clean base (the live pulse overlay hidden), then composites the
+// breathing highlight over each `.md-pulse` item's rect per frame and encodes a
+// looping GIF — one raster + canvas compositing, not N rasterizations. Saved via
+// the native dialog (browser fallback: a download). Clipboards can't carry
+// animation, which is why this is a SAVE, not a copy.
+let gifSaveInstalled = false;
+function installGifSave(): void {
+  if (gifSaveInstalled || typeof document === "undefined") return;
+  gifSaveInstalled = true;
+  document.addEventListener(
+    "click",
+    (e) => {
+      const btn = (e.target as Element | null)?.closest?.(
+        ".md-gif-save",
+      ) as HTMLButtonElement | null;
+      if (!btn) return;
+      e.stopPropagation();
+      e.preventDefault();
+      const block = btn.closest("[data-md-block]") as HTMLElement | null;
+      if (!block || btn.classList.contains("md-busy")) return;
+      btn.classList.add("md-busy");
+      const painted: { el: HTMLElement; prev: string }[] = [];
+      const innerBlock = block.firstElementChild as HTMLElement | null;
+      const prevMargin = innerBlock?.style.margin ?? "";
+      void (async () => {
+        try {
+          const [{ toCanvas }, { GIFEncoder, quantize, applyPalette }] =
+            await Promise.all([import("html-to-image"), import("gifenc")]);
+
+          // Pulse rects relative to the block (live DOM: block has no padding).
+          const blockRect = block.getBoundingClientRect();
+          const pulses = Array.from(
+            block.querySelectorAll<HTMLElement>(".md-pulse"),
+          ).map((el) => {
+            const r = el.getBoundingClientRect();
+            const cs = getComputedStyle(el);
+            return {
+              x: r.left - blockRect.left,
+              y: r.top - blockRect.top,
+              w: r.width,
+              h: r.height,
+              color: cs.getPropertyValue("--pulse-c").trim() || "#f59e0b",
+              radius: parseFloat(cs.borderTopLeftRadius) || 0,
+            };
+          });
+          if (pulses.length === 0) return;
+
+          // Force opaque backgrounds inline (WebKit drops them), zero the inner
+          // margin (equal padding), and hide the live pulse for a clean base.
+          block.querySelectorAll<HTMLElement>("*").forEach((el) => {
+            if (
+              el.classList.contains("md-img-copy") ||
+              el.classList.contains("md-gif-save")
+            )
+              return;
+            const bg = getComputedStyle(el).backgroundColor;
+            if (bg && !/,\s*0\s*\)/.test(bg) && bg !== "transparent") {
+              painted.push({ el, prev: el.style.background });
+              el.style.background = bg;
+            }
+          });
+          if (innerBlock) innerBlock.style.margin = "0";
+          block.classList.add("md-nopulse");
+
+          const pad = 20;
+          const scale = 2;
+          const w = block.offsetWidth;
+          const h = block.offsetHeight;
+          const opts = {
+            pixelRatio: scale,
+            width: w + pad * 2,
+            height: h + pad * 2,
+            backgroundColor: "#ffffff",
+            style: {
+              boxSizing: "content-box",
+              width: `${w}px`,
+              height: `${h}px`,
+              padding: `${pad}px`,
+              margin: "0",
+              background: "#ffffff",
+            },
+            filter: (n: Node) =>
+              !(
+                n instanceof HTMLElement &&
+                (n.classList.contains("md-img-copy") ||
+                  n.classList.contains("md-gif-save"))
+              ),
+          };
+          await (document.fonts?.ready ?? Promise.resolve()).catch(() => {});
+          await toCanvas(block, opts).catch(() => null); // WebKit warm-up
+          const base = await toCanvas(block, opts);
+          if (!base) return;
+
+          const cw = base.width;
+          const ch = base.height;
+          const frame = document.createElement("canvas");
+          frame.width = cw;
+          frame.height = ch;
+          const fctx = frame.getContext("2d");
+          if (!fctx) return;
+          const roundOk = typeof fctx.roundRect === "function";
+
+          const gif = GIFEncoder();
+          const FRAMES = 20;
+          const DELAY = 70; // ms → ~1.4s loop, matches the CSS breathe
+          for (let i = 0; i < FRAMES; i++) {
+            // Same 0.35→1→0.35 ease as `@keyframes md-pulse-breathe`.
+            const op =
+              0.35 +
+              (1 - 0.35) * (0.5 - 0.5 * Math.cos((2 * Math.PI * i) / FRAMES));
+            fctx.clearRect(0, 0, cw, ch);
+            fctx.drawImage(base, 0, 0);
+            for (const p of pulses) {
+              const x = (pad + p.x) * scale;
+              const y = (pad + p.y) * scale;
+              const pw = p.w * scale;
+              const ph = p.h * scale;
+              const rad = p.radius * scale;
+              // Attention ring + inner glow (no content-covering fill), clipped
+              // to the item so the glow stays inside — mirrors the CSS pulse.
+              fctx.save();
+              fctx.beginPath();
+              if (roundOk) fctx.roundRect(x, y, pw, ph, rad);
+              else fctx.rect(x, y, pw, ph);
+              fctx.clip();
+              const ins = scale; // inset the ring so its full width shows
+              fctx.beginPath();
+              if (roundOk)
+                fctx.roundRect(
+                  x + ins,
+                  y + ins,
+                  pw - 2 * ins,
+                  ph - 2 * ins,
+                  Math.max(0, rad - ins),
+                );
+              else fctx.rect(x + ins, y + ins, pw - 2 * ins, ph - 2 * ins);
+              fctx.lineWidth = 2 * scale;
+              fctx.strokeStyle = withAlpha(p.color, op);
+              fctx.shadowColor = withAlpha(p.color, 0.6 * op);
+              fctx.shadowBlur = 12 * scale;
+              fctx.stroke();
+              fctx.restore();
+            }
+            const { data } = fctx.getImageData(0, 0, cw, ch);
+            const palette = quantize(data, 256);
+            const index = applyPalette(data, palette);
+            gif.writeFrame(index, cw, ch, {
+              palette,
+              delay: DELAY,
+              ...(i === 0 ? { repeat: 0 } : {}), // loop forever
+            });
+          }
+          gif.finish();
+          const bytes = gif.bytes();
+
+          const kind =
+            innerBlock?.className.match(/md-(stats|spec|files)/)?.[1] ?? "block";
+          try {
+            const [{ save }, { saveBinaryFile }] = await Promise.all([
+              import("@tauri-apps/plugin-dialog"),
+              import("$lib/ipc"),
+            ]);
+            const path = await save({
+              defaultPath: `${kind}.gif`,
+              filters: [{ name: "GIF", extensions: ["gif"] }],
+            });
+            if (path) await saveBinaryFile(path, Array.from(bytes));
+          } catch {
+            // Browser fallback: trigger a download.
+            const url = URL.createObjectURL(
+              new Blob([bytes], { type: "image/gif" }),
+            );
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${kind}.gif`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }
+          btn.classList.add("md-copied");
+          window.setTimeout(() => btn.classList.remove("md-copied"), 1400);
+        } catch {
+          /* rasterize / encode / save failed — no-op */
+        } finally {
+          painted.forEach((p) => (p.el.style.background = p.prev));
+          if (innerBlock) innerBlock.style.margin = prevMargin;
+          block.classList.remove("md-nopulse");
           btn.classList.remove("md-busy");
         }
       })();

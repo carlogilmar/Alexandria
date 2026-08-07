@@ -46,7 +46,7 @@
         { syntax: "```files … ```", does: "Changed-files list for PR/code docs — one file per line: `M path +40 -12 — note` (status A/M/D/R colors the row; path shows dir/name; header sums files & ±lines; the note is a description row with inline markdown). End a line with `pulse` to make that file breathe. Slash command: Changed files." },
         { syntax: "```stats [theme] … ```", does: "A row of metric cards — one `Label: value` per line (`+N`/`-N` colored). Optional surface theme (github [default] · light · dark · midnight · slate) + a `heading:` line adds a GitHub-style header bar. End a line with `pulse` to make that card breathe. Slash command: Stat cards." },
         { syntax: "```spec [theme] … ```", does: "A spec sheet — one `Label: value` per line; values take inline markdown (`code`, **bold**, links). Optional surface theme (github [default] · light · dark · midnight · slate) + a `heading:` line adds a header bar. End a line with `pulse` to make that row breathe. Slash command: Spec sheet." },
-        { syntax: "hover a block → 📷", does: "files / stats / spec / cards blocks show a “copy as image” button — click to copy a PNG to paste into a PR." },
+        { syntax: "hover a block → 📷", does: "files / stats / spec / cards blocks show a “copy as image” button — click to copy a PNG to paste into a PR. A block with a `pulse` item also shows a “GIF” button that saves the looping animation to drag into a PR." },
         { syntax: "--- ", does: "A divider line" },
       ],
     },

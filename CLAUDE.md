@@ -434,7 +434,13 @@ a stat card / spec row / file row (`peelPulse`) → `.md-pulse` neutral breathin
 `copy_image_to_clipboard`, else `navigator.clipboard.write`; both dynamic-imported). WKWebView
 robustness: WHITE padding (blends into a light PR), force every opaque bg inline before capture
 (foreignObject drops CSS bg), zero the inner block's margin (equal padding across block types),
-`content-box`+oversized canvas (no clip), `await document.fonts.ready` + a warm-up pass. Slash
+`content-box`+oversized canvas (no clip), `await document.fonts.ready` + a warm-up pass. SAVE AS
+GIF: a files/stats/spec block with a `pulse` item also shows a "GIF" button (`installGifSave`) —
+clipboards can't carry animation, so it SAVES a looping GIF (native dialog; browser fallback =
+download) to drag into a PR: rasterize a clean base ONCE (live pulse hidden via a temp
+`.md-nopulse` class), then composite the breathing overlay over each `.md-pulse` rect per frame on
+a canvas (1 raster + compositing, not N) and encode ~20 frames with `gifenc` (infinite loop, same
+`0.18→1` ease as the CSS). Slash
 (Changed files/Stat cards/Spec sheet) + FormattingHelp + `pr-blocks-demo.md`. svelte-check +
 build pass; the image CLIPBOARD WRITE still needs a live webview run to verify. See
 documentation/SPRINT54.md. — earlier: Sprint 55 (Collapsible toggle sections — a heading whose text
