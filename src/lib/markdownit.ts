@@ -78,7 +78,8 @@ export function createMarkdownIt(): MarkdownIt {
     md.renderer.rules.fence ??
     ((tokens, idx, opts, _env, self) => self.renderToken(tokens, idx, opts));
   md.renderer.rules.fence = (tokens, idx, opts, env, self) => {
-    const info = tokens[idx].info.trim().toLowerCase();
+    const rawInfo = tokens[idx].info.trim();
+    const info = rawInfo.toLowerCase();
     if (info === "mermaid") {
       const escaped = md.utils.escapeHtml(tokens[idx].content);
       return `<div class="mermaid-block" data-source="${escaped}" data-rendered="0">${escaped}</div>`;
@@ -127,6 +128,22 @@ export function createMarkdownIt(): MarkdownIt {
     }
     if (info === "spec" || info.startsWith("spec ")) {
       return renderSpec(tokens[idx].content, info.split(/\s+/).slice(1), md);
+    }
+    // ```terminal [title] [animated] → a console window (backend PR docs).
+    if (info === "terminal" || info.startsWith("terminal ")) {
+      return renderTerminal(tokens[idx].content, rawInfo.slice(8).trim(), md);
+    }
+    // ```tree [title] → a file/dir tree; a line ending `pulse` breathes.
+    if (info === "tree" || info.startsWith("tree ")) {
+      return renderTree(tokens[idx].content, rawInfo.slice(4).trim(), md);
+    }
+    // ```flow [title] → a linear pipeline (auto horizontal / vertical).
+    if (info === "flow" || info.startsWith("flow ")) {
+      return renderFlow(tokens[idx].content, rawInfo.slice(4).trim(), md);
+    }
+    // ```compare [title] → before / after, split by a `---` line.
+    if (info === "compare" || info.startsWith("compare ")) {
+      return renderCompare(tokens[idx].content, rawInfo.slice(7).trim(), md);
     }
     // Every other fenced block gets a GitHub-style copy button. The button is
     // static HTML (no per-instance handler survives `{@html}` re-renders); a
@@ -516,25 +533,22 @@ const FILE_STATUS_COLOR: Record<string, string> = {
   D: "#dc2626",
   R: "#2563eb",
 };
-const FILE_STATUS_LABEL: Record<string, string> = {
-  A: "added",
-  M: "modified",
-  D: "deleted",
-  R: "renamed",
+const FILE_STATUS_WORD: Record<string, string> = {
+  A: "new",
+  M: "edit",
+  D: "delete",
+  R: "rename",
 };
 
 // ```files → a changed-files list for PR/code docs. One file per line:
-//   <STATUS> <path> [+adds] [-dels] [— note]
-// STATUS is A/M/D/R (add/modify/delete/rename; case-insensitive, default M).
-// `+N` / `-N` are optional line counts (any order). A note follows ` — `,
-// ` -- `, or ` # ` and renders as a description row (basic inline markdown).
-// A header sums the file count + total ±lines to orient the reviewer.
+//   <STATUS> <path> [— note]
+// STATUS is A/M/D/R → a colored `new`/`edit`/`delete`/`rename` label (case-
+// insensitive, default M). Any `+N`/`-N` counts are ignored (not shown). A note
+// after ` — ` / ` -- ` / ` # ` renders as a description row (inline markdown).
 function renderFiles(source: string, md: MarkdownIt): string {
   const esc = (s: string) => md.utils.escapeHtml(s);
   const rows: string[] = [];
   let nFiles = 0;
-  let totalAdds = 0;
-  let totalDels = 0;
   let anyPulse = false;
   for (const raw of source.split("\n")) {
     const line = raw.trim();
@@ -551,6 +565,8 @@ function renderFiles(source: string, md: MarkdownIt): string {
     let pulse = false;
     ({ text: main, pulse } = peelPulse(main));
     anyPulse ||= pulse;
+    // Drop any `+N` / `-N` counts — we show a status label, not line numbers.
+    main = main.replace(/\s+[+-]\d+/g, "").trim();
     const parts = main.split(/\s+/);
     let status = "M";
     let idx = 0;
@@ -560,48 +576,29 @@ function renderFiles(source: string, md: MarkdownIt): string {
     }
     const path = parts[idx] ?? "";
     if (!path) continue;
-    let adds = "";
-    let dels = "";
-    for (let i = idx + 1; i < parts.length; i++) {
-      const m = /^([+-])(\d+)$/.exec(parts[i]);
-      if (m) {
-        if (m[1] === "+") adds = m[2];
-        else dels = m[2];
-      }
-    }
     nFiles++;
-    if (adds) totalAdds += Number(adds);
-    if (dels) totalDels += Number(dels);
-    // Split dir/ from the filename so the reviewer's eye lands on the file:
-    // the directory is dimmed, the filename bold, both inside a mono badge.
+    // Split dir/ from the filename so the reviewer's eye lands on the file.
     const slash = path.lastIndexOf("/");
     const dir = slash >= 0 ? path.slice(0, slash + 1) : "";
     const name = slash >= 0 ? path.slice(slash + 1) : path;
     const pathHtml =
       (dir ? `<span class="md-file-dir">${esc(dir)}</span>` : "") +
       `<span class="md-file-name">${esc(name)}</span>`;
-    const nums =
-      adds || dels
-        ? `<span class="md-file-num">${adds ? `<span class="p">+${adds}</span>` : ""}${dels ? `<span class="m">−${dels}</span>` : ""}</span>`
-        : "";
     const acc = FILE_STATUS_COLOR[status] ?? FILE_STATUS_COLOR.M;
+    const word = FILE_STATUS_WORD[status] ?? "edit";
     rows.push(
       `<div class="md-file${pulse ? " md-pulse" : ""}" style="--st:${acc}">` +
         `<div class="md-file-top">` +
-        `<span class="md-file-st" title="${FILE_STATUS_LABEL[status]}">${status}</span>` +
-        `<span class="md-file-path">${pathHtml}</span>${nums}</div>` +
+        `<span class="md-file-tag md-file-tag-${word}">${word}</span>` +
+        `<span class="md-file-path">${pathHtml}</span></div>` +
         // The note supports basic inline markdown (`code`, **bold**, links).
         (note ? `<div class="md-file-desc">${md.renderInline(note)}</div>` : "") +
         `</div>`,
     );
   }
   if (rows.length === 0) return "";
-  const totalNums =
-    totalAdds || totalDels
-      ? `<span class="md-file-num">${totalAdds ? `<span class="p">+${totalAdds}</span>` : ""}${totalDels ? `<span class="m">−${totalDels}</span>` : ""}</span>`
-      : "";
   const head =
-    `<div class="md-files-head"><span class="md-files-count">${nFiles} file${nFiles === 1 ? "" : "s"} changed</span>${totalNums}</div>`;
+    `<div class="md-files-head"><span class="md-files-count">${nFiles} file${nFiles === 1 ? "" : "s"} changed</span></div>`;
   return withImgCopy(`<div class="md-files">${head}${rows.join("")}</div>`, {
     gif: anyPulse,
   });
@@ -702,6 +699,188 @@ function renderSpec(source: string, opts: string[], md: MarkdownIt): string {
   return withImgCopy(`<div class="md-spec ${surf}">${bar}${rows.join("")}</div>`, {
     gif: anyPulse,
   });
+}
+
+// ```terminal [title] [animated] → a console window for "how to run / test".
+// The fence info is the title-bar label (its built-in header); a trailing
+// `animated` streams the lines in (GIF). Lines starting with `$` are commands.
+function renderTerminal(source: string, meta: string, md: MarkdownIt): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  let animated = false;
+  const title = meta
+    .split(/\s+/)
+    .filter((t) => {
+      if (t.toLowerCase() === "animated") {
+        animated = true;
+        return false;
+      }
+      return true;
+    })
+    .join(" ");
+  const lines = source.replace(/\n+$/, "").split("\n");
+  const body = lines
+    .map((l, i) => {
+      const isCmd = /^\s*\$\s?/.test(l);
+      const cls = isCmd ? "md-term-cmd" : "md-term-out";
+      const inner = `<span class="${cls}">${esc(l === "" ? " " : l)}</span>`;
+      return animated
+        ? `<span class="md-term-line" style="animation-delay:${(i * 0.5).toFixed(2)}s">${inner}</span>`
+        : inner;
+    })
+    .join("\n");
+  const bar =
+    `<div class="md-term-bar"><i class="r"></i><i class="y"></i><i class="g"></i>` +
+    `<span>${esc(title || "terminal")}</span></div>`;
+  return withImgCopy(
+    `<div class="md-term${animated ? " md-term-anim" : ""}">${bar}<pre>${body}</pre></div>`,
+    { gif: animated },
+  );
+}
+
+// ```tree [title] → a file/directory tree. Indentation (2 spaces = 1 level)
+// nests; a trailing ` - new` / ` - edit` legend tags the file (green / amber, no
+// line counts). A line ending in `pulse` makes its TEXT breathe (GIF). Header
+// from the fence info.
+type TreeNode = {
+  name: string;
+  status: "new" | "edit" | "";
+  pulse: boolean;
+  depth: number;
+  children: TreeNode[];
+};
+function renderTree(source: string, title: string, md: MarkdownIt): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  const flat: TreeNode[] = [];
+  let newCount = 0;
+  let anyPulse = false;
+  for (const raw of source.replace(/\n+$/, "").split("\n")) {
+    if (!raw.trim()) continue;
+    const indent = (raw.match(/^ */)?.[0].length ?? 0) >> 1;
+    const { text, pulse } = peelPulse(raw.trim());
+    anyPulse ||= pulse;
+    // Trailing ` - new` / ` - edit` (also tolerates the old 2-space form).
+    let status: TreeNode["status"] = "";
+    let name = text;
+    const sm = /(?:\s+-\s+|\s{2,})(new|edit)\s*$/i.exec(text);
+    if (sm) {
+      status = sm[1].toLowerCase() as TreeNode["status"];
+      name = text.slice(0, sm.index).trim();
+    }
+    if (status === "new") newCount++;
+    flat.push({ name, status, pulse, depth: indent, children: [] });
+  }
+  if (flat.length === 0) return "";
+  // Build nesting from the depth column.
+  const roots: TreeNode[] = [];
+  const stack: TreeNode[] = [];
+  for (const node of flat) {
+    while (stack.length > node.depth) stack.pop();
+    if (stack.length === 0) roots.push(node);
+    else stack[stack.length - 1].children.push(node);
+    stack.push(node);
+  }
+  const rows: string[] = [];
+  const walk = (nodes: TreeNode[], prefix: string, root: boolean) => {
+    nodes.forEach((n, i) => {
+      const last = i === nodes.length - 1;
+      const branch = root ? "" : last ? "└── " : "├── ";
+      const nameCls = n.status ? `md-tree-${n.status}` : "";
+      const tag = n.status
+        ? `  <span class="md-tree-tag md-tree-tag-${n.status}">${n.status}</span>`
+        : "";
+      rows.push(
+        `<span class="md-tree-line${n.pulse ? " md-tpulse" : ""}">${esc(prefix + branch)}` +
+          `<span class="${nameCls}">${esc(n.name)}</span>${tag}</span>`,
+      );
+      if (n.children.length)
+        walk(n.children, root ? "" : prefix + (last ? "    " : "│   "), false);
+    });
+  };
+  walk(roots, "", true);
+  const bar = title
+    ? blockHeader(title, "", newCount ? `${newCount} new` : "", md)
+    : "";
+  return withImgCopy(
+    `<div class="md-tree-block${anyPulse ? " md-treeon" : ""}">${bar}<div class="md-tree">${rows.join("\n")}</div></div>`,
+    { gif: anyPulse },
+  );
+}
+
+// ```flow [title] → a linear pipeline. One node per line, `Name: sublabel`.
+// ≤4 nodes render horizontally, 5+ stack vertically (labels stay readable).
+// Always motion (a marker travels + nodes light in order) → GIF. Header from
+// the fence info.
+function renderFlow(source: string, title: string, md: MarkdownIt): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  const nodes = source
+    .replace(/\n+$/, "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => {
+      const c = l.indexOf(":");
+      return c === -1
+        ? { name: l, sub: "" }
+        : { name: l.slice(0, c).trim(), sub: l.slice(c + 1).trim() };
+    });
+  if (nodes.length === 0) return "";
+  const n = nodes.length;
+  const bar = title
+    ? blockHeader(title, "", `${n} step${n === 1 ? "" : "s"}`, md)
+    : "";
+  const vertical = n >= 5;
+  const cycle = vertical ? 5.5 : 4; // seconds — matches the marker travel
+  // Each node's highlight fires when the marker is over it (its `--fdelay`).
+  const delay = (i: number) =>
+    (((n === 1 ? 0.5 : 0.06 + 0.88 * (i / (n - 1))) * cycle) as number).toFixed(
+      2,
+    );
+  if (vertical) {
+    const items = nodes
+      .map(
+        (nd, i) =>
+          `<div class="md-fnode" style="--fdelay:${delay(i)}s"><span class="md-frd"></span>${esc(nd.name)}` +
+          (nd.sub ? `<small>${esc(nd.sub)}</small>` : "") +
+          `</div>`,
+      )
+      .join("");
+    return withImgCopy(
+      `<div class="md-flow-block md-flowon">${bar}<div class="md-vflow">${items}<span class="md-fdot"></span></div></div>`,
+      { gif: true },
+    );
+  }
+  const items = nodes
+    .map(
+      (nd, i) =>
+        `<div class="md-fnode" style="--fdelay:${delay(i)}s">${esc(nd.name)}` +
+        (nd.sub ? `<small>${esc(nd.sub)}</small>` : "") +
+        `</div>`,
+    )
+    .join("");
+  return withImgCopy(
+    `<div class="md-flow-block md-flowon">${bar}<div class="md-hflow"><div class="md-ftrack">${items}<span class="md-fdot"></span></div></div></div>`,
+    { gif: true },
+  );
+}
+
+// ```compare [title] → before / after, split by a `---` line. Cross-fades in
+// place (GIF). Header from the fence info.
+function renderCompare(source: string, title: string, md: MarkdownIt): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  const parts = source.replace(/\n+$/, "").split(/^\s*-{3,}\s*$/m);
+  const before = (parts[0] ?? "").replace(/^\n+/, "").replace(/\n+$/, "");
+  const after = (parts[1] ?? "").replace(/^\n+/, "").replace(/\n+$/, "");
+  if (!before && !after) return "";
+  const bar = title
+    ? blockHeader(title, "", "before → after", md)
+    : "";
+  return withImgCopy(
+    `<div class="md-compare md-cmpon">${bar}<div class="md-cmp-stage">` +
+      `<div class="md-cmp-layer md-cmp-before"><span class="md-cmp-tag">Before</span><pre>${esc(before)}</pre></div>` +
+      `<div class="md-cmp-layer md-cmp-after"><span class="md-cmp-tag">After</span><pre>${esc(after)}</pre></div>` +
+      `</div></div>`,
+    { gif: true },
+  );
 }
 
 // ```chart renderer. Same `key: value` line shape as ```cards: `type` / `title`
@@ -1476,33 +1655,13 @@ function installBlockImageCopy(): void {
   );
 }
 
-// Build an `rgba(...)` string from a hex (#rgb/#rrggbb) or rgb/rgba color.
-function withAlpha(color: string, alpha: number): string {
-  const c = color.trim();
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(c);
-  if (hex) {
-    let h = hex[1];
-    if (h.length === 3)
-      h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-    r = parseInt(h.slice(0, 2), 16);
-    g = parseInt(h.slice(2, 4), 16);
-    b = parseInt(h.slice(4, 6), 16);
-  } else {
-    const nums = (c.match(/-?\d+(?:\.\d+)?/g) ?? ["0", "0", "0"]).map(Number);
-    [r = 0, g = 0, b = 0] = nums;
-  }
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-// "Save as GIF" for a pulsing block (files/stats/spec). Rasterizes the block
-// ONCE as a clean base (the live pulse overlay hidden), then composites the
-// breathing highlight over each `.md-pulse` item's rect per frame and encodes a
-// looping GIF — one raster + canvas compositing, not N rasterizations. Saved via
-// the native dialog (browser fallback: a download). Clipboards can't carry
-// animation, which is why this is a SAVE, not a copy.
+// "Save as GIF" for a motion block. GENERAL multi-frame capture: we build a
+// list of frame states (JS-driven, with the live CSS animation frozen via
+// `.md-cap`), rasterize each with html-to-image, and encode a looping GIF.
+// Handles the pulse ring (stats/spec/files), the tree text pulse, the flow
+// marker + node highlight, the before/after crossfade, and the animated
+// terminal reveal. Saved via the native dialog (browser fallback: a download) —
+// clipboards can't carry animation, which is why this is a SAVE, not a copy.
 let gifSaveInstalled = false;
 function installGifSave(): void {
   if (gifSaveInstalled || typeof document === "undefined") return;
@@ -1519,34 +1678,113 @@ function installGifSave(): void {
       const block = btn.closest("[data-md-block]") as HTMLElement | null;
       if (!block || btn.classList.contains("md-busy")) return;
       btn.classList.add("md-busy");
+
       const painted: { el: HTMLElement; prev: string }[] = [];
+      const touched: { el: HTMLElement; prop: string; prev: string }[] = [];
+      const setS = (el: HTMLElement, prop: string, val: string) => {
+        touched.push({ el, prop, prev: el.style.getPropertyValue(prop) });
+        el.style.setProperty(prop, val);
+      };
       const innerBlock = block.firstElementChild as HTMLElement | null;
       const prevMargin = innerBlock?.style.margin ?? "";
+
       void (async () => {
         try {
           const [{ toCanvas }, { GIFEncoder, quantize, applyPalette }] =
             await Promise.all([import("html-to-image"), import("gifenc")]);
 
-          // Pulse rects relative to the block (live DOM: block has no padding).
-          const blockRect = block.getBoundingClientRect();
+          // ---- Build the frame plan for this block's motion type ----
+          type Frame = { apply: () => void; delay: number };
+          const frames: Frame[] = [];
+          const hflow = block.querySelector<HTMLElement>(".md-ftrack");
+          const vflow = block.querySelector<HTMLElement>(".md-vflow");
+          const isFlow = !!(hflow || vflow);
+          const isCompare = !!block.querySelector(".md-cmp-stage");
+          const isTerm = !!block.querySelector(".md-term-anim");
           const pulses = Array.from(
-            block.querySelectorAll<HTMLElement>(".md-pulse"),
-          ).map((el) => {
-            const r = el.getBoundingClientRect();
-            const cs = getComputedStyle(el);
-            return {
-              x: r.left - blockRect.left,
-              y: r.top - blockRect.top,
-              w: r.width,
-              h: r.height,
-              color: cs.getPropertyValue("--pulse-c").trim() || "#f59e0b",
-              radius: parseFloat(cs.borderTopLeftRadius) || 0,
-            };
-          });
-          if (pulses.length === 0) return;
+            block.querySelectorAll<HTMLElement>(".md-pulse, .md-tpulse"),
+          );
 
-          // Force opaque backgrounds inline (WebKit drops them), zero the inner
-          // margin (equal padding), and hide the live pulse for a clean base.
+          let kind = "block";
+          if (isFlow) {
+            kind = "flow";
+            // Match the live view: the marker GLIDES smoothly along the path
+            // (no per-node ring). Interpolate the dot from the first node's
+            // center to the last's over N frames, fading in/out at the ends.
+            const nodes = Array.from(
+              block.querySelectorAll<HTMLElement>(".md-fnode"),
+            );
+            const dot = block.querySelector<HTMLElement>(".md-fdot");
+            const first = nodes[0];
+            const last = nodes[nodes.length - 1];
+            const FR = 24;
+            for (let i = 0; i < FR; i++) {
+              const t = i / (FR - 1);
+              frames.push({
+                delay: 110,
+                apply: () => {
+                  if (!dot || !first || !last) return;
+                  const op = t < 0.06 ? t / 0.06 : t > 0.94 ? (1 - t) / 0.06 : 1;
+                  setS(dot, "opacity", op.toFixed(2));
+                  // Light the node the marker is currently over (its "hover").
+                  const idx = Math.round(t * (nodes.length - 1));
+                  nodes.forEach((x, k) => x.classList.toggle("on", k === idx));
+                  if (vflow) {
+                    const y0 = first.offsetTop + first.offsetHeight / 2 - 6;
+                    const y1 = last.offsetTop + last.offsetHeight / 2 - 6;
+                    setS(dot, "top", `${(y0 + (y1 - y0) * t).toFixed(1)}px`);
+                  } else {
+                    const x0 = first.offsetLeft + first.offsetWidth / 2;
+                    const x1 = last.offsetLeft + last.offsetWidth / 2;
+                    setS(dot, "left", `${(x0 + (x1 - x0) * t).toFixed(1)}px`);
+                  }
+                },
+              });
+            }
+          } else if (isCompare) {
+            kind = "compare";
+            const before = block.querySelector<HTMLElement>(".md-cmp-before");
+            const after = block.querySelector<HTMLElement>(".md-cmp-after");
+            const ba = (b: string, a: string) => {
+              if (before) setS(before, "opacity", b);
+              if (after) setS(after, "opacity", a);
+            };
+            frames.push({ delay: 1500, apply: () => ba("1", "0") });
+            frames.push({ delay: 110, apply: () => ba("0.5", "0.5") });
+            frames.push({ delay: 1500, apply: () => ba("0", "1") });
+            frames.push({ delay: 110, apply: () => ba("0.5", "0.5") });
+          } else if (isTerm) {
+            kind = "terminal";
+            const lines = Array.from(
+              block.querySelectorAll<HTMLElement>(".md-term-line"),
+            );
+            lines.forEach((_, k) => {
+              frames.push({
+                delay: k === lines.length - 1 ? 1500 : 340,
+                apply: () =>
+                  lines.forEach((ln, j) =>
+                    setS(ln, "opacity", j <= k ? "1" : "0"),
+                  ),
+              });
+            });
+          } else if (pulses.length) {
+            const isTree = !!block.querySelector(".md-tree");
+            kind = isTree ? "tree" : "pulse";
+            const floor = isTree ? 0.62 : 0.35; // match the CSS breathe floor
+            const FRAMES = 16;
+            for (let i = 0; i < FRAMES; i++) {
+              const op =
+                floor +
+                (1 - floor) * (0.5 - 0.5 * Math.cos((2 * Math.PI * i) / FRAMES));
+              frames.push({
+                delay: 70,
+                apply: () => setS(block, "--capop", op.toFixed(3)),
+              });
+            }
+          }
+          if (frames.length === 0) return;
+
+          // ---- Prep: inline opaque backgrounds, zero margin, freeze CSS ----
           block.querySelectorAll<HTMLElement>("*").forEach((el) => {
             if (
               el.classList.contains("md-img-copy") ||
@@ -1560,7 +1798,7 @@ function installGifSave(): void {
             }
           });
           if (innerBlock) innerBlock.style.margin = "0";
-          block.classList.add("md-nopulse");
+          block.classList.add("md-cap");
 
           const pad = 20;
           const scale = 2;
@@ -1586,75 +1824,48 @@ function installGifSave(): void {
                   n.classList.contains("md-gif-save"))
               ),
           };
+          const raf = () =>
+            new Promise<void>((r) =>
+              requestAnimationFrame(() => requestAnimationFrame(() => r())),
+            );
+
           await (document.fonts?.ready ?? Promise.resolve()).catch(() => {});
+          frames[0].apply();
+          await raf();
           await toCanvas(block, opts).catch(() => null); // WebKit warm-up
-          const base = await toCanvas(block, opts);
-          if (!base) return;
 
-          const cw = base.width;
-          const ch = base.height;
-          const frame = document.createElement("canvas");
-          frame.width = cw;
-          frame.height = ch;
-          const fctx = frame.getContext("2d");
-          if (!fctx) return;
-          const roundOk = typeof fctx.roundRect === "function";
+          const captured: { canvas: HTMLCanvasElement; delay: number }[] = [];
+          for (const f of frames) {
+            f.apply();
+            await raf();
+            const c = await toCanvas(block, opts);
+            if (c) captured.push({ canvas: c, delay: f.delay });
+          }
+          if (captured.length === 0) return;
 
+          const cw = captured[0].canvas.width;
+          const ch = captured[0].canvas.height;
+          const tmp = document.createElement("canvas");
+          tmp.width = cw;
+          tmp.height = ch;
+          const tctx = tmp.getContext("2d");
+          if (!tctx) return;
           const gif = GIFEncoder();
-          const FRAMES = 20;
-          const DELAY = 70; // ms → ~1.4s loop, matches the CSS breathe
-          for (let i = 0; i < FRAMES; i++) {
-            // Same 0.35→1→0.35 ease as `@keyframes md-pulse-breathe`.
-            const op =
-              0.35 +
-              (1 - 0.35) * (0.5 - 0.5 * Math.cos((2 * Math.PI * i) / FRAMES));
-            fctx.clearRect(0, 0, cw, ch);
-            fctx.drawImage(base, 0, 0);
-            for (const p of pulses) {
-              const x = (pad + p.x) * scale;
-              const y = (pad + p.y) * scale;
-              const pw = p.w * scale;
-              const ph = p.h * scale;
-              const rad = p.radius * scale;
-              // Attention ring + inner glow (no content-covering fill), clipped
-              // to the item so the glow stays inside — mirrors the CSS pulse.
-              fctx.save();
-              fctx.beginPath();
-              if (roundOk) fctx.roundRect(x, y, pw, ph, rad);
-              else fctx.rect(x, y, pw, ph);
-              fctx.clip();
-              const ins = scale; // inset the ring so its full width shows
-              fctx.beginPath();
-              if (roundOk)
-                fctx.roundRect(
-                  x + ins,
-                  y + ins,
-                  pw - 2 * ins,
-                  ph - 2 * ins,
-                  Math.max(0, rad - ins),
-                );
-              else fctx.rect(x + ins, y + ins, pw - 2 * ins, ph - 2 * ins);
-              fctx.lineWidth = 2 * scale;
-              fctx.strokeStyle = withAlpha(p.color, op);
-              fctx.shadowColor = withAlpha(p.color, 0.6 * op);
-              fctx.shadowBlur = 12 * scale;
-              fctx.stroke();
-              fctx.restore();
-            }
-            const { data } = fctx.getImageData(0, 0, cw, ch);
+          captured.forEach((fr, i) => {
+            tctx.clearRect(0, 0, cw, ch);
+            tctx.drawImage(fr.canvas, 0, 0);
+            const { data } = tctx.getImageData(0, 0, cw, ch);
             const palette = quantize(data, 256);
             const index = applyPalette(data, palette);
             gif.writeFrame(index, cw, ch, {
               palette,
-              delay: DELAY,
+              delay: fr.delay,
               ...(i === 0 ? { repeat: 0 } : {}), // loop forever
             });
-          }
+          });
           gif.finish();
           const bytes = gif.bytes();
 
-          const kind =
-            innerBlock?.className.match(/md-(stats|spec|files)/)?.[1] ?? "block";
           try {
             const [{ save }, { saveBinaryFile }] = await Promise.all([
               import("@tauri-apps/plugin-dialog"),
@@ -1666,7 +1877,6 @@ function installGifSave(): void {
             });
             if (path) await saveBinaryFile(path, Array.from(bytes));
           } catch {
-            // Browser fallback: trigger a download.
             const url = URL.createObjectURL(
               new Blob([bytes], { type: "image/gif" }),
             );
@@ -1681,9 +1891,18 @@ function installGifSave(): void {
         } catch {
           /* rasterize / encode / save failed — no-op */
         } finally {
+          block.classList.remove("md-cap");
+          block
+            .querySelectorAll(".md-fnode.on")
+            .forEach((n) => n.classList.remove("on"));
           painted.forEach((p) => (p.el.style.background = p.prev));
+          // Restore inline styles in REVERSE so the earliest recorded value wins.
+          for (let i = touched.length - 1; i >= 0; i--) {
+            const t = touched[i];
+            if (t.prev) t.el.style.setProperty(t.prop, t.prev);
+            else t.el.style.removeProperty(t.prop);
+          }
           if (innerBlock) innerBlock.style.margin = prevMargin;
-          block.classList.remove("md-nopulse");
           btn.classList.remove("md-busy");
         }
       })();

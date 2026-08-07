@@ -411,7 +411,26 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 54 (PR / code-doc markdown blocks — a family of powered-markdown
+Last updated: end of Sprint 59 (Backend PR blocks — four more powered-markdown blocks in
+`$lib/markdownit.ts`, each with a header from the FENCE INFO (shared `blockHeader`→`.md-bhead`,
+not a `heading:` body line), a PNG copy button, and a GIF export button where there's motion.
+```terminal [title] [animated] (`renderTerminal`): console window, fence info = title bar, `$`
+lines are commands, `animated` streams lines in. ```tree [title] (`renderTree`): file/dir tree
+(2-space indent = depth; a trailing ` - new` [green] / ` - edit` [amber] legend tags the file,
+no line counts), a line ending `pulse` breathes its TEXT. ```flow [title] (`renderFlow`): linear pipeline, `Name: sublabel` per line, ≤4
+horizontal / 5+ auto-vertical; a plain marker glides the path and each node hover-highlights
+(border+tint+lift) as it arrives, synced via per-node `--fdelay`. ```compare [title]
+(`renderCompare`): before/after split by `---`, each an inset code panel, crossfading. GIF ENGINE
+rewritten (`installGifSave`) — general multi-frame STATE-DRIVEN capture: freeze live CSS via
+`.md-cap`, drive each frame from JS (flow marker interp + `.on` node / compare layer opacity /
+terminal line reveal / pulse+tree `--capop`), rasterize each with html-to-image `toCanvas`, encode
+a looping GIF (gifenc). WKWebView robustness unchanged (white pad, inline opaque bg, zeroed inner
+margin, content-box oversized canvas, fonts.ready + warm-up); native save + browser-download
+fallback (clipboards can't carry animation → SAVE not copy). PNG path (`installBlockImageCopy`)
+unchanged, on every block. ALSO refined ```files: no more `+N/-N` counts — the status renders as
+a colored word label (`new`/`edit`/`delete`/`rename` via `--st`) and the per-file note is black.
+Slash (Terminal/File tree/Flow/Before-after) + FormattingHelp + demo rewritten as a backend PR. svelte-check + build pass; GIF save + image clipboard write still need a
+live webview run. See documentation/SPRINT59.md. — earlier: Sprint 54 (PR / code-doc markdown blocks — a family of powered-markdown
 blocks in `$lib/markdownit.ts` for writing PR descriptions / code findings, all synchronous/
 CSS-only (render in note previews + blueprint cards) and copy-as-image-able. ```files
 (`renderFiles`): one file per line `<A|M|D|R> path [+adds] [-dels] [pulse] [— note]` — status

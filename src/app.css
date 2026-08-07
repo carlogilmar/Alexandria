@@ -541,30 +541,30 @@ html.dark .markdown-body .md-file {
   align-items: center;
   gap: 0.55rem;
 }
-/* Per-file description row, aligned under the path badge. */
+/* Per-file description row — black text, aligned under the path. */
 .markdown-body .md-file-desc {
   margin-top: 0.3rem;
-  margin-left: calc(18px + 0.55rem);
+  margin-left: 0.2rem;
   font-size: 0.8rem;
   line-height: 1.5;
-  color: rgba(0, 0, 0, 0.62);
+  color: #1f2328;
 }
 html.dark .markdown-body .md-file-desc {
-  color: rgba(255, 255, 255, 0.62);
+  color: #e6edf3;
 }
 .markdown-body .md-file-desc code {
   font-size: 0.75rem;
 }
-.markdown-body .md-file-st {
+/* Status word label (new / edit / delete / rename) — tinted pill, `--st` hue. */
+.markdown-body .md-file-tag {
   flex: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
-  display: grid;
-  place-items: center;
-  font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: #fff;
-  background: var(--st, #d97706);
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font: 700 0.66rem/1.35 system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--st, #d97706);
+  background: color-mix(in srgb, var(--st, #d97706) 15%, transparent);
 }
 /* Path badge: dir + name are plain continuous inline text (NOT flex items) so
    they never split. Truncation lives on the badge itself — a per-span
@@ -824,9 +824,251 @@ html.dark .markdown-body .md-file-num .m {
     opacity: 0.9;
   }
 }
-/* Suppress the live pulse overlay while capturing a clean base frame for the GIF. */
-.markdown-body .md-nopulse .md-pulse::after {
-  display: none !important;
+/* ===== Backend PR blocks: terminal · tree · flow · compare (Sprint 59) ===== */
+
+/* ```terminal — a console window. Its title bar is the component header. */
+.markdown-body .md-term {
+  margin: 0.7rem 0;
+  background: #0b0f16;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.markdown-body .md-term-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  background: #11161f;
+}
+.markdown-body .md-term-bar i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex: none;
+}
+.markdown-body .md-term-bar i.r { background: #ff5f56; }
+.markdown-body .md-term-bar i.y { background: #ffbd2e; }
+.markdown-body .md-term-bar i.g { background: #27c93f; }
+.markdown-body .md-term-bar span {
+  margin-left: 8px;
+  color: #8b949e;
+  font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.markdown-body .md-term pre {
+  margin: 0;
+  padding: 12px 14px;
+  color: #d6dee8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  overflow-x: auto;
+}
+.markdown-body .md-term-cmd { color: #7ee787; }
+.markdown-body .md-term-out { color: #d6dee8; }
+.markdown-body .md-term-anim .md-term-line {
+  display: inline;
+  opacity: 0;
+  animation: md-term-rev 6s infinite;
+}
+@keyframes md-term-rev { 0% { opacity: 0; } 4% { opacity: 1; } 100% { opacity: 1; } }
+
+/* ```tree — a file tree; a `pulse` line breathes as TEXT (no ring). */
+.markdown-body .md-tree-block {
+  margin: 0.7rem 0;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+}
+html.dark .markdown-body .md-tree-block {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #171e29;
+}
+.markdown-body .md-tree {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  padding: 8px 0;
+  overflow-x: auto;
+}
+.markdown-body .md-tree-line { display: block; padding: 2px 14px; white-space: pre; }
+/* new = green · edit = amber (a `- new` / `- edit` legend, no line counts). */
+.markdown-body .md-tree-new { color: #1a7f37; font-weight: 600; }
+html.dark .markdown-body .md-tree-new { color: #3fb950; }
+.markdown-body .md-tree-edit { color: #b45309; font-weight: 600; }
+html.dark .markdown-body .md-tree-edit { color: #fbbf24; }
+.markdown-body .md-tree-tag {
+  font-size: 0.82em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.markdown-body .md-tree-tag-new { color: #1a7f37; }
+html.dark .markdown-body .md-tree-tag-new { color: #3fb950; }
+.markdown-body .md-tree-tag-edit { color: #b45309; }
+html.dark .markdown-body .md-tree-tag-edit { color: #fbbf24; }
+.markdown-body .md-treeon .md-tpulse { animation: md-txt-breathe 1.4s ease-in-out infinite; }
+@keyframes md-txt-breathe { 0%, 100% { opacity: 0.62; } 50% { opacity: 1; } }
+
+/* ```flow — a linear pipeline. A marker travels; nodes light in the GIF. */
+.markdown-body .md-flow-block {
+  margin: 0.7rem 0;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+}
+html.dark .markdown-body .md-flow-block {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #171e29;
+}
+.markdown-body .md-hflow { padding: 24px 16px 20px; --fcycle: 4s; }
+.markdown-body .md-ftrack { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.markdown-body .md-ftrack::before {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 50%;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.12);
+  z-index: 0;
+}
+html.dark .markdown-body .md-ftrack::before { background: rgba(255, 255, 255, 0.14); }
+.markdown-body .md-fnode {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  text-align: center;
+  padding: 12px 6px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 9px;
+  background: var(--card, #fff);
+  font: 600 12px/1.3 system-ui, sans-serif;
+}
+html.dark .markdown-body .md-fnode { border-color: rgba(255, 255, 255, 0.16); background: #1b2333; }
+.markdown-body .md-fnode small { display: block; color: rgba(0, 0, 0, 0.5); font-weight: 500; margin-top: 3px; font-size: 10.5px; }
+html.dark .markdown-body .md-fnode small { color: rgba(255, 255, 255, 0.5); }
+.markdown-body .md-fnode::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 9px;
+  pointer-events: none;
+  border: 2px solid #f59e0b;
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
+  opacity: 0;
+}
+/* "Hover as the marker arrives" — node lift + the ::after border/tint fade in,
+   both keyed to the marker's schedule via `--fdelay` (inherited by ::after). */
+.markdown-body .md-flowon .md-fnode {
+  animation: md-fnode-lift var(--fcycle, 4s) linear var(--fdelay, 0s) infinite;
+}
+.markdown-body .md-flowon .md-fnode::after {
+  animation: md-fnode-hi var(--fcycle, 4s) linear var(--fdelay, 0s) infinite;
+}
+@keyframes md-fnode-hi {
+  0% { opacity: 1; }
+  12% { opacity: 1; }
+  22% { opacity: 0; }
+  90% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes md-fnode-lift {
+  0% { transform: translateY(-2px); }
+  12% { transform: translateY(-2px); }
+  22% { transform: none; }
+  90% { transform: none; }
+  100% { transform: translateY(-2px); }
+}
+.markdown-body .md-fdot {
+  position: absolute;
+  top: 50%;
+  left: 8%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: #f59e0b;
+  z-index: 3;
+}
+.markdown-body .md-flowon .md-hflow .md-fdot { animation: md-fdot-h 4s linear infinite; }
+@keyframes md-fdot-h { 0% { left: 8%; opacity: 0; } 6% { opacity: 1; } 94% { opacity: 1; } 100% { left: 92%; opacity: 0; } }
+/* vertical */
+.markdown-body .md-vflow { position: relative; padding: 12px 16px 16px 46px; --fcycle: 5.5s; }
+.markdown-body .md-vflow::before { content: ""; position: absolute; left: 27px; top: 26px; bottom: 26px; width: 2px; background: rgba(0, 0, 0, 0.12); }
+html.dark .markdown-body .md-vflow::before { background: rgba(255, 255, 255, 0.14); }
+.markdown-body .md-vflow .md-fnode { display: block; flex: none; text-align: left; margin: 9px 0; }
+.markdown-body .md-vflow .md-fnode small { display: inline; margin-left: 6px; }
+.markdown-body .md-frd { position: absolute; left: -24px; top: 50%; margin-top: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--card, #fff); border: 2px solid rgba(0, 0, 0, 0.2); }
+html.dark .markdown-body .md-frd { background: #1b2333; border-color: rgba(255, 255, 255, 0.25); }
+.markdown-body .md-vflow .md-fdot { top: 26px; left: 23px; margin: 0; }
+.markdown-body .md-flowon .md-vflow .md-fdot { animation: md-fdot-v 5.5s linear infinite; }
+@keyframes md-fdot-v { 0% { top: 24px; opacity: 0; } 5% { opacity: 1; } 95% { opacity: 1; } 100% { top: calc(100% - 26px); opacity: 0; } }
+
+/* ```compare — before / after crossfade. */
+.markdown-body .md-compare {
+  margin: 0.7rem 0;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+  position: relative;
+}
+html.dark .markdown-body .md-compare { border-color: rgba(255, 255, 255, 0.14); background: #171e29; }
+/* Gutter inside the card so the code pane doesn't run edge-to-edge. */
+.markdown-body .md-cmp-stage { display: grid; position: relative; padding: 12px; }
+.markdown-body .md-cmp-layer { grid-area: 1 / 1; position: relative; }
+/* Each pane is its own inset code panel (subtle bg + border), like a code block. */
+.markdown-body .md-cmp-layer pre {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  background: #f6f8fa;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+  color: var(--fg, #1f2328);
+}
+html.dark .markdown-body .md-cmp-layer pre {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #0f1620;
+  color: #e6edf3;
+}
+.markdown-body .md-cmp-tag { position: absolute; top: 8px; right: 8px; z-index: 2; font: 800 10px/1 system-ui, sans-serif; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; }
+.markdown-body .md-cmp-before .md-cmp-tag { color: #cf222e; background: color-mix(in srgb, #cf222e 15%, #fff); }
+.markdown-body .md-cmp-after .md-cmp-tag { color: #1a7f37; background: color-mix(in srgb, #1a7f37 15%, #fff); }
+.markdown-body .md-cmpon .md-cmp-before { animation: md-cmp-b 4s infinite; }
+.markdown-body .md-cmpon .md-cmp-after { animation: md-cmp-a 4s infinite; }
+@keyframes md-cmp-b { 0%, 42% { opacity: 1; } 50%, 92% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes md-cmp-a { 0%, 42% { opacity: 0; } 50%, 92% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Capture hooks — during a GIF export the block gets `.md-cap`; live CSS
+   animations are frozen and each frame's state is driven from JS. */
+.markdown-body .md-cap .md-pulse::after { animation: none !important; opacity: var(--capop, 0.35) !important; }
+.markdown-body .md-cap .md-tpulse { animation: none !important; opacity: var(--capop, 0.5) !important; }
+.markdown-body .md-cap .md-fnode { animation: none !important; transform: none !important; }
+.markdown-body .md-cap .md-fnode::after { animation: none !important; opacity: 0 !important; }
+.markdown-body .md-cap .md-fnode.on { transform: translateY(-2px) !important; }
+.markdown-body .md-cap .md-fnode.on::after { opacity: 1 !important; }
+.markdown-body .md-cap .md-fdot { animation: none !important; }
+.markdown-body .md-cap .md-cmp-before,
+.markdown-body .md-cap .md-cmp-after { animation: none !important; }
+.markdown-body .md-cap .md-term-line { animation: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .markdown-body .md-treeon .md-tpulse,
+  .markdown-body .md-flowon .md-fdot,
+  .markdown-body .md-flowon .md-fnode,
+  .markdown-body .md-flowon .md-fnode::after,
+  .markdown-body .md-cmpon .md-cmp-before,
+  .markdown-body .md-cmpon .md-cmp-after,
+  .markdown-body .md-term-anim .md-term-line { animation: none !important; }
+  .markdown-body .md-term-anim .md-term-line { opacity: 1 !important; }
+  .markdown-body .md-cmpon .md-cmp-after { opacity: 0; }
+  .markdown-body .md-treeon .md-tpulse { opacity: 1; }
 }
 
 /* Doc-block wrapper + "copy as image" button (Sprint 54). */

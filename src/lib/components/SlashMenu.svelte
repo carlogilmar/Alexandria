@@ -41,9 +41,9 @@
     "```\n";
   const FILES =
     "\n```files\n" +
-    "M src/lib/foo.ts +40 -12 — extracted the `home-today` slice\n" +
-    "A src/lib/bar.ts +58 — **new** module\n" +
-    "D src/lib/old.ts -120\n" +
+    "M src/lib/foo.ts — extracted the `home-today` slice\n" +
+    "A src/lib/bar.ts — **new** module\n" +
+    "D src/lib/old.ts — removed\n" +
     "```\n";
   const STATS =
     "\n```stats\nheading: At a glance\nLines: +452 / −611\nFiles: 14\nMigrations: 1\nTests: 90 ✓\n```\n";
@@ -65,6 +65,14 @@
     "\n```workflow\nOpen a `pull request`\nGet two approvals\nMerge to `main`\nDeploy\n```\n";
   const SECTION =
     "\n## > Section title\n\nHidden until you expand it. Everything down to the next same-level heading is inside.\n";
+  const TERMINAL =
+    "\n```terminal zsh — project\n$ sqlx migrate run\nApplied 0028_audit_log (2.14ms)\n$ cargo test --lib\ntest result: ok. 131 passed; 0 failed\n```\n";
+  const TREE =
+    "\n```tree Backend changes\nsrc/\n  commands/\n    rate_limit.rs - new pulse\n    sync.rs - edit\n  db/\n    audit.rs - new\n```\n";
+  const FLOW =
+    "\n```flow Request lifecycle\nRequest: ip, token\nRateLimiter: new\nHandler: sync()\nSQLite: sqlx\n```\n";
+  const COMPARE =
+    "\n```compare Batched read\nSELECT * FROM todos WHERE list_id = ?;\n---\nSELECT id, title FROM todos\nWHERE list_id IN (?, ?, ?) AND archived = 0;\n```\n";
 
   const COMMANDS: Cmd[] = [
     { id: "h1", label: "Heading 1", icon: "H₁", hint: "# ", keywords: "title heading", snippet: "# " },
@@ -83,6 +91,10 @@
     { id: "files", label: "Changed files", icon: "🗂", keywords: "files changed diff pr status added modified deleted", snippet: FILES },
     { id: "stats", label: "Stat cards", icon: "▦", keywords: "stats metrics numbers summary pr counts", snippet: STATS },
     { id: "spec", label: "Spec sheet", icon: "▤", keywords: "spec fields key value risk rollback metadata pr", snippet: SPEC },
+    { id: "terminal", label: "Terminal", icon: "❯", keywords: "terminal console command shell output cargo test run animated", snippet: TERMINAL },
+    { id: "tree", label: "File tree", icon: "🗂", keywords: "tree files directory structure folder pulse", snippet: TREE },
+    { id: "flow", label: "Flow / pipeline", icon: "⇥", keywords: "flow pipeline sequence request trace steps diagram", snippet: FLOW },
+    { id: "compare", label: "Before / after", icon: "⇄", keywords: "compare before after diff old new change crossfade", snippet: COMPARE },
     { id: "bar-chart", label: "Bar chart", icon: "▊", keywords: "chart graph bar data viz", snippet: BAR_CHART },
     { id: "donut-chart", label: "Donut chart", icon: "◑", keywords: "chart pie donut data viz", snippet: DONUT_CHART },
     { id: "marquee", label: "Marquee banner", icon: "🎞", keywords: "marquee scroll banner ticker announcement", snippet: MARQUEE },

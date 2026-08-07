@@ -1,123 +1,115 @@
-# Remove the Article entity
+# Add per-IP rate limiting + audit log
 
-Powered markdown (link cards, entity links) absorbed the article's
-"wrap other entities" role, so articles were just notes. This PR retires
-the entity and migrates its data into notes.
+Adds a rate limiter in front of the sync API and records every write to a new
+`audit_log` table. Backend-only — no UI changes.
 
 > [!NOTE]
-> Paste this whole file into a new note in Alexandria, then click outside
-> to render. Hover any files/stats/spec/cards block for a 📷 "copy as image"
-> button — click it to paste the block straight into a PR.
+> Paste this whole file into a new note in Alexandria and click outside to
+> render. Hover any block for a **📷** button (copy PNG). Blocks with motion
+> (`pulse` / `animated` / flow / compare) also show a **GIF** button — save the
+> loop and drag it into the PR.
 
-## At a glance — stats + spec
-
-Both follow a surface theme (default `github`; also light · dark · midnight ·
-slate). `+N` / `−N` stay green/red.
-
-End any line with `pulse` to make that one item breathe (here: Tests).
+## At a glance
 
 ```stats
 heading: At a glance
-Lines: +12 / −858
-Files: 8
+Lines: +312 / −47
+Files: 4
 Migrations: 1
-Tests: 90 ✓ pulse
+Tests: 131 ✓ pulse
 ```
 
-The spec sheet takes inline markdown in values. Here in the `slate` theme:
-
-```spec slate
+```spec violet
 heading: Migration plan
-Risk: **Low** — additive drop, no data kept
-Migration: `0027_drop_articles.sql`
+Risk: **Low** — additive table, no backfill
+Migration: `0028_audit_log.sql`
 Rollback: revert the migration
-Touches: notes · search · ipc · store · Library
+Touches: `commands/sync` · `db/audit` · limiter
 ```
 
-## New block #1 — Cards with a section header
+## What changed
 
-The first block sets a `heading:` (+ optional `desc:`) → a GitHub-style header
-bar (title · subtitle · card count) above the grid. The rest are normal cards.
+The tree — new files pulse so a reviewer sees the shape of the change:
 
-```cards
-heading: Key links
-desc: The surfaces a reviewer needs
----
-title: CI pipeline
-desc: Green run required before merge
-link: https://example.com/ci
-color: blue
-icon: 🟢
----
-title: Migration
-desc: 0027_drop_articles.sql
-link: blueprint:1
-color: violet
-icon: 🗄
----
-title: Runbook
-desc: How to roll back
-link: https://example.com/runbook
-color: amber
-icon: 📖
+```tree Backend changes
+src-tauri/src/
+  commands/
+    rate_limit.rs - new pulse
+    sync.rs - edit
+  db/
+    audit.rs - new pulse
+  migrations/
+    0028_audit_log.sql - new
 ```
-
-## New block #2 — Changed files
-
-One file per line: `STATUS path [+adds] [-dels] — note`.
-Status is `A` (add), `M` (modify), `D` (delete), or `R` (rename).
-
-The status colors the row, the path splits into dimmed dir + bold filename, a
-header sums the totals, and the note is a description row with inline markdown.
 
 ```files
-A src-tauri/migrations/0027_drop_articles.sql +5 — Drops the `articles` table. Data is discarded; the author migrated content into notes first.
-D src/lib/components/ArticleView.svelte -408 — The whole entity view; **notes** cover this now.
-D src/lib/components/EmbedBlock.svelte -190 — The only `{{…}}` transclusion surface — gone with articles.
-M src/lib/stores/app.svelte.ts +3 -96 — Removes the article slice: state, view value, all `*Article*` methods.
-M src/lib/components/ActivityView.svelte +2 -41 — Weekly Kandinsky cell drops to 2 figures (notes · lists).
-R src/lib/components/SummaryView.svelte — Folded into the unified Library.
+A src-tauri/src/commands/rate_limit.rs — Token-bucket limiter, keyed per IP. `check()` returns `429` when over budget.
+A src-tauri/src/db/audit.rs — `record(db, ip, action)` — one indexed insert per write.
+M src-tauri/src/commands/sync.rs — Calls the limiter, then records the sync in the **audit log**.
+A src-tauri/migrations/0028_audit_log.sql — New `audit_log(id, ip, action, created_at)` table.
 ```
 
-## Test plan
+## How a request flows now
 
-```workflow
-Run `pnpm tauri dev` to apply migration `0027`
-Confirm the `Library` no longer lists articles
-Check `/files` and `/cards` render in a note
-`cargo test --lib` → 90 passing
+```flow Request lifecycle
+Request: ip, token
+RateLimiter: new · 60/min
+Auth: verify bearer
+Handler: sync(since)
+audit::record: new
+sqlx: batched read
+SQLite: todos.db
 ```
 
-## Impact
+## The query got batched, too
 
-| Area          | Change                                  |
-| ------------- | --------------------------------------- |
-| Notes         | Unaffected (articles migrated in)       |
-| Activity view | Weekly cell now shows 2 figures         |
-| Entity links  | `article:` links now inert              |
+```compare Batched read
+-- N+1: one query per list
+SELECT * FROM todos WHERE list_id = ?;
+---
+-- single batched read
+SELECT id, title, done FROM todos
+WHERE list_id IN (?, ?, ?) AND archived = 0;
+```
 
-> [!WARNING]
-> Any old `{{article:5}}` embed or `[label](article:5)` link is now inert.
+## How to test
 
-## Collapsible sections
+```terminal zsh — src-tauri animated
+$ sqlx migrate run
+Applied 0028_audit_log (2.14ms)
+$ cargo test --lib
+   Running 131 tests
+test result: ok. 131 passed; 0 failed
+```
 
-Prefix a heading with `>` to make it a **toggle section** — collapsed by
-default, so a long note reads as a summary you expand on demand.
+## Review notes
 
 ### > Implementation details
 
-This whole block is hidden until you click the heading. It runs down to the
-next same-or-higher heading.
+The limiter is a token bucket in `AppState` (`Mutex<HashMap<IpAddr, Bucket>>`),
+refilled lazily on `check()`. No background task.
 
-```files
-M src/lib/markdownit.ts +90 — addCollapsibleSections + installSectionToggle
-M src/app.css +55 — .md-section styles
+```flow check() path
+check(ip): refill
+compare budget
+allow / 429
 ```
 
-### > Rollout notes
+### > Rollout
 
-Another collapsed section. Nested toggle headings work too (a deeper `>`
-heading inside becomes its own fold).
+Additive only — the migration creates a table and the limiter defaults to a
+generous budget. Safe to ship dark; tighten the budget in a follow-up.
+
+## Impact
+
+| Area        | Change                                   |
+| ----------- | ---------------------------------------- |
+| sync API    | +1 limiter check, +1 audit insert / write |
+| DB          | new `audit_log` table (indexed on `ip`)  |
+| Clients     | may now see `429` — must back off         |
+
+> [!WARNING]
+> Clients without retry/back-off will fail hard once the budget tightens.
 
 ---
 
