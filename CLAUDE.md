@@ -411,7 +411,34 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 67 (Per-block editing · section jumper · note-styling refresh — three
+Last updated: end of Sprint 68 (The `stages` block — a new powered-markdown "tree of stages" inspired
+by Manuel Lima's Book of Trees / Haeckel's Pedigree of Man. NOT a graph or chart: ordered STRATA
+(stages, bottom→top) drawn as tinted bands, each MILESTONE a magnitude-sized BUBBLE that clusters at
+its stage's centre and jostles via a hand-rolled physics loop (like the sidebar fx). SYNTAX: title =
+fence info (`stages <title>`) or first non-`#` line; `# Stage` = a stratum (own colour + corner title +
+`count · Σmag` summary); `- Milestone *N: description` where `*N` = magnitude (bigger bubble + taller
+band) and `: text` = a hover description. RENDER (2 parts, like board embeds since a sync fence can't
+animate): `renderStages` (markdownit.ts) emits a host — `.md-bhead` header (title · `N stages · M
+milestones` meta · Copy + Detail buttons) + a fixed-height `.md-stages-body` + a SR-ONLY `<ol>` fallback;
+source in `data-src`; `data-line` via withSourceRange so per-block edit works. `hydrateStagesBlocks(el)`
+(new `$lib/stages.ts`, called from MarkdownEditor's hydrate `$effect`+MutationObserver, guarded by
+`data-rendered`, de-dups stray canvases) mounts a `<canvas>` + `mountStages()`; old canvases
+self-terminate on `!canvas.isConnected`. SIM (`mountStages`, rAF, no lib): bubbles pulled to stage
+centre + collide/pack + wander; HOVER → fixed tooltip + isolation; DRAG a bubble (springs back); CLICK a
+stage → focus it; Copy → PNG to clipboard (native `copy_image_to_clipboard` + `ClipboardItem` fallback);
+Detail → fullscreen modal with a 2nd sim. Theme-aware via `--st-plate/--st-ink/--st-muted` NEUTRAL GRAY
+tokens (the mockup's warm cream was dropped). TWO GOTCHAS fixed: (1) under reduce-motion the loop was a
+one-shot static frame so hover never redrew → the rAF loop now ALWAYS runs, only the physics tick is
+gated on reduce (+ a `mousemove` fallback beside `pointermove`); (2) a dimmer-opacity de-emphasis didn't
+read as "not selected" → non-emphasized bubbles now render as a distinct GRAY GHOST (colour drained to
+faint gray fill+ring+label) while the emphasized one keeps full colour (+white ring on hover); a bubble
+is emphasized when hovered, or (no hover) in the selected stage. Slash "Stages tree" (Charts & visuals)
++ FormattingHelp. Files: markdownit.ts, stages.ts (new), MarkdownEditor.svelte, app.css, SlashMenu,
+FormattingHelp. Frontend-only, NO DB/IPC/migration; svelte-check + build pass; canvas/hydration/hover/
+clipboard need a live webview run; `stages` only hydrates on note surfaces (blueprint cards/flashcards
+fall back to the hidden list). Mocked up in ~9 Artifact rounds first. Deferred: clickable milestones
+(entity links), status encoding + colour-by-status, park-a-bubble, calm/freeze, search-highlight, a
+detail legend table. See documentation/SPRINT68.md. — earlier: Sprint 67 (Per-block editing · section jumper · note-styling refresh — three
 threads for big notes, all frontend (no DB/IPC/migration). (1) PER-BLOCK EDITING: hover a block in a
 note preview → a pencil (right margin) → an in-place textarea over just that block, seeded with its
 raw markdown, Save (⌘↩) splices it back & commits (Esc cancels). Enabled by SOURCE RANGES on every

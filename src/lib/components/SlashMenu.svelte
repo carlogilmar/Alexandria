@@ -83,6 +83,8 @@
     "\n```links Related\n[Weather Pipeline Blueprint](blueprint:1)\n[Message Operations Decoupling](note:21)\n[Weather Pipeline 1st PR Testing Notes](note:24)\n```\n";
   const LINKCHIPS =
     "\n```linkchips See also\n[Weather Pipeline Blueprint](blueprint:1)\n[Message Operations Decoupling](note:21)\n```\n";
+  const STAGES =
+    "\n```stages Product Roadmap\n# Discovery\n- User interviews *3: sessions to validate the problem\n- Market scan\n# Design\n- Wireframes\n- Prototype *2\n# Build\n- Frontend *4\n- Backend *3\n- Infra\n# Launch\n- Beta\n- GA *5: public release\n```\n";
 
   // Grouped by `cat` (the array order == menu order, so category headers appear
   // when the category changes).
@@ -118,6 +120,7 @@
     { id: "flow", label: "Flow / pipeline", icon: "⇥", cat: "PR blocks", keywords: "flow pipeline sequence request trace steps diagram", snippet: FLOW },
     { id: "compare", label: "Before / after", icon: "⇄", cat: "PR blocks", keywords: "compare before after diff old new change crossfade", snippet: COMPARE },
     // — Charts & visuals —
+    { id: "stages", label: "Stages tree", icon: "🫧", cat: "Charts & visuals", keywords: "stages tree strata milestones bubbles roadmap phases haeckel magnitude timeline plan", snippet: STAGES },
     { id: "blueprint", label: "Blueprint (diagram)", icon: "🗺", cat: "Charts & visuals", keywords: "blueprint diagram nodes boxes graph connect arrows dsl", snippet: BLUEPRINT },
     { id: "diagram", label: "Diagram", icon: "📈", cat: "Charts & visuals", keywords: "mermaid flowchart graph", snippet: MERMAID },
     { id: "cards", label: "Cards", icon: "▤", cat: "Charts & visuals", keywords: "dashboard links tiles heading section", snippet: CARDS },

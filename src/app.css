@@ -2251,6 +2251,222 @@ html.dark .markdown-body .md-linkchip {
   background: var(--lc);
 }
 
+/* ------------------------------------------------------------------ */
+/* ```stages — an illustrated "tree of stages" (Sprint 68). The header  */
+/* is .md-bhead; hydrateStagesBlocks (in $lib/stages) mounts the canvas. */
+/* --st-* are the plate/ink tokens the canvas reads (also set on the     */
+/* modal canvas, which lives on <body>).                                 */
+/* ------------------------------------------------------------------ */
+.md-stages,
+.md-stages-canvas,
+.md-stages-modal-body {
+  --st-plate: #f6f8fa;
+  --st-ink: #3d434b;
+  --st-muted: #8a929c;
+}
+html.dark .md-stages,
+html.dark .md-stages-canvas,
+html.dark .md-stages-modal-body {
+  --st-plate: #12161d;
+  --st-ink: #dbe2ea;
+  --st-muted: #8b94a1;
+}
+.markdown-body .md-stages {
+  margin: 0.9rem 0;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--st-plate);
+}
+html.dark .markdown-body .md-stages {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.markdown-body .md-stages .md-bhead {
+  align-items: center;
+}
+.markdown-body .md-stages-head-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.markdown-body .md-stages-head-right .md-bhead-meta {
+  margin-left: 0;
+}
+.markdown-body .md-stages-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 600 11.5px/1 var(--font-sans);
+  color: rgba(0, 0, 0, 0.55);
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 8px;
+  padding: 6px 9px;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.markdown-body .md-stages-btn:hover {
+  color: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.05);
+}
+html.dark .markdown-body .md-stages-btn {
+  color: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+html.dark .markdown-body .md-stages-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+.markdown-body .md-stages-btn svg {
+  width: 13px;
+  height: 13px;
+}
+/* Copy button: swap camera → check while ".md-copied". */
+.markdown-body .md-stages-copy .md-stages-ok {
+  display: none;
+}
+.markdown-body .md-stages-copy.md-copied svg:not(.md-stages-ok) {
+  display: none;
+}
+.markdown-body .md-stages-copy.md-copied .md-stages-ok {
+  display: inline;
+  color: #16a34a;
+}
+.markdown-body .md-stages-body {
+  position: relative;
+}
+.markdown-body .md-stages-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+/* Screen-reader / no-canvas fallback list (visually hidden). */
+.markdown-body .md-stages-a11y {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+}
+
+/* Tooltip + detail modal live on <body> (outside .markdown-body). */
+.md-stages-tip {
+  position: fixed;
+  z-index: 1000;
+  max-width: 240px;
+  pointer-events: none;
+  background: #ffffff;
+  color: #1f2328;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 9px;
+  padding: 8px 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  font: 12.5px/1.45 var(--font-sans);
+}
+html.dark .md-stages-tip {
+  background: #161b22;
+  color: #e6edf3;
+  border-color: #2a313c;
+}
+.md-stages-tip.md-stages-hide {
+  opacity: 0;
+  visibility: hidden;
+}
+.md-stages-tip b {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 13px;
+}
+.md-stages-tmag {
+  color: #8a8172;
+  font-weight: 600;
+  font-size: 11px;
+}
+.md-stages-nod {
+  color: #8a8172;
+  font-style: italic;
+}
+.md-stages-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+  padding: 24px;
+}
+.md-stages-modal-inner {
+  width: min(1040px, 96vw);
+  height: min(90vh, 860px);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
+}
+html.dark .md-stages-modal-inner {
+  background: #0d1117;
+  border-color: #2a313c;
+}
+.md-stages-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+html.dark .md-stages-modal-head {
+  border-bottom-color: #2a313c;
+}
+.md-stages-modal-title {
+  font-family: ui-serif, "Iowan Old Style", Palatino, Georgia, serif;
+  font-weight: 650;
+  font-size: 17px;
+}
+.md-stages-modal-close {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #f6f8fa;
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 15px;
+  color: inherit;
+}
+html.dark .md-stages-modal-close {
+  background: #161b22;
+  border-color: #2a313c;
+  color: #e6edf3;
+}
+.md-stages-modal-body {
+  position: relative;
+  flex: 1;
+  background: var(--st-plate);
+}
+.md-stages-modal-body .md-stages-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+
 .markdown-body .md-lettering {
   font-family: "Oswald", var(--font-sans);
   font-weight: 700;

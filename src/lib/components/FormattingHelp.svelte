@@ -36,6 +36,7 @@
         { syntax: "- [ ] task  /  - [x] done", does: "Task checkbox — click it in the preview to toggle; done tasks strike through" },
         { syntax: "```elixir … ```", does: "Code block with syntax highlighting (elixir, js, ts, python, rust, sql, bash, json, html, css, yaml)" },
         { syntax: "```mermaid … ```", does: "Renders a diagram inline" },
+        { syntax: "```stages <title> … ```", does: "An illustrated “tree of stages” — ordered strata (`# Stage`) with milestones (`- Item`) drawn as magnitude-sized bubbles that cluster and drift. `*N` = magnitude (bigger bubble), `: text` = a description shown on hover. Hover a bubble for its detail, drag bubbles, click a stage to focus it; the header has Copy (image) + Detail. Slash command: Stages tree." },
         { syntax: "```blueprint <title> … ```", does: "A small node-graph like the Blueprints canvas (dot grid + cards + animated arrows): `Name: short description` makes a card (add ` - color` to tint it), `A -> B -> C` connects them (auto-laid-out). For big diagrams use Blueprints. Slash command: Blueprint." },
         { syntax: "{{board 3}}  (own line)", does: "Embed a feedback board READ-ONLY (its columns + cards). Copy `{{board N}}` from the board's id chip (top of the board). Click the embed header to open the full board. Slash command: Embed a board." },
         { syntax: "```cards … ```", does: "Grid of link cards — build dashboards. See “Cards” below (or the Insert cards button)" },

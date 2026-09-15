@@ -7,6 +7,7 @@ import { hierarchy, treemap, treemapSquarify } from "d3-hierarchy";
 import { iconByShortcode, iconInlineSvg } from "$lib/storyIcons";
 import { cardAccent } from "$lib/cardColors";
 import { tagHue } from "$lib/badges";
+import { parseStages } from "$lib/stages";
 import type { FeedbackColumn, FeedbackCardSummary } from "$lib/ipc";
 import { renderMermaid } from "$lib/mermaid";
 import hljs from "highlight.js/lib/core";
@@ -163,6 +164,12 @@ export function createMarkdownIt(): MarkdownIt {
     // ```linkchips [title] → the same links rendered as compact "see also" pills.
     if (info === "linkchips" || info.startsWith("linkchips ")) {
       return renderLinkChips(tokens[idx].content, rawInfo.slice(9).trim(), md);
+    }
+    // ```stages [title] → an illustrated "tree of stages" — ordered strata with
+    // magnitude bubbles. Emits a host that hydrateStagesBlocks mounts a canvas
+    // into (async, interactive), like the board embeds.
+    if (info === "stages" || info.startsWith("stages ")) {
+      return renderStages(tokens[idx].content, rawInfo.slice(6).trim(), md);
     }
     // Every other fenced block gets a GitHub-style copy button. The button is
     // static HTML (no per-instance handler survives `{@html}` re-renders); a
@@ -1375,6 +1382,51 @@ function renderLinkChips(source: string, title: string, md: MarkdownIt): string 
     ? `<div class="md-linkchips-title">${esc(title)}</div>`
     : "";
   return `<div class="md-linkchips-wrap">${head}<div class="md-linkchips">${chips}</div></div>`;
+}
+
+// ```stages → an illustrated "tree of stages". Synchronous render emits only a
+// host (header + a sr-only fallback list); hydrateStagesBlocks (from
+// $lib/stages) mounts the interactive <canvas> after the HTML lands. The full
+// source rides in data-src (title line prepended when the fence carries one).
+const STAGES_COPY_ICON =
+  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="5" width="14" height="11" rx="2"/><circle cx="8" cy="10" r="2"/><path d="M3 15l4-4 3 3 3-3 4 4"/></svg>' +
+  '<svg class="md-stages-ok" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.42 0l-3.5-3.5a1 1 0 011.42-1.42l2.79 2.8 6.79-6.8a1 1 0 011.42 0z" clip-rule="evenodd"/></svg>';
+const STAGES_DETAIL_ICON =
+  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 8V5a1 1 0 011-1h3M16 12v3a1 1 0 01-1 1h-3M12 4h3a1 1 0 011 1v3M8 16H5a1 1 0 01-1-1v-3"/></svg>';
+
+function renderStages(content: string, fenceTitle: string, md: MarkdownIt): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  const full = fenceTitle ? `${fenceTitle}\n${content}` : content;
+  const data = parseStages(full);
+  if (data.stages.length === 0) return "";
+  const title = data.title || "Stages";
+  const nS = data.stages.length;
+  const nM = data.milestones;
+  const meta = `${nS} stage${nS === 1 ? "" : "s"} · ${nM} milestone${nM === 1 ? "" : "s"}`;
+  const bodyH = Math.min(820, Math.max(240, 60 + nM * 24 + nS * 20));
+  // Screen-reader / no-canvas fallback: a plain nested list.
+  const list = data.stages
+    .map((s) => {
+      const items = s.items
+        .map(
+          (it) =>
+            `<li>${esc(it.name)}${it.w > 1 ? ` (×${it.w})` : ""}${it.desc ? `: ${esc(it.desc)}` : ""}</li>`,
+        )
+        .join("");
+      return `<li>${esc(s.name)}<ol>${items}</ol></li>`;
+    })
+    .join("");
+  return (
+    `<div class="md-stages" data-src="${esc(full)}">` +
+    `<div class="md-bhead"><span class="md-bhead-left">` +
+    `<span class="md-bhead-title">${esc(title)}</span><span class="md-bhead-sub">Stages</span></span>` +
+    `<span class="md-stages-head-right"><span class="md-bhead-meta">${esc(meta)}</span>` +
+    `<button class="md-stages-btn md-stages-copy" type="button" title="Copy as image" aria-label="Copy as image">${STAGES_COPY_ICON}<span>Copy</span></button>` +
+    `<button class="md-stages-btn md-stages-detail" type="button" title="Open detail view" aria-label="Open detail view">${STAGES_DETAIL_ICON}<span>Detail</span></button>` +
+    `</span></div>` +
+    `<div class="md-stages-body" style="height:${bodyH}px"><ol class="md-stages-a11y">${list}</ol></div>` +
+    `</div>`
+  );
 }
 
 // Minimal HTML escape for content built outside a markdown-it render pass.

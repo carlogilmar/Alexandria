@@ -14,6 +14,7 @@
     toggleSectionInSource,
     replaceLinesInSource,
   } from "$lib/markdownit";
+  import { hydrateStagesBlocks } from "$lib/stages";
   import EntityLinkPicker from "$lib/components/EntityLinkPicker.svelte";
   import SlashMenu from "$lib/components/SlashMenu.svelte";
   import IconPicker from "$lib/components/IconPicker.svelte";
@@ -141,9 +142,11 @@
     if (!el) return;
     hydrateMermaidBlocks(el, t);
     void hydrateBoardEmbeds(el);
+    hydrateStagesBlocks(el);
     const mo = new MutationObserver(() => {
       hydrateMermaidBlocks(el, t);
       void hydrateBoardEmbeds(el);
+      hydrateStagesBlocks(el);
     });
     mo.observe(el, { childList: true, subtree: true });
     return () => mo.disconnect();
