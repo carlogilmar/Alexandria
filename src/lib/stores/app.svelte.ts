@@ -1741,6 +1741,8 @@ class AppStore {
     this.backlogPending = await listBacklogPending();
     // The Mirror's terrain depends on lists/tasks — refetch next open.
     this.invalidateMirror();
+    // The Dashboard's aggregates depend on tasks too — mark it stale.
+    this.invalidateDashboard();
   }
 
   // ---- Backlog (Sprint 29) ----
@@ -1860,8 +1862,10 @@ class AppStore {
 
   // Keep the list view's per-row tag badges in sync after an edit in the
   // detail modal (the modal edits `selectedTodoTags`; the rows read `todoTags`).
+  // Also mark the dashboard stale so its tag aggregates refresh.
   private async reloadOpenListTags() {
     if (this.selected) await this.loadTodoTags(this.selected.id);
+    this.invalidateDashboard();
   }
 
   async newList(title?: string, date?: string) {
@@ -2538,6 +2542,14 @@ class AppStore {
     this.selectedTodoId = null;
     this.selectedTodoTags = [];
     this.selectedNote = null;
+  }
+
+  // Mark the fetched window stale so the open (or next-opened) dashboard
+  // refetches — the view's $effect reloads when the stored window no longer
+  // matches its computed one. Called on any task/tag mutation.
+  invalidateDashboard() {
+    this.dashboardFetchedFrom = "";
+    this.dashboardFetchedTo = "";
   }
 
   // Fetch tasks covering [fetchFrom, to] in one call (the view passes a padded
