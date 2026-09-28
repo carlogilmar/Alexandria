@@ -21,6 +21,8 @@ export type ListSummary = {
   done: number;
 };
 
+export type TodoStatus = "open" | "wip" | "done";
+
 export type Todo = {
   id: number;
   listId: number;
@@ -30,6 +32,11 @@ export type Todo = {
   position: number;
   createdAt: string;
   updatedAt: string;
+  // Sprint 69: tri-state workflow + work-time tracking.
+  status: TodoStatus;
+  workSeconds: number;
+  wipStartedAt: string | null;
+  completedAt: string | null;
 };
 
 export type TodoPatch = {
@@ -41,6 +48,31 @@ export type TodoPatch = {
 export type Tag = {
   id: number;
   name: string;
+  color: string | null;
+};
+
+// One (todo, tag) link row for a whole list (Sprint 69).
+export type TodoTag = {
+  todoId: number;
+  id: number;
+  name: string;
+  color: string | null;
+};
+
+// Dashboard (Sprint 70).
+export type DashboardTask = {
+  id: number;
+  text: string;
+  status: TodoStatus;
+  completed: boolean;
+  workSeconds: number;
+  createdAt: string;
+  completedAt: string | null;
+  listDate: string;
+};
+export type DashboardData = {
+  tasks: DashboardTask[];
+  tags: TodoTag[];
 };
 
 export type TodoHit = {
@@ -197,6 +229,10 @@ export const createTodo = (listId: number, text: string) =>
 export const updateTodo = (id: number, patch: TodoPatch) =>
   invoke<Todo>("update_todo", { id, patch });
 export const toggleTodo = (id: number) => invoke<Todo>("toggle_todo", { id });
+export const setTodoStatus = (id: number, status: TodoStatus) =>
+  invoke<Todo>("set_todo_status", { id, status });
+export const setTodoWorkSeconds = (id: number, seconds: number) =>
+  invoke<Todo>("set_todo_work_seconds", { id, seconds });
 export const moveTodo = (id: number, targetListId: number) =>
   invoke<Todo>("move_todo", { id, targetListId });
 export const deleteTodo = (id: number) => invoke<void>("delete_todo", { id });
@@ -207,6 +243,8 @@ export const reorderTodos = (listId: number, orderedIds: number[]) =>
 export const listTags = () => invoke<Tag[]>("list_tags");
 export const tagsForTodo = (todoId: number) =>
   invoke<Tag[]>("tags_for_todo", { todoId });
+export const listTodoTags = (listId: number) =>
+  invoke<TodoTag[]>("list_todo_tags", { listId });
 export const addTagToTodo = (todoId: number, name: string) =>
   invoke<Tag>("add_tag_to_todo", { todoId, name });
 export const removeTagFromTodo = (todoId: number, tagId: number) =>
@@ -221,6 +259,8 @@ export const getDailyStats = (from: string | null, to: string | null) =>
   invoke<DayStats[]>("get_daily_stats", { from, to });
 export const getActivityStats = () =>
   invoke<ActivityDay[]>("get_activity_stats");
+export const getDashboard = (from: string, to: string) =>
+  invoke<DashboardData>("get_dashboard", { from, to });
 
 export const getMirror = () => invoke<MirrorData>("get_mirror");
 

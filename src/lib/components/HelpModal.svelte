@@ -15,6 +15,7 @@
         { keys: "⌘ 6", label: "Screensaver — Focus mode" },
         { keys: "⌘ 7", label: "Split view — reference pane" },
         { keys: "⌘ 8", label: "Random sidebar theme" },
+        { keys: "⌘ 9", label: "Dashboard — task performance" },
       ],
     },
     {

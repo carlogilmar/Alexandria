@@ -63,6 +63,15 @@
       active: (v) => v === "activity",
     },
     {
+      key: "dashboard",
+      title: "Dashboard",
+      sc: "⌘9",
+      hue: 250,
+      d: "M3 12a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1H4a1 1 0 01-1-1v-4zm5-5a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm5-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z",
+      go: () => app.openDashboard(),
+      active: (v) => v === "dashboard",
+    },
+    {
       key: "flashdeck",
       title: "Flash Deck",
       sc: "",

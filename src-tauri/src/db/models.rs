@@ -38,6 +38,12 @@ pub struct Todo {
     pub position: i64,
     pub created_at: String,
     pub updated_at: String,
+    // Sprint 69: tri-state workflow + work-time tracking.
+    // `status` is one of open | wip | done; `completed` mirrors status='done'.
+    pub status: String,
+    pub work_seconds: i64,
+    pub wip_started_at: Option<String>,
+    pub completed_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -53,6 +59,43 @@ pub struct TodoPatch {
 pub struct Tag {
     pub id: i64,
     pub name: String,
+    // Auto-assigned from a palette on creation (Sprint 69). NULL for tags that
+    // predate the column; the frontend colors those deterministically by id.
+    pub color: Option<String>,
+}
+
+// One (todo, tag) link row for a whole list — lets the list view render tag
+// badges without an N+1 query per task (Sprint 69).
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct TodoTag {
+    pub todo_id: i64,
+    pub id: i64,
+    pub name: String,
+    pub color: Option<String>,
+}
+
+// One task in the dashboard's date window, with its owning list's date so the
+// frontend can bucket by "list date" or "completed date" (Sprint 70).
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct DashboardTask {
+    pub id: i64,
+    pub text: String,
+    pub status: String,
+    pub completed: bool,
+    pub work_seconds: i64,
+    pub created_at: String,
+    pub completed_at: Option<String>,
+    pub list_date: String,
+}
+
+// The dashboard payload: tasks in range + their tag links (grouped client-side).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DashboardData {
+    pub tasks: Vec<DashboardTask>,
+    pub tags: Vec<TodoTag>,
 }
 
 #[derive(Debug, Clone, Serialize, FromRow)]

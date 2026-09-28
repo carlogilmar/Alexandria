@@ -1,6 +1,7 @@
 use crate::commands::AppState;
 use crate::db::models::{
-    ActivityDay, DayStats, MirrorData, MirrorList, MirrorPoint, Stats, TodoHit, WeeklyActivity,
+    ActivityDay, DashboardData, DashboardTask, DayStats, MirrorData, MirrorList, MirrorPoint,
+    Stats, TodoHit, TodoTag, WeeklyActivity,
 };
 use crate::error::AppResult;
 use sqlx::SqlitePool;
@@ -337,6 +338,59 @@ pub async fn get_mirror(state: State<'_, AppState>) -> AppResult<MirrorData> {
     mirror(&state.pool).await
 }
 
+// ---------- Dashboard (Sprint 70) ----------
+
+// Every task whose owning (non-backlog) list falls in [from, to], OR that was
+// completed in that window — so the frontend can bucket by either "list date"
+// or "completed date". Backlog tasks (date = '') only appear via completion.
+pub(crate) async fn dashboard(
+    pool: &SqlitePool,
+    from: &str,
+    to: &str,
+) -> AppResult<DashboardData> {
+    let tasks = sqlx::query_as::<_, DashboardTask>(
+        "SELECT td.id, td.text, td.status, td.completed, td.work_seconds,
+                td.created_at, td.completed_at, l.date AS list_date
+           FROM todos td
+           JOIN lists l ON l.id = td.list_id
+          WHERE (l.is_backlog = 0 AND l.date >= ?1 AND l.date <= ?2)
+             OR (td.completed_at IS NOT NULL
+                 AND date(td.completed_at) >= ?1 AND date(td.completed_at) <= ?2)
+          ORDER BY td.created_at ASC",
+    )
+    .bind(from)
+    .bind(to)
+    .fetch_all(pool)
+    .await?;
+
+    let tags = sqlx::query_as::<_, TodoTag>(
+        "SELECT tt.todo_id AS todo_id, t.id AS id, t.name AS name, t.color AS color
+           FROM todo_tags tt
+           JOIN tags  t  ON t.id = tt.tag_id
+           JOIN todos td ON td.id = tt.todo_id
+           JOIN lists l  ON l.id = td.list_id
+          WHERE (l.is_backlog = 0 AND l.date >= ?1 AND l.date <= ?2)
+             OR (td.completed_at IS NOT NULL
+                 AND date(td.completed_at) >= ?1 AND date(td.completed_at) <= ?2)
+          ORDER BY t.name ASC",
+    )
+    .bind(from)
+    .bind(to)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(DashboardData { tasks, tags })
+}
+
+#[tauri::command]
+pub async fn get_dashboard(
+    state: State<'_, AppState>,
+    from: String,
+    to: String,
+) -> AppResult<DashboardData> {
+    dashboard(&state.pool, &from, &to).await
+}
+
 // ---------- Tests ----------
 
 #[cfg(test)]
@@ -351,6 +405,30 @@ mod tests {
             .fetch_one(pool)
             .await
             .unwrap()
+    }
+
+    #[tokio::test]
+    async fn dashboard_returns_tasks_in_range_by_list_or_completion() {
+        let pool = test_pool().await;
+        // In-range list (by date).
+        let l1 = lists::create(&pool, "in", "2026-05-10").await.unwrap();
+        let a = todos::create(&pool, l1.id, "in-range").await.unwrap();
+        crate::commands::tags::add_to_todo(&pool, a.id, "work").await.unwrap();
+        // Out-of-range list, but a task completed inside the window.
+        let l2 = lists::create(&pool, "old", "2026-01-01").await.unwrap();
+        let b = todos::create(&pool, l2.id, "old but done in range").await.unwrap();
+        sqlx::query("UPDATE todos SET status='done', completed=1, completed_at='2026-05-11 09:00:00' WHERE id=?1")
+            .bind(b.id).execute(&pool).await.unwrap();
+        // Fully out of range.
+        let l3 = lists::create(&pool, "far", "2025-12-01").await.unwrap();
+        todos::create(&pool, l3.id, "far away").await.unwrap();
+
+        let data = dashboard(&pool, "2026-05-01", "2026-05-31").await.unwrap();
+        let ids: Vec<i64> = data.tasks.iter().map(|t| t.id).collect();
+        assert!(ids.contains(&a.id), "in-range list task present");
+        assert!(ids.contains(&b.id), "task completed in range present");
+        assert_eq!(data.tasks.len(), 2, "the far task is excluded");
+        assert!(data.tags.iter().any(|t| t.todo_id == a.id && t.name == "work"));
     }
 
     #[tokio::test]

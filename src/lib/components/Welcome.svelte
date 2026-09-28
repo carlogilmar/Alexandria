@@ -2,8 +2,9 @@
   import { onMount } from "svelte";
   import { app, todayIso } from "$lib/stores/app.svelte";
   import { theme } from "$lib/stores/theme.svelte";
-  import type { DayStats } from "$lib/ipc";
+  import type { DayStats, Todo } from "$lib/ipc";
   import { reveal } from "$lib/anim";
+  import { fmtWork, liveWorkSeconds } from "$lib/tasktime";
 
   // First-run orientation. Shown until there's any content or the user dismisses
   // it (persisted). Helps a brand-new user understand what to do.
@@ -43,6 +44,18 @@
   let todoDone = $derived(app.homeTodos.filter((t) => t.completed).length);
   let progressPct = $derived(todoTotal ? Math.round((todoDone / todoTotal) * 100) : 0);
   let newTaskText = $state("");
+
+  // Work-in-progress split + a 1s clock (only while something is running) so the
+  // WIP timers tick on Home too (Sprint 71).
+  let wipTodos = $derived(app.homeTodos.filter((t) => t.status === "wip"));
+  let restTodos = $derived(app.homeTodos.filter((t) => t.status !== "wip"));
+  let clock = $state(Date.now());
+  $effect(() => {
+    if (wipTodos.length === 0) return;
+    clock = Date.now();
+    const id = setInterval(() => (clock = Date.now()), 1000);
+    return () => clearInterval(id);
+  });
 
   async function addTask() {
     const t = newTaskText.trim();
@@ -360,31 +373,65 @@
             Backlog <span class="font-semibold text-blue-500 dark:text-blue-400">{app.backlogPending}</span> →
           </button>
         {/if}
-        <button type="button" class="inline-flex items-center gap-1 rounded-full border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-600 transition-colors hover:border-blue-400 hover:bg-black/5 hover:text-neutral-900 dark:border-white/15 dark:text-neutral-200 dark:hover:bg-white/5 dark:hover:text-white" onclick={() => app.homeListId !== null && app.select(app.homeListId)} title="Open the full list">
-          Open list →
-        </button>
       </div>
       <div class="mb-3 h-1.5 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
         <div class="h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out dark:bg-emerald-400" style="width: {progressPct}%"></div>
       </div>
-      <div class="flex flex-col">
-        {#each app.homeTodos as todo (todo.id)}
-          <button type="button" class="flex items-center gap-3 rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5" onclick={() => app.toggleHomeTodo(todo)}>
-            <span
-              class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md border text-white"
-              class:border-neutral-400={!todo.completed}
-              class:dark:border-neutral-500={!todo.completed}
-              class:border-emerald-500={todo.completed}
-              class:bg-emerald-500={todo.completed}
-              class:dark:border-emerald-400={todo.completed}
-              class:dark:bg-emerald-400={todo.completed}
-            >
-              {#if todo.completed}
-                <svg viewBox="0 0 20 20" fill="currentColor" class="hcheck h-3 w-3"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L4.3 10.7a1 1 0 011.4-1.4l2.8 2.79 6.8-6.79a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
-              {/if}
-            </span>
-            <span class="text-sm" class:text-neutral-800={!todo.completed} class:dark:text-neutral-200={!todo.completed} class:text-neutral-400={todo.completed} class:dark:text-neutral-500={todo.completed} class:line-through={todo.completed}>{todo.text}</span>
+      {#snippet todoRow(todo: Todo)}
+        <div class="group flex items-center gap-2.5 rounded-lg px-1 py-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
+          <button
+            type="button"
+            class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md border text-white"
+            class:border-neutral-400={!todo.completed}
+            class:dark:border-neutral-500={!todo.completed}
+            class:border-emerald-500={todo.completed}
+            class:bg-emerald-500={todo.completed}
+            class:dark:border-emerald-400={todo.completed}
+            class:dark:bg-emerald-400={todo.completed}
+            aria-label={todo.completed ? "Mark not done" : "Mark done"}
+            onclick={() => app.toggleHomeTodo(todo)}
+          >
+            {#if todo.completed}
+              <svg viewBox="0 0 20 20" fill="currentColor" class="hcheck h-3 w-3"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L4.3 10.7a1 1 0 011.4-1.4l2.8 2.79 6.8-6.79a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
+            {/if}
           </button>
+          <button type="button" class="flex-1 truncate text-left text-sm" class:text-neutral-800={!todo.completed} class:dark:text-neutral-200={!todo.completed} class:text-neutral-400={todo.completed} class:dark:text-neutral-500={todo.completed} class:line-through={todo.completed} onclick={() => app.toggleHomeTodo(todo)}>{todo.text}</button>
+          {#if todo.status === "wip"}
+            <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+              <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500"></span>
+              <span class="tabular-nums">{fmtWork(liveWorkSeconds(todo, clock)) || "0s"}</span>
+            </span>
+          {/if}
+          {#if todo.status !== "done"}
+            <button
+              type="button"
+              class="shrink-0 rounded p-1 transition-colors {todo.status === 'wip' ? 'text-amber-500 hover:bg-amber-500/10' : 'text-emerald-500 opacity-0 hover:bg-emerald-500/10 group-hover:opacity-100'}"
+              aria-label={todo.status === "wip" ? "Pause" : "Start working"}
+              title={todo.status === "wip" ? "Pause — back to To do" : "Start — Work in progress"}
+              onclick={() => app.setHomeTodoStatus(todo, todo.status === "wip" ? "open" : "wip")}
+            >
+              {#if todo.status === "wip"}
+                <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M6 4a1 1 0 011 1v10a1 1 0 11-2 0V5a1 1 0 011-1zm8 0a1 1 0 011 1v10a1 1 0 11-2 0V5a1 1 0 011-1z"/></svg>
+              {:else}
+                <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M6.3 3.84A1 1 0 004.8 4.7v10.6a1 1 0 001.5.86l9-5.3a1 1 0 000-1.72l-9-5.3z"/></svg>
+              {/if}
+            </button>
+          {/if}
+        </div>
+      {/snippet}
+
+      <div class="flex flex-col">
+        {#if wipTodos.length > 0}
+          <p class="mb-0.5 mt-0.5 flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400">
+            <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>In progress
+          </p>
+          {#each wipTodos as todo (todo.id)}
+            {@render todoRow(todo)}
+          {/each}
+          <div class="my-1 border-t border-black/10 dark:border-white/10"></div>
+        {/if}
+        {#each restTodos as todo (todo.id)}
+          {@render todoRow(todo)}
         {/each}
         <div class="flex items-center gap-3 px-1 pb-0.5 pt-1.5">
           <span class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md border border-dashed border-neutral-300 text-xs text-neutral-400 dark:border-neutral-600 dark:text-neutral-500">+</span>

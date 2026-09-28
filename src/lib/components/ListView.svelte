@@ -2,7 +2,7 @@
   import { fade } from "svelte/transition";
   import { flip } from "svelte/animate";
   import { app } from "$lib/stores/app.svelte";
-  import { checkinSrc, voiceNoteSrc } from "$lib/ipc";
+  import { checkinSrc, voiceNoteSrc, type Todo } from "$lib/ipc";
   import TodoRow from "$lib/components/TodoRow.svelte";
   import IdChip from "$lib/components/IdChip.svelte";
   import CheckinLightbox from "$lib/components/CheckinLightbox.svelte";
@@ -50,6 +50,21 @@
   let progressPct = $derived(total === 0 ? 0 : Math.round((done / total) * 100));
   let allDone = $derived(total > 0 && done === total);
 
+  // Sprint 69: split the list into workflow sections.
+  let wipTodos = $derived(app.todos.filter((t) => t.status === "wip"));
+  let openTodos = $derived(app.todos.filter((t) => t.status === "open"));
+  let doneTodos = $derived(app.todos.filter((t) => t.status === "done"));
+
+  // A 1s clock that only ticks while something is in progress — drives the
+  // live work-time badges on WIP rows.
+  let now = $state(Date.now());
+  $effect(() => {
+    if (wipTodos.length === 0) return;
+    now = Date.now();
+    const id = setInterval(() => (now = Date.now()), 1000);
+    return () => clearInterval(id);
+  });
+
   let prettyDate = $derived(
     app.selected
       ? new Date(app.selected.date + "T00:00:00").toLocaleDateString(undefined, {
@@ -94,6 +109,8 @@
     const fromIdx = app.todos.findIndex((t) => t.id === dragId);
     const toIdx = app.todos.findIndex((t) => t.id === targetId);
     if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+    // Reorder only within the same workflow section (Sprint 69).
+    if (app.todos[fromIdx].status !== app.todos[toIdx].status) return;
     const next = app.todos.slice();
     const [moved] = next.splice(fromIdx, 1);
     next.splice(toIdx, 0, moved);
@@ -439,31 +456,52 @@
         <p class="mt-1 text-xs">What's the first thing?</p>
       </div>
     {:else}
-      <ul class="flex flex-col gap-0.5">
-        {#each app.todos as todo (todo.id)}
-          <li
-            data-todo-id={todo.id}
-            animate:flip={{ duration: 200 }}
-            in:fade={{ duration: 150 }}
-            out:fade={{ duration: 120 }}
-            class:opacity-40={dragId === todo.id}
-          >
-            <TodoRow
-              {todo}
-              selected={app.selectedTodoId === todo.id}
-              onToggle={() => app.toggle(todo)}
-              onDelete={() => app.removeTodo(todo)}
-              onOpenDetails={() => app.selectTodo(todo.id)}
-              onHandlePointerDown={(e) => handlePointerDown(todo.id, e)}
-              moveDir={isBacklog ? "today" : "backlog"}
-              onMove={() =>
-                isBacklog
-                  ? app.pullTodoToToday(todo)
-                  : app.sendTodoToBacklog(todo)}
-            />
-          </li>
-        {/each}
-      </ul>
+      {#snippet section(label: string, items: Todo[], accent: string)}
+        {#if items.length > 0}
+          <div class="mb-1 mt-4 flex items-center gap-2 first:mt-0">
+            <span class="h-1.5 w-1.5 rounded-full {accent}"></span>
+            <h2 class="text-[11px] font-semibold uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+              {label}
+            </h2>
+            <span class="text-[11px] tabular-nums text-neutral-300 dark:text-neutral-600">
+              {items.length}
+            </span>
+          </div>
+          <ul class="flex flex-col gap-0.5">
+            {#each items as todo (todo.id)}
+              <li
+                data-todo-id={todo.id}
+                animate:flip={{ duration: 200 }}
+                in:fade={{ duration: 150 }}
+                out:fade={{ duration: 120 }}
+                class:opacity-40={dragId === todo.id}
+              >
+                <TodoRow
+                  {todo}
+                  {now}
+                  tags={app.todoTags[todo.id] ?? []}
+                  selected={app.selectedTodoId === todo.id}
+                  onToggle={() => app.toggle(todo)}
+                  onStart={() => app.setTodoStatus(todo, "wip")}
+                  onPause={() => app.setTodoStatus(todo, "open")}
+                  onDelete={() => app.removeTodo(todo)}
+                  onOpenDetails={() => app.selectTodo(todo.id)}
+                  onHandlePointerDown={(e) => handlePointerDown(todo.id, e)}
+                  moveDir={isBacklog ? "today" : "backlog"}
+                  onMove={() =>
+                    isBacklog
+                      ? app.pullTodoToToday(todo)
+                      : app.sendTodoToBacklog(todo)}
+                />
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      {/snippet}
+
+      {@render section("Work in progress", wipTodos, "bg-amber-500")}
+      {@render section("To do", openTodos, "bg-blue-500")}
+      {@render section("Done", doneTodos, "bg-emerald-500")}
     {/if}
   </main>
 {/if}

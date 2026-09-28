@@ -35,6 +35,7 @@
     { key: "go-mirror", group: "Go to", label: "The Mirror", sub: "A data-portrait of your whole library", hint: "⌘3", run: () => app.openMirror() },
     { key: "go-feedback", group: "Go to", label: "Feedback", sub: "Kanban boards", run: () => app.openFeedback() },
     { key: "go-activity", group: "Go to", label: "Activity", sub: "When you've been working", hint: "⌘4", run: () => app.openActivity() },
+    { key: "go-dashboard", group: "Go to", label: "Dashboard", sub: "Task performance over a period", hint: "⌘9", run: () => app.openDashboard() },
     { key: "go-deck", group: "Go to", label: "Flash Deck", sub: "Your flashcards", run: () => app.openFlashDeck() },
     { key: "go-blueprints", group: "Go to", label: "Blueprints", sub: "Design canvases for planning software", run: () => app.openBlueprints() },
     { key: "go-storyboards", group: "Go to", label: "Storyboards", sub: "Tiny diagram + note, page by page", run: () => app.openStoryboards() },

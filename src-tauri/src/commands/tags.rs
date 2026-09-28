@@ -1,8 +1,23 @@
 use crate::commands::AppState;
-use crate::db::models::Tag;
+use crate::db::models::{Tag, TodoTag};
 use crate::error::{AppError, AppResult};
 use sqlx::SqlitePool;
 use tauri::State;
+
+// Distinct-enough hues auto-assigned to new tags, cycled by creation order
+// (Sprint 69). 500-level Tailwind values; the frontend tints a pill from these.
+const TAG_PALETTE: [&str; 10] = [
+    "#3b82f6", // blue
+    "#10b981", // emerald
+    "#f59e0b", // amber
+    "#8b5cf6", // violet
+    "#ec4899", // pink
+    "#14b8a6", // teal
+    "#f97316", // orange
+    "#6366f1", // indigo
+    "#f43f5e", // rose
+    "#84cc16", // lime
+];
 
 pub(crate) async fn all(pool: &SqlitePool) -> AppResult<Vec<Tag>> {
     sqlx::query_as::<_, Tag>("SELECT * FROM tags ORDER BY name ASC")
@@ -24,20 +39,49 @@ pub(crate) async fn for_todo(pool: &SqlitePool, todo_id: i64) -> AppResult<Vec<T
     .map_err(Into::into)
 }
 
+// Every (todo, tag) link for one list, in a single query — so the list view
+// can render tag badges per task without an N+1 fan-out (Sprint 69).
+pub(crate) async fn for_list(pool: &SqlitePool, list_id: i64) -> AppResult<Vec<TodoTag>> {
+    sqlx::query_as::<_, TodoTag>(
+        "SELECT tt.todo_id AS todo_id, t.id AS id, t.name AS name, t.color AS color
+           FROM todo_tags tt
+           JOIN tags  t  ON t.id = tt.tag_id
+           JOIN todos td ON td.id = tt.todo_id
+          WHERE td.list_id = ?1
+          ORDER BY t.name ASC",
+    )
+    .bind(list_id)
+    .fetch_all(pool)
+    .await
+    .map_err(Into::into)
+}
+
 pub(crate) async fn add_to_todo(pool: &SqlitePool, todo_id: i64, name: &str) -> AppResult<Tag> {
     let name = name.trim();
     if name.is_empty() {
         return Err(AppError::BadInput("tag name cannot be empty".into()));
     }
     let mut tx = pool.begin().await?;
-    sqlx::query("INSERT OR IGNORE INTO tags (name) VALUES (?1)")
+    let existing: Option<Tag> = sqlx::query_as("SELECT * FROM tags WHERE name = ?1")
         .bind(name)
-        .execute(&mut *tx)
+        .fetch_optional(&mut *tx)
         .await?;
-    let tag: Tag = sqlx::query_as("SELECT * FROM tags WHERE name = ?1")
-        .bind(name)
-        .fetch_one(&mut *tx)
-        .await?;
+    let tag: Tag = match existing {
+        Some(t) => t,
+        None => {
+            // Assign the next palette color by current tag count so tags stay
+            // visually distinct as they're created.
+            let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tags")
+                .fetch_one(&mut *tx)
+                .await?;
+            let color = TAG_PALETTE[(count as usize) % TAG_PALETTE.len()];
+            sqlx::query_as::<_, Tag>("INSERT INTO tags (name, color) VALUES (?1, ?2) RETURNING *")
+                .bind(name)
+                .bind(color)
+                .fetch_one(&mut *tx)
+                .await?
+        }
+    };
     sqlx::query("INSERT OR IGNORE INTO todo_tags (todo_id, tag_id) VALUES (?1, ?2)")
         .bind(todo_id)
         .bind(tag.id)
@@ -70,6 +114,11 @@ pub async fn list_tags(state: State<'_, AppState>) -> AppResult<Vec<Tag>> {
 #[tauri::command]
 pub async fn tags_for_todo(state: State<'_, AppState>, todo_id: i64) -> AppResult<Vec<Tag>> {
     for_todo(&state.pool, todo_id).await
+}
+
+#[tauri::command]
+pub async fn list_todo_tags(state: State<'_, AppState>, list_id: i64) -> AppResult<Vec<TodoTag>> {
+    for_list(&state.pool, list_id).await
 }
 
 #[tauri::command]
@@ -160,6 +209,35 @@ mod tests {
                 .await
                 .unwrap();
         assert_eq!(links, 0);
+    }
+
+    #[tokio::test]
+    async fn new_tags_get_distinct_auto_colors() {
+        let pool = test_pool().await;
+        let todo_id = fresh_todo(&pool).await;
+        let a = add_to_todo(&pool, todo_id, "one").await.unwrap();
+        let b = add_to_todo(&pool, todo_id, "two").await.unwrap();
+        assert!(a.color.is_some());
+        assert!(b.color.is_some());
+        assert_ne!(a.color, b.color, "sequential tags get different hues");
+        // Re-adding keeps the original color (no reassignment).
+        let a2 = add_to_todo(&pool, todo_id, "one").await.unwrap();
+        assert_eq!(a.color, a2.color);
+    }
+
+    #[tokio::test]
+    async fn for_list_returns_links_across_todos() {
+        let pool = test_pool().await;
+        let list = lists::create(&pool, "t", "2026-05-10").await.unwrap();
+        let t1 = todos::create(&pool, list.id, "a").await.unwrap().id;
+        let t2 = todos::create(&pool, list.id, "b").await.unwrap().id;
+        add_to_todo(&pool, t1, "home").await.unwrap();
+        add_to_todo(&pool, t2, "home").await.unwrap();
+        add_to_todo(&pool, t2, "work").await.unwrap();
+
+        let rows = for_list(&pool, list.id).await.unwrap();
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows.iter().filter(|r| r.todo_id == t2).count(), 2);
     }
 
     #[tokio::test]

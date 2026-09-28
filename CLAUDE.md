@@ -124,7 +124,7 @@ destination, add a string to the union, add a `route` case, add a
 sidebar button.
 
 Current view values: `home · list · note · index ·
-mirror · feedback · feedback-board · activity · flashdeck ·
+mirror · feedback · feedback-board · activity · dashboard · flashdeck ·
 blueprints · blueprint · storyboards · storyboard · passwords`.
 
 UI labels diverge from internal names where renames happened — the
@@ -261,7 +261,7 @@ Clicking an orb navigates to its entity. The Garden (`GardenView` +
 
 ### Migrations
 
-Files in `src-tauri/migrations/0001_…sql` … `0024_…sql`, monotonically
+Files in `src-tauri/migrations/0001_…sql` … `0030_…sql`, monotonically
 numbered, applied at startup. To add one:
 
 1. Create `00NN_<short_name>.sql`.
@@ -283,6 +283,15 @@ numbered, applied at startup. To add one:
   filter `is_backlog = 0`). Tasks move between a daily list and the backlog via
   `move_todo(id, targetListId)` — "Send to backlog" / "Pull to today" per-row
   actions in `TodoRow`/`ListView`; the sidebar shows a pending-count entry.
+  Sprint 69 added a task **workflow + work-time tracking** (migration `0030`,
+  additive): `todos.status` (`open|wip|done`) with `work_seconds` / `wip_started_at`
+  / `completed_at`, driven by `set_status`/`set_todo_work_seconds` (WIP folds
+  elapsed into the accumulator on pause/done); `completed` is kept as a live
+  MIRROR of `status='done'` so all legacy surfaces are untouched. `tags.color`
+  is auto-assigned from a palette; `list_todo_tags(listId)` fetches a list's tag
+  links in one query. The **Dashboard** (Sprint 70, view `dashboard`, ⌘9) reads
+  this via read-only `get_dashboard(from,to)` (`commands/search.rs`) — no table
+  of its own.
 - `workflows` + `workflow_steps`: REMOVED in Sprint 50 (migration `0026`
   drops both). The workflow entity is gone — replaced by a ```workflow
   markdown block (numbered step chain; `renderWorkflow` in markdownit.ts).
@@ -411,7 +420,50 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 68 (The `stages` block — a new powered-markdown "tree of stages" inspired
+Last updated: end of Sprint 71 (Task polish follow-ups — four task-facing tweaks, no migration. (1) MANUAL
+WORK TIME: `set_todo_work_seconds(id, seconds)` (commands/todos.rs) sets the accumulator directly and, if
+the task is WIP, restarts `wip_started_at=now` so the new total takes effect immediately; rejects
+negatives. In the task detail modal the tracked-time readout is a button ("add time" + pencil when zero)
+→ inline h/m inputs → Save (Enter; Esc cancels without closing). (2) ⌘E ON THE TASK NOTE: the Inspector's
+Description `MarkdownEditor` is bound (`bind:this`) + a contextual `<svelte:window onkeydown>` calls
+`editor.toggleEdit()` (same as NoteView); ignores ⌘E while title/tag/time INPUTs are focused. (3) HOME WIP
+SECTION: `Welcome.svelte` splits `homeTodos` into an amber "In progress" subgroup (live 1s timer, only
+ticks while ≥1 WIP) + the rest; each non-done row gained ▶ Start / ⏸ Pause via new store
+`setHomeTodoStatus` (mirrors toggleHomeTodo). (4) LEGIBILITY: task-row age + tracked-time were faint gray
+→ now pill BADGES (age = neutral pill + calendar glyph; tracked time = INDIGO pill + clock glyph; live WIP
+stays amber); removed the duplicate "Open list →" button from the Home Today card (header's "Open today's
+list" remains). 98 cargo tests + svelte-check + build pass. See documentation/SPRINT71.md. — earlier:
+Sprint 70 (The DASHBOARD — a new ⌘9 top-nav destination to review task performance over a period, built on
+Sprint 69's timing/status/tag data; prototyped as an approved Artifact mockup first. Backend read-only
+`get_dashboard(from,to)` (commands/search.rs, models `DashboardTask`/`DashboardData`, 1 test, NO migration)
+returns every task whose non-backlog list date is in [from,to] OR that was completed in that window (so the
+frontend can bucket by either reference), plus the `(todo,tag)` links (reuses `TodoTag`, grouped
+client-side, no N+1). `DashboardView.svelte`: range presets (This week/month · Last 7/30 · Custom from–to)
++ a COUNT-BY toggle (list date = planning view vs completed date = throughput view — the decision that
+shaped the query) + a tag filter; 6 KPI cards incl. a ▲/▼ %-delta vs the previous equal-length period; four
+hand-rolled SVG charts (activity planned-vs-completed, status donut, tracked-time/day using theme
+`--accent`, by-tag bars) + a task table; COPY-AS-IMAGE (html-to-image `toBlob` → `copy_image_to_clipboard`,
+`ClipboardItem` fallback, theme bg). The view fetches a window padded back one period length
+(`loadDashboard`) so prev-period deltas need no 2nd call; a `$effect` refetches only when that window
+changes, count-by/tag re-derive client-side. Wiring: store `dashboard` view (+NavLoc/back), ⌘9 in
++page.svelte, TopNav icon, CommandPalette + HelpModal rows. svelte-check + build pass. Deferred: Markdown
+export, streak/busiest-day, per-tag completion rate, weekly comparison. See documentation/SPRINT70.md. —
+earlier: Sprint 69 (TASK WORKFLOW + WORK-TIME TRACKING + COLORED TAGS — the todo grew from a binary
+open/closed flag into a tri-state `status` (open|wip|done) that tracks time spent. Migration `0030`
+(additive; todos has no CHECK) adds `status`/`work_seconds`/`wip_started_at`/`completed_at` to todos and
+`color` to tags; backfills completed⇒done. CRUCIAL low-risk choice: `completed` is kept as a live MIRROR of
+status='done', so Activity/Focus/Welcome/Mirror/stats read it unchanged; new UI reads `status`. Backend
+`set_status(id,status)` (commands/todos.rs) does all accounting in one place — entering wip stamps
+`wip_started_at`, leaving wip folds `now−started` (SQL `strftime('%s')`) into `work_seconds`, done sets
+`completed_at`, reopen keeps work_seconds; `toggle` routes through it; PAUSE&ACCUMULATE model, MULTIPLE
+concurrent WIP allowed. Tags auto-get a palette color on creation (`add_to_todo`); `list_todo_tags(listId)`
+returns all links for a list in one query (model `TodoTag`, no N+1). New `$lib/tasktime.ts` (parseSqlUtc —
+sqlite datetime is UTC-no-zone; fmtAge/fmtSpan/fmtWork; liveWorkSeconds; tagColor). `TodoRow` = two-line
+row: ▶Start (open) / ⏸Pause + live timer (wip), a meta line (age + tracked work), colored tag pills.
+`ListView` splits into 3 sections (Work in progress · To do · Done) via a snippet, a 1s tick only while
+≥1 WIP, drag-reorder scoped to same-status. `Inspector` gained status buttons + timing + colored pills.
+BOTH durations shown: calendar age/lifespan AND tracked work. 3 backend tests. See documentation/SPRINT69.md.
+— earlier: Sprint 68 (The `stages` block — a new powered-markdown "tree of stages" inspired
 by Manuel Lima's Book of Trees / Haeckel's Pedigree of Man. NOT a graph or chart: ordered STRATA
 (stages, bottom→top) drawn as tinted bands, each MILESTONE a magnitude-sized BUBBLE that clusters at
 its stage's centre and jostles via a hand-rolled physics loop (like the sidebar fx). SYNTAX: title =

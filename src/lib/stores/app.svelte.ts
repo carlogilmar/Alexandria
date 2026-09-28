@@ -17,6 +17,8 @@ import {
   setListPinned,
   createTodo,
   toggleTodo,
+  setTodoStatus,
+  setTodoWorkSeconds,
   updateTodo,
   deleteTodo,
   reorderTodos,
@@ -81,6 +83,8 @@ import {
   type StoryboardNode,
   type StoryboardEdge,
   tagsForTodo,
+  listTodoTags,
+  getDashboard,
   listTags,
   addTagToTodo,
   removeTagFromTodo,
@@ -174,6 +178,8 @@ import {
   type Stats,
   type Tag,
   type Todo,
+  type TodoStatus,
+  type DashboardData,
   type TodoHit,
   type WeeklyActivity,
 } from "$lib/ipc";
@@ -226,6 +232,7 @@ type NavLoc =
         | "mirror"
         | "feedback"
         | "activity"
+        | "dashboard"
         | "flashdeck"
         | "blueprints"
         | "storyboards"
@@ -242,6 +249,7 @@ class AppStore {
     | "feedback"
     | "feedback-board"
     | "activity"
+    | "dashboard"
     | "flashdeck"
     | "blueprints"
     | "blueprint"
@@ -256,6 +264,9 @@ class AppStore {
   lists = $state<ListSummary[]>([]);
   selected = $state<List | null>(null);
   todos = $state<Todo[]>([]);
+  // Tag badges for the currently-loaded list, keyed by todo id (Sprint 69) —
+  // loaded in one query alongside the todos so rows render tags without N+1.
+  todoTags = $state<Record<number, Tag[]>>({});
   loading = $state(true);
   error = $state<string | null>(null);
   flash = $state<string | null>(null);
@@ -452,6 +463,7 @@ class AppStore {
       case "mirror":
       case "feedback":
       case "activity":
+      case "dashboard":
       case "flashdeck":
       case "blueprints":
       case "storyboards":
@@ -514,6 +526,9 @@ class AppStore {
           break;
         case "activity":
           await this.openActivity();
+          break;
+        case "dashboard":
+          await this.openDashboard();
           break;
         case "flashdeck":
           await this.openFlashDeck();
@@ -727,6 +742,16 @@ class AppStore {
     const updated = await toggleTodo(todo.id);
     this.homeTodos = this.homeTodos.map((t) => (t.id === updated.id ? updated : t));
     // Keep the underlying list view in sync if it happens to be open.
+    if (this.selected && this.selected.id === updated.listId) {
+      this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t));
+    }
+    await this.refreshLists();
+  }
+
+  // Start/pause a task from the Home Today card (Sprint 71).
+  async setHomeTodoStatus(todo: Todo, status: TodoStatus) {
+    const updated = await setTodoStatus(todo.id, status);
+    this.homeTodos = this.homeTodos.map((t) => (t.id === updated.id ? updated : t));
     if (this.selected && this.selected.id === updated.listId) {
       this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t));
     }
@@ -1689,11 +1714,23 @@ class AppStore {
     try {
       this.selected = await listById(id);
       this.todos = await listTodos(id);
+      await this.loadTodoTags(id);
       this.selectedTodoId = null;
       this.selectedTodoTags = [];
     } catch (e) {
       this.error = String(e);
     }
+  }
+
+  // Load every tag link for the open list into `todoTags` (keyed by todo id)
+  // in a single query, so the list rows can show colored badges.
+  async loadTodoTags(listId: number) {
+    const rows = await listTodoTags(listId);
+    const map: Record<number, Tag[]> = {};
+    for (const r of rows) {
+      (map[r.todoId] ??= []).push({ id: r.id, name: r.name, color: r.color });
+    }
+    this.todoTags = map;
   }
 
   async refreshLists() {
@@ -1811,12 +1848,20 @@ class AppStore {
     await this.refreshSelectedTags();
     // Refresh allTags so the autocomplete includes the newly-created tag.
     this.allTags = await listTags();
+    await this.reloadOpenListTags();
   }
 
   async removeTagFromSelected(tagId: number) {
     if (this.selectedTodoId === null) return;
     await removeTagFromTodo(this.selectedTodoId, tagId);
     await this.refreshSelectedTags();
+    await this.reloadOpenListTags();
+  }
+
+  // Keep the list view's per-row tag badges in sync after an edit in the
+  // detail modal (the modal edits `selectedTodoTags`; the rows read `todoTags`).
+  private async reloadOpenListTags() {
+    if (this.selected) await this.loadTodoTags(this.selected.id);
   }
 
   async newList(title?: string, date?: string) {
@@ -2004,6 +2049,20 @@ class AppStore {
     const updated = await toggleTodo(todo.id);
     this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t));
     await this.refreshLists();
+  }
+
+  // Move a task between open / wip / done (Sprint 69). The backend does the
+  // work-time accounting; we just swap in the returned row.
+  async setTodoStatus(todo: Todo, status: TodoStatus) {
+    const updated = await setTodoStatus(todo.id, status);
+    this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t));
+    await this.refreshLists();
+  }
+
+  // Manually set a task's tracked work time (Sprint 71).
+  async setTodoWorkSeconds(todo: Todo, seconds: number) {
+    const updated = await setTodoWorkSeconds(todo.id, Math.max(0, Math.round(seconds)));
+    this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t));
   }
 
   async editTodo(todo: Todo, text: string) {
@@ -2459,6 +2518,40 @@ class AppStore {
       this.error = String(e);
     } finally {
       this.activityLoading = false;
+    }
+  }
+
+  // ---- Dashboard (Sprint 70) ----
+
+  // The fetched window covers the current range AND one equal-length window
+  // before it, so the view can compute previous-period deltas from one call.
+  dashboard = $state<DashboardData | null>(null);
+  dashboardLoading = $state(false);
+  dashboardFetchedFrom = $state<string>("");
+  dashboardFetchedTo = $state<string>("");
+
+  async openDashboard() {
+    this.recordNav();
+    this.view = "dashboard";
+    this.selected = null;
+    this.todos = [];
+    this.selectedTodoId = null;
+    this.selectedTodoTags = [];
+    this.selectedNote = null;
+  }
+
+  // Fetch tasks covering [fetchFrom, to] in one call (the view passes a padded
+  // `fetchFrom` so the previous period is included for deltas).
+  async loadDashboard(fetchFrom: string, to: string) {
+    this.dashboardLoading = true;
+    try {
+      this.dashboard = await getDashboard(fetchFrom, to);
+      this.dashboardFetchedFrom = fetchFrom;
+      this.dashboardFetchedTo = to;
+    } catch (e) {
+      this.error = String(e);
+    } finally {
+      this.dashboardLoading = false;
     }
   }
 }

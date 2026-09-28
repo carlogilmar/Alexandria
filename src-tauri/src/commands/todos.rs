@@ -86,16 +86,101 @@ pub(crate) async fn update(pool: &SqlitePool, id: i64, patch: &TodoPatch) -> App
     .ok_or_else(|| AppError::NotFound(format!("todo {id}")))
 }
 
-pub(crate) async fn toggle(pool: &SqlitePool, id: i64) -> AppResult<Todo> {
+// Move a task between open / wip / done, doing the work-time accounting
+// (Sprint 69). Entering `wip` stamps `wip_started_at`; leaving `wip` (to open
+// or done) folds the elapsed seconds into `work_seconds`. `completed` is kept
+// as a mirror of status='done' so legacy surfaces keep working. Reopening a
+// done task keeps its accumulated work time.
+pub(crate) async fn set_status(pool: &SqlitePool, id: i64, status: &str) -> AppResult<Todo> {
+    if !matches!(status, "open" | "wip" | "done") {
+        return Err(AppError::BadInput(format!("invalid status: {status}")));
+    }
+    let cur = sqlx::query_as::<_, Todo>("SELECT * FROM todos WHERE id = ?1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("todo {id}")))?;
+    if cur.status == status {
+        return Ok(cur);
+    }
+
+    // Fold the current WIP session into the accumulator when leaving 'wip'.
+    let mut work_seconds = cur.work_seconds;
+    if cur.status == "wip" {
+        if let Some(started) = cur.wip_started_at.as_deref() {
+            let elapsed: i64 = sqlx::query_scalar(
+                "SELECT CAST(strftime('%s','now') AS INTEGER) \
+                      - CAST(strftime('%s', ?1) AS INTEGER)",
+            )
+            .bind(started)
+            .fetch_one(pool)
+            .await?;
+            work_seconds += elapsed.max(0);
+        }
+    }
+
+    let entering_wip = (status == "wip") as i64;
+    let entering_done = (status == "done") as i64;
+    let leaving_done = (cur.status == "done" && status != "done") as i64;
+
     sqlx::query_as::<_, Todo>(
-        "UPDATE todos SET completed = 1 - completed, updated_at = datetime('now')
-         WHERE id = ?1
-         RETURNING *",
+        "UPDATE todos SET
+             status         = ?1,
+             completed      = ?2,
+             work_seconds   = ?3,
+             wip_started_at = CASE WHEN ?4 THEN datetime('now') ELSE NULL END,
+             completed_at   = CASE
+                                WHEN ?5 THEN datetime('now')
+                                WHEN ?6 THEN NULL
+                                ELSE completed_at END,
+             updated_at     = datetime('now')
+           WHERE id = ?7
+       RETURNING *",
     )
+    .bind(status)
+    .bind((status == "done") as i64)
+    .bind(work_seconds)
+    .bind(entering_wip)
+    .bind(entering_done)
+    .bind(leaving_done)
+    .bind(id)
+    .fetch_one(pool)
+    .await
+    .map_err(Into::into)
+}
+
+// Manually set a task's accumulated work time (Sprint 71) — for tasks that were
+// never timed, or to correct a figure. If the task is currently WIP, the live
+// session is restarted from now so the new total takes effect immediately.
+pub(crate) async fn set_work_seconds(pool: &SqlitePool, id: i64, seconds: i64) -> AppResult<Todo> {
+    if seconds < 0 {
+        return Err(AppError::BadInput("work seconds cannot be negative".into()));
+    }
+    sqlx::query_as::<_, Todo>(
+        "UPDATE todos SET
+             work_seconds   = ?1,
+             wip_started_at = CASE WHEN status = 'wip' THEN datetime('now') ELSE wip_started_at END,
+             updated_at     = datetime('now')
+           WHERE id = ?2
+       RETURNING *",
+    )
+    .bind(seconds)
     .bind(id)
     .fetch_optional(pool)
     .await?
     .ok_or_else(|| AppError::NotFound(format!("todo {id}")))
+}
+
+// The checkbox affordance: flip between done and open (folding WIP time if the
+// task was in progress). Delegates to `set_status` for the accounting.
+pub(crate) async fn toggle(pool: &SqlitePool, id: i64) -> AppResult<Todo> {
+    let status: Option<String> = sqlx::query_scalar("SELECT status FROM todos WHERE id = ?1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
+    let status = status.ok_or_else(|| AppError::NotFound(format!("todo {id}")))?;
+    let next = if status == "done" { "open" } else { "done" };
+    set_status(pool, id, next).await
 }
 
 pub(crate) async fn delete(pool: &SqlitePool, id: i64) -> AppResult<()> {
@@ -158,6 +243,24 @@ pub async fn update_todo(
 #[tauri::command]
 pub async fn toggle_todo(state: State<'_, AppState>, id: i64) -> AppResult<Todo> {
     toggle(&state.pool, id).await
+}
+
+#[tauri::command]
+pub async fn set_todo_status(
+    state: State<'_, AppState>,
+    id: i64,
+    status: String,
+) -> AppResult<Todo> {
+    set_status(&state.pool, id, &status).await
+}
+
+#[tauri::command]
+pub async fn set_todo_work_seconds(
+    state: State<'_, AppState>,
+    id: i64,
+    seconds: i64,
+) -> AppResult<Todo> {
+    set_work_seconds(&state.pool, id, seconds).await
 }
 
 #[tauri::command]
@@ -246,6 +349,72 @@ mod tests {
         assert!(toggled.completed);
         let untoggled = toggle(&pool, t.id).await.unwrap();
         assert!(!untoggled.completed);
+    }
+
+    #[tokio::test]
+    async fn status_tracks_work_time_and_mirrors_completed() {
+        let pool = test_pool().await;
+        let list_id = fresh_list(&pool).await;
+        let t = create(&pool, list_id, "x").await.unwrap();
+        assert_eq!(t.status, "open");
+        assert!(!t.completed);
+
+        // Enter WIP → stamps wip_started_at, still not completed.
+        let wip = set_status(&pool, t.id, "wip").await.unwrap();
+        assert_eq!(wip.status, "wip");
+        assert!(wip.wip_started_at.is_some());
+        assert!(!wip.completed);
+
+        // Backdate the WIP start so pausing has ~120s to fold in.
+        sqlx::query(
+            "UPDATE todos SET wip_started_at = datetime('now','-120 seconds') WHERE id = ?1",
+        )
+        .bind(t.id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        // Pause → fold elapsed into work_seconds, clear the start stamp.
+        let paused = set_status(&pool, t.id, "open").await.unwrap();
+        assert_eq!(paused.status, "open");
+        assert!(paused.wip_started_at.is_none());
+        assert!(
+            paused.work_seconds >= 119,
+            "expected ~120s folded, got {}",
+            paused.work_seconds
+        );
+
+        // Done → completed mirror + completed_at.
+        let done = set_status(&pool, t.id, "done").await.unwrap();
+        assert!(done.completed);
+        assert!(done.completed_at.is_some());
+        let banked = done.work_seconds;
+
+        // Reopen keeps the accumulated work time and clears the close time.
+        let reopened = set_status(&pool, t.id, "open").await.unwrap();
+        assert!(!reopened.completed);
+        assert!(reopened.completed_at.is_none());
+        assert_eq!(reopened.work_seconds, banked);
+    }
+
+    #[tokio::test]
+    async fn set_work_seconds_sets_and_validates() {
+        let pool = test_pool().await;
+        let list_id = fresh_list(&pool).await;
+        let t = create(&pool, list_id, "x").await.unwrap();
+        let updated = set_work_seconds(&pool, t.id, 5400).await.unwrap();
+        assert_eq!(updated.work_seconds, 5400);
+        let err = set_work_seconds(&pool, t.id, -1).await.unwrap_err();
+        assert!(matches!(err, AppError::BadInput(_)));
+    }
+
+    #[tokio::test]
+    async fn set_status_rejects_invalid() {
+        let pool = test_pool().await;
+        let list_id = fresh_list(&pool).await;
+        let t = create(&pool, list_id, "x").await.unwrap();
+        let err = set_status(&pool, t.id, "bogus").await.unwrap_err();
+        assert!(matches!(err, AppError::BadInput(_)));
     }
 
     #[tokio::test]
