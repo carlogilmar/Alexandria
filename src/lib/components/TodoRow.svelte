@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Tag, Todo } from "$lib/ipc";
-  import { fmtAge, fmtSpan, fmtWork, liveWorkSeconds, tagColor } from "$lib/tasktime";
+  import { fmtAge, fmtSpan, fmtWork, liveWorkSeconds, tagColor, taskTitleHtml } from "$lib/tasktime";
 
   type Props = {
     todo: Todo;
@@ -114,7 +114,7 @@
       class:line-through={isDone}
       onclick={onOpenDetails}
     >
-      {todo.text}
+      {@html taskTitleHtml(todo.text)}
     </button>
 
     <!-- Flow-time + tags meta line -->

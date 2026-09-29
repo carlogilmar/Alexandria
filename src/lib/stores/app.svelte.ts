@@ -717,6 +717,19 @@ class AppStore {
     await this.refreshLists();
   }
 
+  // Start/pause a task from Focus mode (Sprint 72).
+  async setFocusTodoStatus(todo: Todo, status: TodoStatus) {
+    const updated = await setTodoStatus(todo.id, status);
+    this.focusTodos = this.focusTodos.map((t) =>
+      t.id === updated.id ? updated : t,
+    );
+    if (this.selected && this.selected.id === updated.listId) {
+      this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t));
+    }
+    this.patchDetail(updated);
+    await this.refreshLists();
+  }
+
   // ---- Home "Today" card (Sprint 48) ----
 
   // Resolve today's list (same detection as Focus) and load its todos. Never

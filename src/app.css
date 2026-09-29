@@ -264,6 +264,22 @@ html.dark .markdown-body table thead th {
 /* Inline `code` badges (Sprint 67): an accent-tinted chip + an always-  */
 /* visible copy button (installInlineCopy copies the exact text).        */
 /* ------------------------------------------------------------------ */
+/* Inline badge for task titles (`code` → badge), no copy button. */
+.task-badge {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: baseline;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.82em;
+  font-weight: 600;
+  line-height: 1.35;
+  padding: 0.02em 0.36em;
+  border-radius: 6px;
+  color: color-mix(in srgb, var(--accent) 60%, currentColor);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
 .markdown-body code.md-badge {
   display: inline-flex;
   align-items: center;

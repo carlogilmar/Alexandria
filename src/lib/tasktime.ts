@@ -72,3 +72,15 @@ const FALLBACK = [
 export function tagColor(tag: Pick<Tag, "id" | "color">): string {
   return tag.color ?? FALLBACK[tag.id % FALLBACK.length];
 }
+
+// Render a task title with inline `code` segments as accent badges, for the
+// read-only surfaces (list rows, Home, dashboard). Everything is escaped; only
+// backtick-wrapped runs become badge spans. Returns HTML for {@html}.
+export function taskTitleHtml(text: string): string {
+  const esc = (s: string) =>
+    s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
+  return esc(text).replace(
+    /`([^`]+)`/g,
+    (_m, inner) => `<span class="task-badge">${inner}</span>`,
+  );
+}

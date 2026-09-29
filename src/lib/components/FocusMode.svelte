@@ -2,9 +2,10 @@
   import { fade } from "svelte/transition";
   import { app } from "$lib/stores/app.svelte";
   import { theme } from "$lib/stores/theme.svelte";
-  import { checkinSrc } from "$lib/ipc";
+  import { checkinSrc, type Todo } from "$lib/ipc";
   import CheckinLightbox from "$lib/components/CheckinLightbox.svelte";
   import SidebarFx from "$lib/components/SidebarFx.svelte";
+  import { fmtWork, liveWorkSeconds } from "$lib/tasktime";
 
   // Check-in(s) for today's list, shown as a miniature on the stage.
   let focusCheckins = $derived(
@@ -45,6 +46,9 @@
 
   let doneCount = $derived(app.focusTodos.filter((t) => t.completed).length);
   let total = $derived(app.focusTodos.length);
+  // WIP split (Sprint 72) — the wall-clock `now` above also drives the timers.
+  let wipTodos = $derived(app.focusTodos.filter((t) => t.status === "wip"));
+  let restTodos = $derived(app.focusTodos.filter((t) => t.status !== "wip"));
 
   // ── Contribution graph: a GitHub-style heatmap of todos completed per day ──
   const CG_WEEKS = 52; // ~1 year
@@ -218,32 +222,53 @@
             This list is empty — add tasks from the list view.
           </p>
         {:else}
-          <ul class="space-y-2">
-            {#each app.focusTodos as todo (todo.id)}
-              <li>
+          {#snippet focusRow(todo: Todo)}
+            <li class="focus-row flex items-center gap-3 rounded-xl bg-white/[0.06] px-4 py-3 backdrop-blur transition-colors hover:bg-white/[0.12]" class:is-done={todo.completed}>
+              <button
+                type="button"
+                class="check flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-white/40 transition-colors"
+                aria-label={todo.completed ? "Mark not done" : "Mark done"}
+                onclick={() => app.toggleFocusTodo(todo)}
+              >
+                {#if todo.completed}
+                  <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.42 0l-3.5-3.5a1 1 0 011.42-1.42l2.79 2.8 6.79-6.8a1 1 0 011.42 0z" clip-rule="evenodd"/></svg>
+                {/if}
+              </button>
+              <button type="button" class="label flex-1 truncate text-left text-lg font-light" onclick={() => app.toggleFocusTodo(todo)}>{todo.text}</button>
+              {#if todo.status === "wip"}
+                <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-400/20 px-2 py-0.5 text-xs font-semibold text-amber-200">
+                  <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-300"></span>
+                  <span class="tabular-nums">{fmtWork(liveWorkSeconds(todo, now.getTime())) || "0s"}</span>
+                </span>
+              {/if}
+              {#if !todo.completed}
                 <button
                   type="button"
-                  class="focus-row flex w-full items-center gap-3 rounded-xl bg-white/[0.06] px-4 py-3 text-left backdrop-blur transition-colors hover:bg-white/[0.12]"
-                  class:is-done={todo.completed}
-                  onclick={() => app.toggleFocusTodo(todo)}
+                  class="shrink-0 rounded-full p-1.5 transition-colors {todo.status === 'wip' ? 'text-amber-200 hover:bg-amber-400/20' : 'text-emerald-300 hover:bg-emerald-400/20'}"
+                  aria-label={todo.status === "wip" ? "Pause" : "Start working"}
+                  title={todo.status === "wip" ? "Pause — back to To do" : "Start — Work in progress"}
+                  onclick={() => app.setFocusTodoStatus(todo, todo.status === "wip" ? "open" : "wip")}
                 >
-                  <span
-                    class="check flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-white/40 transition-colors"
-                  >
-                    {#if todo.completed}
-                      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
-                        <path
-                          fill-rule="evenodd"
-                          d="M16.7 5.3a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.42 0l-3.5-3.5a1 1 0 011.42-1.42l2.79 2.8 6.79-6.8a1 1 0 011.42 0z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
-                    {/if}
-                  </span>
-                  <span class="label text-lg font-light">{todo.text}</span>
+                  {#if todo.status === "wip"}
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5"><path d="M6 4a1 1 0 011 1v10a1 1 0 11-2 0V5a1 1 0 011-1zm8 0a1 1 0 011 1v10a1 1 0 11-2 0V5a1 1 0 011-1z"/></svg>
+                  {:else}
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5"><path d="M6.3 3.84A1 1 0 004.8 4.7v10.6a1 1 0 001.5.86l9-5.3a1 1 0 000-1.72l-9-5.3z"/></svg>
+                  {/if}
                 </button>
-              </li>
-            {/each}
+              {/if}
+            </li>
+          {/snippet}
+
+          {#if wipTodos.length > 0}
+            <p class="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-amber-300/80">
+              <span class="h-1.5 w-1.5 rounded-full bg-amber-300"></span>In progress
+            </p>
+            <ul class="mb-4 space-y-2">
+              {#each wipTodos as todo (todo.id)}{@render focusRow(todo)}{/each}
+            </ul>
+          {/if}
+          <ul class="space-y-2">
+            {#each restTodos as todo (todo.id)}{@render focusRow(todo)}{/each}
           </ul>
         {/if}
       {/if}

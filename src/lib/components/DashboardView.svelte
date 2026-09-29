@@ -1,7 +1,7 @@
 <script lang="ts">
   import { app } from "$lib/stores/app.svelte";
   import type { DashboardTask, TodoTag, TodoStatus } from "$lib/ipc";
-  import { fmtWork, tagColor } from "$lib/tasktime";
+  import { fmtWork, tagColor, taskTitleHtml } from "$lib/tasktime";
 
   // ----- date helpers -----
   const DAY = 86400000;
@@ -463,7 +463,7 @@
             {:else}
               {#each tableRows as t (t.id)}
                 <tr class="cursor-pointer border-b border-neutral-100 transition-colors hover:bg-neutral-50 dark:border-neutral-800/70 dark:hover:bg-neutral-800/40" onclick={() => app.selectTodo(t.id)}>
-                  <td class="px-2.5 py-2 text-neutral-800 dark:text-neutral-200">{t.text}</td>
+                  <td class="px-2.5 py-2 text-neutral-800 dark:text-neutral-200">{@html taskTitleHtml(t.text)}</td>
                   <td class="px-2.5 py-2">
                     <span class="inline-flex flex-wrap gap-1">
                       {#each tagsByTodo.get(t.id) ?? [] as tg (tg.id)}

@@ -4,7 +4,7 @@
   import { theme } from "$lib/stores/theme.svelte";
   import type { DayStats, Todo } from "$lib/ipc";
   import { reveal } from "$lib/anim";
-  import { fmtWork, liveWorkSeconds } from "$lib/tasktime";
+  import { fmtWork, liveWorkSeconds, taskTitleHtml } from "$lib/tasktime";
 
   // First-run orientation. Shown until there's any content or the user dismisses
   // it (persisted). Helps a brand-new user understand what to do.
@@ -395,7 +395,7 @@
               <svg viewBox="0 0 20 20" fill="currentColor" class="hcheck h-3 w-3"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L4.3 10.7a1 1 0 011.4-1.4l2.8 2.79 6.8-6.79a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
             {/if}
           </button>
-          <button type="button" class="flex-1 truncate text-left text-sm" class:text-neutral-800={!todo.completed} class:dark:text-neutral-200={!todo.completed} class:text-neutral-400={todo.completed} class:dark:text-neutral-500={todo.completed} class:line-through={todo.completed} onclick={() => app.toggleHomeTodo(todo)}>{todo.text}</button>
+          <button type="button" class="flex-1 truncate text-left text-sm" class:text-neutral-800={!todo.completed} class:dark:text-neutral-200={!todo.completed} class:text-neutral-400={todo.completed} class:dark:text-neutral-500={todo.completed} class:line-through={todo.completed} onclick={() => app.toggleHomeTodo(todo)}>{@html taskTitleHtml(todo.text)}</button>
           {#if todo.status === "wip"}
             <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
               <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500"></span>
@@ -405,7 +405,7 @@
           {#if todo.status !== "done"}
             <button
               type="button"
-              class="shrink-0 rounded p-1 transition-colors {todo.status === 'wip' ? 'text-amber-500 hover:bg-amber-500/10' : 'text-emerald-500 opacity-0 hover:bg-emerald-500/10 group-hover:opacity-100'}"
+              class="shrink-0 rounded p-1 transition-colors {todo.status === 'wip' ? 'text-amber-500 hover:bg-amber-500/10' : 'text-emerald-500 hover:bg-emerald-500/10'}"
               aria-label={todo.status === "wip" ? "Pause" : "Start working"}
               title={todo.status === "wip" ? "Pause — back to To do" : "Start — Work in progress"}
               onclick={() => app.setHomeTodoStatus(todo, todo.status === "wip" ? "open" : "wip")}
