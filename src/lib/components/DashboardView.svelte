@@ -1,45 +1,38 @@
 <script lang="ts">
   import { app } from "$lib/stores/app.svelte";
   import type { DashboardTask, TodoTag, TodoStatus } from "$lib/ipc";
-  import { fmtWork, tagColor, parseSqlUtc } from "$lib/tasktime";
+  import { fmtWork, tagColor } from "$lib/tasktime";
 
   // ----- date helpers -----
   const DAY = 86400000;
   function iso(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
-  function addDays(d: Date, n: number): Date {
-    const x = new Date(d);
-    x.setDate(x.getDate() + n);
-    return x;
-  }
-  function startOfToday(): Date {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }
-  function niceDate(s: string): string {
-    return new Date(s + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  }
+  const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  function startOfToday(): Date { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+  const niceDate = (s: string) => new Date(s + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
-  // ----- local UI state -----
+  // ----- controls state -----
   type Preset = "week" | "month" | "7" | "30" | "custom";
   const PRESETS: { k: Preset; label: string }[] = [
-    { k: "week", label: "This week" },
-    { k: "month", label: "This month" },
-    { k: "7", label: "Last 7 days" },
-    { k: "30", label: "Last 30 days" },
-    { k: "custom", label: "Custom" },
+    { k: "week", label: "This week" }, { k: "month", label: "This month" },
+    { k: "7", label: "Last 7 days" }, { k: "30", label: "Last 30 days" }, { k: "custom", label: "Custom" },
   ];
+  const MEASURE_HINT = {
+    list: "Counts each task on the day it was on a list (your plan).",
+    done: "Counts each task on the day you completed it (throughput).",
+  };
   let preset = $state<Preset>("week");
   let countBy = $state<"list" | "done">("list");
   let tagFilter = $state<Set<string>>(new Set());
   let customFrom = $state(iso(addDays(startOfToday(), -6)));
   let customTo = $state(iso(startOfToday()));
+  let tagMenuOpen = $state(false);
+  let tagQuery = $state("");
+  let drill = $state<{ kind: "day" | "tag"; key: string; label: string } | null>(null);
 
   const today = startOfToday();
 
-  // Current [from, to] window from the active preset.
   let range = $derived.by<[Date, Date]>(() => {
     if (preset === "custom") return [new Date(customFrom + "T00:00:00"), new Date(customTo + "T00:00:00")];
     if (preset === "week") return [addDays(today, -((today.getDay() + 6) % 7)), today];
@@ -50,59 +43,48 @@
   let from = $derived(iso(range[0]));
   let to = $derived(iso(range[1]));
   let rangeLen = $derived(Math.round((range[1].getTime() - range[0].getTime()) / DAY) + 1);
-  // Padded start so the previous equal-length window is fetched too (deltas).
   let fetchFrom = $derived(iso(addDays(range[0], -rangeLen)));
   let prevFrom = $derived(iso(addDays(range[0], -rangeLen)));
   let prevTo = $derived(iso(addDays(range[0], -1)));
 
-  // Fetch whenever the fetch window changes.
   $effect(() => {
     const ff = fetchFrom, t = to;
-    if (app.dashboardFetchedFrom !== ff || app.dashboardFetchedTo !== t) {
-      app.loadDashboard(ff, t);
-    }
+    if (app.dashboardFetchedFrom !== ff || app.dashboardFetchedTo !== t) app.loadDashboard(ff, t);
   });
 
-  // ----- derived data -----
+  // Changing what we look at clears any active drill.
+  function resetDrill() { drill = null; }
+  function setPreset(p: Preset) { preset = p; resetDrill(); }
+  function setCountBy(c: "list" | "done") { countBy = c; resetDrill(); }
+  function toggleTag(name: string) {
+    const n = new Set(tagFilter);
+    n.has(name) ? n.delete(name) : n.add(name);
+    tagFilter = n; resetDrill();
+  }
+
+  // ----- data -----
   let allTasks = $derived<DashboardTask[]>(app.dashboard?.tasks ?? []);
   let tagsByTodo = $derived.by<Map<number, TodoTag[]>>(() => {
     const m = new Map<number, TodoTag[]>();
-    for (const r of app.dashboard?.tags ?? []) {
-      const arr = m.get(r.todoId) ?? [];
-      arr.push(r);
-      m.set(r.todoId, arr);
-    }
+    for (const r of app.dashboard?.tags ?? []) { const a = m.get(r.todoId) ?? []; a.push(r); m.set(r.todoId, a); }
     return m;
   });
-  // All tag names present, for the filter chips.
   let allTagNames = $derived.by<TodoTag[]>(() => {
     const seen = new Map<string, TodoTag>();
     for (const r of app.dashboard?.tags ?? []) if (!seen.has(r.name)) seen.set(r.name, r);
     return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
   });
 
-  function refDate(t: DashboardTask): string | null {
-    if (countBy === "done") return t.completedAt ? t.completedAt.slice(0, 10) : null;
-    return t.listDate || null;
-  }
-  function inWindow(t: DashboardTask, a: string, b: string): boolean {
+  const refDate = (t: DashboardTask): string | null =>
+    countBy === "done" ? (t.completedAt ? t.completedAt.slice(0, 10) : null) : (t.listDate || null);
+  function inWin(t: DashboardTask, a: string, b: string): boolean {
     const rd = refDate(t);
     if (!rd || rd < a || rd > b) return false;
-    if (tagFilter.size) {
-      const tags = tagsByTodo.get(t.id) ?? [];
-      if (!tags.some((x) => tagFilter.has(x.name))) return false;
-    }
+    if (tagFilter.size && !(tagsByTodo.get(t.id) ?? []).some((x) => tagFilter.has(x.name))) return false;
     return true;
   }
-  function cycleDays(t: DashboardTask): number {
-    const a = parseSqlUtc(t.createdAt), b = parseSqlUtc(t.completedAt);
-    if (!a || !b) return 0;
-    return Math.max(0, Math.round((b.getTime() - a.getTime()) / DAY));
-  }
-
-  let cur = $derived(allTasks.filter((t) => inWindow(t, from, to)));
-  let prev = $derived(allTasks.filter((t) => inWindow(t, prevFrom, prevTo)));
-
+  let cur = $derived(allTasks.filter((t) => inWin(t, from, to)));
+  let prev = $derived(allTasks.filter((t) => inWin(t, prevFrom, prevTo)));
   let days = $derived.by<string[]>(() => {
     const out: string[] = [];
     for (let d = new Date(range[0]); d <= range[1]; d = addDays(d, 1)) out.push(iso(d));
@@ -111,41 +93,44 @@
 
   // KPIs
   let kpi = $derived.by(() => {
-    const done = cur.filter((t) => t.status === "done");
-    const pdone = prev.filter((t) => t.status === "done");
-    const work = cur.reduce((s, t) => s + t.workSeconds, 0);
-    const cyc = done.length ? done.reduce((s, t) => s + cycleDays(t), 0) / done.length : 0;
+    const done = cur.filter((t) => t.status === "done").length;
+    const pdone = prev.filter((t) => t.status === "done").length;
     return {
-      completed: done.length,
-      pcompleted: pdone.length,
-      planned: cur.length,
-      pplanned: prev.length,
-      rate: cur.length ? Math.round((done.length / cur.length) * 100) : 0,
-      workSec: work,
-      cycle: done.length ? cyc : null,
-      wip: cur.filter((t) => t.status === "wip").length,
+      completed: done, pcompleted: pdone,
+      planned: cur.length, pplanned: prev.length,
+      rate: cur.length ? Math.round((done / cur.length) * 100) : 0,
+      workSec: cur.reduce((s, t) => s + t.workSeconds, 0),
     };
   });
-  function pct(curV: number, prevV: number): { txt: string; dir: "up" | "down" | "flat" } {
-    if (prevV === 0) return { txt: curV > 0 ? "new" : "", dir: curV > 0 ? "up" : "flat" };
-    const d = Math.round(((curV - prevV) / prevV) * 100);
-    if (d === 0) return { txt: "±0%", dir: "flat" };
+  function delta(c: number, p: number): { txt: string; dir: string } {
+    if (p === 0) return { txt: c > 0 ? "new" : "", dir: "up" };
+    const d = Math.round(((c - p) / p) * 100);
+    if (d === 0) return { txt: "", dir: "flat" };
     return { txt: `${d > 0 ? "▲" : "▼"} ${Math.abs(d)}%`, dir: d > 0 ? "up" : "down" };
   }
 
-  // Activity per day (planned vs completed)
-  let activity = $derived.by(() => {
-    const plan: Record<string, number> = {}, comp: Record<string, number> = {};
-    for (const d of days) { plan[d] = 0; comp[d] = 0; }
-    for (const t of cur) {
-      const rd = refDate(t);
-      if (rd && rd in plan) plan[rd]++;
-      const cd = t.completedAt ? t.completedAt.slice(0, 10) : null;
-      if (t.status === "done" && cd && cd in comp) comp[cd]++;
-    }
-    const max = Math.max(1, ...days.map((d) => Math.max(plan[d], comp[d])));
-    return { plan, comp, max };
+  // Mosaic
+  let mosaic = $derived.by(() => {
+    const maxW = Math.max(1, ...cur.map((t) => t.workSeconds));
+    return [...cur]
+      .sort((a, b) => b.workSeconds - a.workSeconds)
+      .map((t) => ({ t, size: Math.round(20 + (t.workSeconds / maxW) * 36) }));
   });
+  function taskColors(t: DashboardTask): string[] {
+    return (tagsByTodo.get(t.id) ?? []).slice(0, 3).map((x) => tagColor(x));
+  }
+  function squareBg(c: string[]): string {
+    if (c.length === 0) return "var(--st-empty)";
+    if (c.length === 1) return c[0];
+    if (c.length === 2) return `linear-gradient(135deg, ${c[0]} 0 50%, ${c[1]} 50% 100%)`;
+    return `linear-gradient(135deg, ${c[0]} 0 33.33%, ${c[1]} 33.33% 66.66%, ${c[2]} 66.66% 100%)`;
+  }
+  function mosaicDim(t: DashboardTask): boolean {
+    const d = drill;
+    if (!d) return false;
+    if (d.kind === "day") return refDate(t) !== d.key;
+    return !(tagsByTodo.get(t.id) ?? []).some((x) => x.name === d.key);
+  }
 
   // Tracked time per day
   let timePerDay = $derived.by(() => {
@@ -153,72 +138,92 @@
     for (const d of days) map[d] = 0;
     for (const t of cur) { const rd = refDate(t); if (rd && rd in map) map[rd] += t.workSeconds; }
     const max = Math.max(1, ...days.map((d) => map[d]));
-    const total = days.reduce((s, d) => s + map[d], 0);
-    return { map, max, total };
+    return { map, max, total: days.reduce((s, d) => s + map[d], 0) };
   });
+  let xLabelStep = $derived(Math.max(1, Math.ceil(days.length / 8)));
 
-  // By tag
-  let tagAgg = $derived.by(() => {
-    const agg = new Map<string, { color: string; n: number; w: number }>();
-    for (const t of cur) {
-      for (const tg of tagsByTodo.get(t.id) ?? []) {
-        const e = agg.get(tg.name) ?? { color: tagColor(tg), n: 0, w: 0 };
-        e.n++; e.w += t.workSeconds;
-        agg.set(tg.name, e);
+  // Treemap (squarified) by tag, area = tracked time
+  function squarify(items: { name: string; value: number; color: string }[], w: number, h: number) {
+    const rects: { name: string; color: string; x: number; y: number; w: number; h: number }[] = [];
+    const total = items.reduce((s, i) => s + i.value, 0) || 1;
+    const scale = (w * h) / total;
+    let rest = items.map((i) => ({ ...i, a: i.value * scale }));
+    let cur2 = { x: 0, y: 0, w, h };
+    const worst = (row: { a: number }[], len: number) => {
+      const sum = row.reduce((s, r) => s + r.a, 0);
+      const mx = Math.max(...row.map((r) => r.a)), mn = Math.min(...row.map((r) => r.a));
+      return Math.max((len * len * mx) / (sum * sum), (sum * sum) / (len * len * mn));
+    };
+    while (rest.length) {
+      let row: (typeof rest) = [];
+      const len = Math.min(cur2.w, cur2.h);
+      while (rest.length) {
+        const nx = [...row, rest[0]];
+        if (row.length === 0 || worst(nx, len) <= worst(row, len)) row.push(rest.shift()!);
+        else break;
+      }
+      const sum = row.reduce((s, r) => s + r.a, 0);
+      if (cur2.w >= cur2.h) {
+        const sw = sum / cur2.h; let oy = cur2.y;
+        for (const r of row) { const rh = r.a / sw; rects.push({ name: r.name, color: r.color, x: cur2.x, y: oy, w: sw, h: rh }); oy += rh; }
+        cur2 = { x: cur2.x + sw, y: cur2.y, w: cur2.w - sw, h: cur2.h };
+      } else {
+        const sh = sum / cur2.w; let ox = cur2.x;
+        for (const r of row) { const rw = r.a / sh; rects.push({ name: r.name, color: r.color, x: ox, y: cur2.y, w: rw, h: sh }); ox += rw; }
+        cur2 = { x: cur2.x, y: cur2.y + sh, w: cur2.w, h: cur2.h - sh };
       }
     }
-    const rows = [...agg.entries()].map(([name, d]) => ({ name, ...d })).sort((a, b) => b.n - a.n);
-    const max = Math.max(1, ...rows.map((r) => r.n));
-    return { rows, max };
+    return rects;
+  }
+  let treemap = $derived.by(() => {
+    const agg = new Map<string, number>();
+    let untag = 0;
+    for (const t of cur) {
+      const tags = tagsByTodo.get(t.id) ?? [];
+      if (tags.length === 0) { untag += t.workSeconds; continue; }
+      for (const tg of tags) agg.set(tg.name, (agg.get(tg.name) ?? 0) + t.workSeconds / tags.length);
+    }
+    const items = [...agg.entries()]
+      .map(([name, value]) => ({ name, value, color: tagColor({ id: 0, color: allTagNames.find((x) => x.name === name)?.color ?? null }) }))
+      .filter((i) => i.value > 0);
+    if (untag > 0) items.push({ name: "untagged", value: untag, color: "var(--st-empty)" });
+    items.sort((a, b) => b.value - a.value);
+    if (!items.length) return [];
+    return squarify(items, 100, 100).map((r) => ({ ...r, value: agg.get(r.name) ?? untag }));
   });
 
-  // Status split
-  let statusSplit = $derived.by(() => {
-    const c = { open: 0, wip: 0, done: 0 };
-    for (const t of cur) c[t.status]++;
-    return c;
-  });
+  function drillDay(d: string) {
+    if (timePerDay.map[d] <= 0 && !drill) return;
+    const cur0 = drill;
+    drill = cur0 && cur0.kind === "day" && cur0.key === d ? null : { kind: "day", key: d, label: niceDate(d) };
+  }
+  function drillTag(name: string) {
+    if (name === "untagged") return;
+    const cur0 = drill;
+    drill = cur0 && cur0.kind === "tag" && cur0.key === name ? null : { kind: "tag", key: name, label: `#${name}` };
+  }
 
-  // Table
-  const STATUS_META: Record<TodoStatus, { label: string; color: string }> = {
+  // Table (drill-filtered)
+  const STATUS: Record<TodoStatus, { label: string; color: string }> = {
     open: { label: "To do", color: "#3b82f6" },
     wip: { label: "In progress", color: "#f59e0b" },
     done: { label: "Done", color: "#10b981" },
   };
+  function drillMatch(t: DashboardTask): boolean {
+    const d = drill;
+    if (!d) return true;
+    if (d.kind === "day") return refDate(t) === d.key;
+    return (tagsByTodo.get(t.id) ?? []).some((x) => x.name === d.key);
+  }
   let tableRows = $derived(
-    [...cur]
+    cur.filter(drillMatch)
       .sort((a, b) => (b.completedAt ?? b.createdAt).localeCompare(a.completedAt ?? a.createdAt))
-      .slice(0, 60),
+      .slice(0, 80),
   );
-
-  // ----- chart geometry -----
-  const AW = 560, AH = 200, APAD = 24;
-  let aBarW = $derived(Math.max(3, ((AW - APAD) / days.length) * 0.38));
-  const ax = (i: number) => APAD + i * ((AW - APAD) / days.length);
-  const ay = (v: number, max: number) => AH - 20 - (v / max) * (AH - 40);
-  const TW = 520, TH = 180, TPAD = 24;
-  let tBarW = $derived(Math.max(3, ((TW - TPAD) / days.length) * 0.6));
-  const tx = (i: number) => TPAD + i * ((TW - TPAD) / days.length);
-  let xLabelStep = $derived(Math.max(1, Math.ceil(days.length / 7)));
-
-  // donut
-  const R = 64, C = 2 * Math.PI * R;
-  let donut = $derived.by(() => {
-    const total = cur.length || 1;
-    const segs: { k: TodoStatus; color: string; len: number; off: number }[] = [];
-    let off = 0;
-    for (const [k, col] of [["done", "#10b981"], ["wip", "#f59e0b"], ["open", "#3b82f6"]] as const) {
-      const len = (statusSplit[k] / total) * C;
-      segs.push({ k, color: col, len, off });
-      off += len;
-    }
-    return segs;
-  });
-
-  function toggleTag(name: string) {
-    const n = new Set(tagFilter);
-    n.has(name) ? n.delete(name) : n.add(name);
-    tagFilter = n;
+  function cycle(t: DashboardTask): string {
+    if (t.status !== "done" || !t.completedAt) return "—";
+    const d = Math.round((new Date(t.completedAt.slice(0, 10)).getTime() - new Date(t.createdAt.slice(0, 10)).getTime()) / DAY);
+    return d < 1 ? "<1d" : d + "d";
   }
 
   // ----- PNG export -----
@@ -230,61 +235,40 @@
       const { toBlob } = await import("html-to-image");
       const dark = document.documentElement.classList.contains("dark");
       const bg = dark ? "#0d1017" : "#f4f5f7";
-      const pad = 24;
-      const w = contentEl.offsetWidth, h = contentEl.offsetHeight;
-      const opts = {
-        pixelRatio: 2,
-        backgroundColor: bg,
-        width: w + pad * 2,
-        height: h + pad * 2,
-        style: { boxSizing: "content-box", width: `${w}px`, height: `${h}px`, padding: `${pad}px`, margin: "0", background: bg },
-      };
+      const pad = 24, w = contentEl.offsetWidth, h = contentEl.offsetHeight;
+      const opts = { pixelRatio: 2, backgroundColor: bg, width: w + pad * 2, height: h + pad * 2,
+        style: { boxSizing: "content-box", width: `${w}px`, height: `${h}px`, padding: `${pad}px`, margin: "0", background: bg } };
       await (document.fonts?.ready ?? Promise.resolve()).catch(() => {});
       await toBlob(contentEl, opts).catch(() => null);
       const blob = await toBlob(contentEl, opts);
       if (!blob) return;
       const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
-      try {
-        const { copyImageToClipboard } = await import("$lib/ipc");
-        await copyImageToClipboard(bytes);
-      } catch {
-        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-      }
-      copied = true;
-      setTimeout(() => (copied = false), 1500);
-    } catch (e) {
-      app.error = String(e);
-    }
+      try { const { copyImageToClipboard } = await import("$lib/ipc"); await copyImageToClipboard(bytes); }
+      catch { await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]); }
+      copied = true; setTimeout(() => (copied = false), 1500);
+    } catch (e) { app.error = String(e); }
   }
 
   const chip = "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer";
   const chipOff = "border-neutral-200 bg-neutral-50 text-neutral-500 hover:text-neutral-800 hover:border-neutral-400 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-400 dark:hover:text-neutral-100";
-  const chipOn = "border-transparent text-white";
+  let filteredTags = $derived(allTagNames.filter((t) => t.name.toLowerCase().includes(tagQuery.toLowerCase())));
 </script>
 
-<main class="mx-auto w-full max-w-6xl px-6 py-8">
+<main class="mx-auto w-full max-w-6xl px-6 py-8" style="--st-empty:#d3d8e0">
   <div class="mb-5 flex items-end justify-between gap-4">
     <div>
-      <h1 class="font-serif text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100" style="font-family: var(--serif, ui-serif, Georgia, serif)">
-        Dashboard
-      </h1>
+      <h1 class="text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100" style="font-family: var(--serif, ui-serif, Georgia, serif)">Dashboard</h1>
       <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
         {range[0].toLocaleDateString(undefined, { month: "long", day: "numeric" })} –
         {range[1].toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
-        · counting by {countBy === "done" ? "completed date" : "list date"}
+        · by {countBy === "done" ? "completed" : "planned"} day
       </p>
     </div>
-    <button
-      type="button"
-      class="flex shrink-0 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-600 shadow-sm transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
-      onclick={exportPng}
-    >
+    <button type="button" class="flex shrink-0 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-600 shadow-sm transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800" onclick={exportPng}>
       {#if copied}
-        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 text-emerald-500"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0l-3.5-3.5a1 1 0 011.4-1.4l2.8 2.8 6.8-6.8a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
-        Copied!
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 text-emerald-500"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0l-3.5-3.5a1 1 0 011.4-1.4l2.8 2.8 6.8-6.8a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>Copied!
       {:else}
-        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M4 3a2 2 0 00-2 2v8a2 2 0 002 2h1V5h9V4a1 1 0 00-1-1H4z"/><path d="M8 6a2 2 0 00-2 2v7a2 2 0 002 2h7a2 2 0 002-2V8a2 2 0 00-2-2H8z"/></svg>
-        Copy as image
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M4 3a2 2 0 00-2 2v8a2 2 0 002 2h1V5h9V4a1 1 0 00-1-1H4z"/><path d="M8 6a2 2 0 00-2 2v7a2 2 0 002 2h7a2 2 0 002-2V8a2 2 0 00-2-2H8z"/></svg>Copy as image
       {/if}
     </button>
   </div>
@@ -295,169 +279,190 @@
     <div class="flex flex-wrap items-center gap-2.5">
       <span class="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">Range</span>
       {#each PRESETS as p (p.k)}
-        <button
-          type="button"
-          class="{chip} {preset === p.k ? chipOn : chipOff}"
-          style={preset === p.k ? "background-color: var(--accent, #4f46e5)" : ""}
-          onclick={() => (preset = p.k)}
-        >{p.label}</button>
+        <button type="button" class="{chip} {preset === p.k ? 'border-transparent text-white' : chipOff}" style={preset === p.k ? "background-color: var(--accent, #4f46e5)" : ""} onclick={() => setPreset(p.k)}>{p.label}</button>
       {/each}
       {#if preset === "custom"}
         <span class="flex items-center gap-2">
-          <input type="date" bind:value={customFrom} class="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100" />
+          <input type="date" bind:value={customFrom} onchange={resetDrill} class="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100" />
           <span class="text-neutral-400">→</span>
-          <input type="date" bind:value={customTo} class="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100" />
+          <input type="date" bind:value={customTo} onchange={resetDrill} class="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100" />
         </span>
       {/if}
     </div>
     <div class="mt-3 flex flex-wrap items-center gap-2.5 border-t border-neutral-100 pt-3 dark:border-neutral-800">
-      <span class="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">Count by</span>
+      <span class="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">Measure by</span>
       <div class="inline-flex overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700">
-        <button type="button" class="px-3 py-1.5 text-sm font-medium {countBy === 'list' ? 'text-white' : 'bg-neutral-50 text-neutral-500 dark:bg-neutral-800/60 dark:text-neutral-400'}" style={countBy === "list" ? "background-color: var(--accent, #4f46e5)" : ""} onclick={() => (countBy = "list")}>List date</button>
-        <button type="button" class="border-l border-neutral-200 px-3 py-1.5 text-sm font-medium dark:border-neutral-700 {countBy === 'done' ? 'text-white' : 'bg-neutral-50 text-neutral-500 dark:bg-neutral-800/60 dark:text-neutral-400'}" style={countBy === "done" ? "background-color: var(--accent, #4f46e5)" : ""} onclick={() => (countBy = "done")}>Completed date</button>
+        <button type="button" class="px-3 py-1.5 text-sm font-medium {countBy === 'list' ? 'text-white' : 'bg-neutral-50 text-neutral-500 dark:bg-neutral-800/60 dark:text-neutral-400'}" style={countBy === "list" ? "background-color: var(--accent, #4f46e5)" : ""} onclick={() => setCountBy("list")}>Planned day</button>
+        <button type="button" class="border-l border-neutral-200 px-3 py-1.5 text-sm font-medium dark:border-neutral-700 {countBy === 'done' ? 'text-white' : 'bg-neutral-50 text-neutral-500 dark:bg-neutral-800/60 dark:text-neutral-400'}" style={countBy === "done" ? "background-color: var(--accent, #4f46e5)" : ""} onclick={() => setCountBy("done")}>Completed day</button>
       </div>
-      {#if allTagNames.length}
-        <span class="ml-2 text-[11px] font-semibold uppercase tracking-widest text-neutral-400">Tags</span>
-        {#each allTagNames as tg (tg.id)}
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 {chip} {tagFilter.has(tg.name) ? chipOn : chipOff}"
-            style={tagFilter.has(tg.name) ? `background-color: ${tagColor(tg)}` : ""}
-            onclick={() => toggleTag(tg.name)}
-          >
-            <span class="h-2 w-2 rounded-full" style="background-color: {tagColor(tg)}"></span>{tg.name}
-          </button>
-        {/each}
-      {/if}
+      <span class="text-xs italic text-neutral-400">{MEASURE_HINT[countBy]}</span>
+
+      <div class="relative ml-auto">
+        <button type="button" class="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-sm font-medium text-neutral-500 hover:text-neutral-800 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-400 dark:hover:text-neutral-100" onclick={() => (tagMenuOpen = !tagMenuOpen)}>
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5"><path d="M2 5a3 3 0 013-3h4.6a3 3 0 012.1.9l5.4 5.4a2 2 0 010 2.8l-4.6 4.6a2 2 0 01-2.8 0L6.3 10.3A3 3 0 015 8.6V5zm3 .5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg>
+          Tags {#if tagFilter.size}<span class="rounded-full bg-[var(--accent,#4f46e5)] px-1.5 text-[11px] font-semibold text-white">{tagFilter.size}</span>{/if}
+          <span class="text-[10px]">▾</span>
+        </button>
+        {#if tagMenuOpen}
+          <button type="button" class="fixed inset-0 z-10 cursor-default" aria-label="Close" onclick={() => (tagMenuOpen = false)}></button>
+          <div class="absolute right-0 z-20 mt-1.5 w-60 rounded-xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+            <input placeholder="Search tags…" bind:value={tagQuery} class="mb-1.5 w-full rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-sm outline-none dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100" />
+            <ul class="max-h-52 overflow-auto">
+              {#each filteredTags as tg (tg.id)}
+                <li>
+                  <button type="button" class="flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800" onclick={() => toggleTag(tg.name)}>
+                    <span class="h-2.5 w-2.5 rounded-full" style="background:{tagColor(tg)}"></span>
+                    <span class="text-neutral-700 dark:text-neutral-200">{tg.name}</span>
+                    {#if tagFilter.has(tg.name)}<span class="ml-auto font-bold text-[var(--accent,#4f46e5)]">✓</span>{/if}
+                  </button>
+                </li>
+              {:else}
+                <li class="px-2 py-2 text-sm text-neutral-400">No tags</li>
+              {/each}
+            </ul>
+            {#if tagFilter.size}
+              <div class="mt-1.5 border-t border-neutral-100 pt-1.5 text-right dark:border-neutral-800">
+                <button type="button" class="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200" onclick={() => { tagFilter = new Set(); resetDrill(); }}>Clear all</button>
+              </div>
+            {/if}
+          </div>
+        {/if}
+      </div>
     </div>
+    {#if tagFilter.size}
+      <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-3 dark:border-neutral-800">
+        <span class="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">Filtering</span>
+        {#each [...tagFilter] as name (name)}
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold" style="background:{tagColor({ id: 0, color: allTagNames.find((x) => x.name === name)?.color ?? null })}1f;color:{tagColor({ id: 0, color: allTagNames.find((x) => x.name === name)?.color ?? null })}">
+            {name}<button type="button" class="opacity-70 hover:opacity-100" aria-label="Remove" onclick={() => toggleTag(name)}>×</button>
+          </span>
+        {/each}
+      </div>
+    {/if}
   </div>
 
   {#if app.dashboardLoading && !app.dashboard}
     <p class="p-8 text-sm text-neutral-400">Loading…</p>
   {:else}
     <!-- KPIs -->
-    <div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-      {#snippet kpiCard(label: string, value: string, sub: string, delta: { txt: string; dir: string } | null)}
-        <div class="rounded-xl border border-neutral-200 bg-white p-3.5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+    <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {#snippet kpiCard(label: string, value: string, sub: string, d: { txt: string; dir: string } | null)}
+        <div class="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
           <div class="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{label}</div>
-          <div class="mt-1.5 text-2xl font-bold tabular-nums tracking-tight text-neutral-900 dark:text-neutral-100">{value}</div>
+          <div class="mt-1.5 text-3xl font-extrabold tabular-nums tracking-tight" style="color: var(--accent, #4f46e5)">{value}</div>
           <div class="mt-0.5 text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
             {sub}
-            {#if delta && delta.txt}
-              <span class="font-semibold {delta.dir === 'up' ? 'text-emerald-500' : delta.dir === 'down' ? 'text-red-500' : 'text-neutral-400'}">{delta.txt}</span>
-            {/if}
+            {#if d && d.txt}<span class="font-semibold {d.dir === 'up' ? 'text-emerald-500' : d.dir === 'down' ? 'text-red-500' : 'text-neutral-400'}">{d.txt}</span>{/if}
           </div>
         </div>
       {/snippet}
-      {@render kpiCard("Completed", String(kpi.completed), `vs ${kpi.pcompleted} prev `, pct(kpi.completed, kpi.pcompleted))}
-      {@render kpiCard("Planned", String(kpi.planned), "", pct(kpi.planned, kpi.pplanned))}
+      {@render kpiCard("Completed", String(kpi.completed), `vs ${kpi.pcompleted} prev `, delta(kpi.completed, kpi.pcompleted))}
+      {@render kpiCard("Planned", String(kpi.planned), "", delta(kpi.planned, kpi.pplanned))}
       {@render kpiCard("Completion", kpi.rate + "%", `${kpi.completed} of ${kpi.planned}`, null)}
       {@render kpiCard("Tracked time", fmtWork(kpi.workSec) || "0m", `${(kpi.workSec / 3600).toFixed(1)} hours`, null)}
-      {@render kpiCard("Avg cycle", kpi.cycle === null ? "—" : kpi.cycle < 1 ? "<1d" : kpi.cycle.toFixed(1) + "d", "created → done", null)}
-      {@render kpiCard("In progress", String(kpi.wip), "still open now", null)}
     </div>
 
-    <!-- Charts row 1 -->
-    <div class="mb-4 grid gap-4 lg:grid-cols-[1.5fr_1fr]">
-      <div class="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-        <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Activity per day</h3>
-        <p class="mb-3 text-xs text-neutral-400">Planned vs. completed</p>
-        <svg viewBox="0 0 {AW} {AH}" class="w-full overflow-visible text-neutral-300 dark:text-neutral-600">
-          <line x1={APAD} y1={AH - 20} x2={AW} y2={AH - 20} stroke="currentColor" />
-          {#each days as d, i (d)}
-            <rect x={ax(i)} y={ay(activity.plan[d], activity.max)} width={aBarW} height={AH - 20 - ay(activity.plan[d], activity.max)} rx="2" fill="#3b82f6" opacity="0.85" />
-            <rect x={ax(i) + aBarW + 1.5} y={ay(activity.comp[d], activity.max)} width={aBarW} height={AH - 20 - ay(activity.comp[d], activity.max)} rx="2" fill="#10b981" />
-            {#if i % xLabelStep === 0}
-              <text x={ax(i) + aBarW} y={AH - 4} font-size="10" fill="currentColor" text-anchor="middle">{niceDate(d)}</text>
-            {/if}
-          {/each}
-        </svg>
-        <div class="mt-2.5 flex gap-4 text-xs text-neutral-500 dark:text-neutral-400">
-          <span class="inline-flex items-center gap-1.5"><i class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#3b82f6"></i>Planned</span>
-          <span class="inline-flex items-center gap-1.5"><i class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#10b981"></i>Completed</span>
-        </div>
+    <!-- Task mosaic -->
+    <div class="mb-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+      <div class="mb-3 flex items-baseline gap-2">
+        <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Tasks this period</h3>
+        <span class="text-xs text-neutral-400">{cur.length} · size = tracked time · color = tags · click to open</span>
       </div>
-
-      <div class="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-        <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Status split</h3>
-        <p class="mb-3 text-xs text-neutral-400">Where tasks stand</p>
-        <svg viewBox="0 0 180 180" class="mx-auto block max-w-[200px]">
-          {#each donut as s (s.k)}
-            <circle cx="90" cy="90" r={R} fill="none" stroke={s.color} stroke-width="20"
-              stroke-dasharray="{s.len} {C - s.len}" stroke-dashoffset={-s.off} transform="rotate(-90 90 90)" />
+      {#if mosaic.length === 0}
+        <div class="py-8 text-center text-sm text-neutral-400">No tasks in this period.</div>
+      {:else}
+        <div class="flex flex-wrap items-center gap-1.5">
+          {#each mosaic as m (m.t.id)}
+            <button
+              type="button"
+              class="rounded-[5px] shadow-[inset_0_0_0_1px_rgba(0,0,0,.06)] transition-transform hover:scale-110 hover:shadow-md {mosaicDim(m.t) ? 'opacity-20' : ''}"
+              style="width:{m.size}px;height:{m.size}px;background:{squareBg(taskColors(m.t))}"
+              title={`${m.t.text}\n${(tagsByTodo.get(m.t.id) ?? []).map((x) => x.name).join(', ') || 'no tags'} · ${fmtWork(m.t.workSeconds) || '0m'}`}
+              aria-label={m.t.text}
+              onclick={() => app.selectTodo(m.t.id)}
+            ></button>
           {/each}
-          <text x="90" y="86" text-anchor="middle" font-size="30" font-weight="700" class="fill-neutral-900 dark:fill-neutral-100">{cur.length}</text>
-          <text x="90" y="106" text-anchor="middle" font-size="11" class="fill-neutral-400">tasks</text>
-        </svg>
-        <div class="mt-2 flex justify-center gap-4 text-xs text-neutral-500 dark:text-neutral-400">
-          <span class="inline-flex items-center gap-1.5"><i class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#3b82f6"></i>open · <b class="text-neutral-700 dark:text-neutral-200">{statusSplit.open}</b></span>
-          <span class="inline-flex items-center gap-1.5"><i class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#f59e0b"></i>wip · <b class="text-neutral-700 dark:text-neutral-200">{statusSplit.wip}</b></span>
-          <span class="inline-flex items-center gap-1.5"><i class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#10b981"></i>done · <b class="text-neutral-700 dark:text-neutral-200">{statusSplit.done}</b></span>
         </div>
-      </div>
+      {/if}
     </div>
 
-    <!-- Charts row 2 -->
-    <div class="mb-4 grid gap-4 lg:grid-cols-2">
-      <div class="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+    <!-- Tracked time per day -->
+    <div class="mb-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+      <div class="mb-3 flex items-baseline gap-2">
         <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Tracked time per day</h3>
-        <p class="mb-3 text-xs text-neutral-400">Peak {fmtWork(timePerDay.max) || "0m"} · total {fmtWork(timePerDay.total) || "0m"}</p>
-        <svg viewBox="0 0 {TW} {TH}" class="w-full overflow-visible text-neutral-300 dark:text-neutral-600">
-          <line x1={TPAD} y1={TH - 20} x2={TW} y2={TH - 20} stroke="currentColor" />
-          {#each days as d, i (d)}
-            <rect x={tx(i)} y={TH - 20 - (timePerDay.map[d] / timePerDay.max) * (TH - 40)} width={tBarW} height={(timePerDay.map[d] / timePerDay.max) * (TH - 40)} rx="2" fill="var(--accent, #4f46e5)" opacity="0.8" />
-            {#if i % xLabelStep === 0}
-              <text x={tx(i) + tBarW / 2} y={TH - 4} font-size="10" fill="currentColor" text-anchor="middle">{niceDate(d)}</text>
-            {/if}
-          {/each}
-        </svg>
+        <span class="text-xs text-neutral-400">peak {fmtWork(timePerDay.max) || "0m"} · total {fmtWork(timePerDay.total) || "0m"} · click a bar to focus</span>
       </div>
+      <div class="flex h-40 items-end gap-1 pt-2">
+        {#each days as d (d)}
+          {@const h = Math.round((timePerDay.map[d] / timePerDay.max) * 100)}
+          {@const active = drill?.kind === "day" && drill.key === d}
+          {@const dim = drill?.kind === "day" && !active}
+          <button type="button" class="flex h-full min-w-0 flex-1 flex-col items-center justify-end" title={`${niceDate(d)} · ${fmtWork(timePerDay.map[d]) || "0m"}`} onclick={() => drillDay(d)}>
+            <span class="w-[70%] max-w-[26px] rounded-t transition-[height,opacity] duration-500 {dim ? 'opacity-25' : active ? 'opacity-100 ring-2 ring-[var(--accent,#4f46e5)]/50' : 'opacity-80 hover:opacity-100'}" style="height:{h}%;background:var(--accent,#4f46e5)"></span>
+            <span class="mt-1 whitespace-nowrap text-[9px] text-neutral-400">{days.indexOf(d) % xLabelStep === 0 ? niceDate(d) : ""}</span>
+          </button>
+        {/each}
+      </div>
+    </div>
 
-      <div class="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-        <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">By tag</h3>
-        <p class="mb-3 text-xs text-neutral-400">Tasks &amp; time per tag</p>
-        {#if tagAgg.rows.length === 0}
-          <div class="py-8 text-center text-sm text-neutral-400">No tagged tasks in range.</div>
-        {:else}
-          {#each tagAgg.rows as r (r.name)}
-            <div class="my-2 grid grid-cols-[84px_1fr_auto] items-center gap-2.5">
-              <span class="inline-flex items-center gap-1.5 truncate text-[12.5px] font-medium text-neutral-700 dark:text-neutral-300">
-                <span class="h-2 w-2 shrink-0 rounded-full" style="background:{r.color}"></span>{r.name}
-              </span>
-              <span class="h-2.5 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
-                <span class="block h-full rounded-full" style="width:{Math.round((r.n / tagAgg.max) * 100)}%;background:{r.color}"></span>
-              </span>
-              <span class="whitespace-nowrap text-xs tabular-nums text-neutral-500 dark:text-neutral-400">{r.n} · {fmtWork(r.w) || "0m"}</span>
-            </div>
-          {/each}
-        {/if}
+    <!-- Treemap -->
+    <div class="mb-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+      <div class="mb-3 flex items-baseline gap-2">
+        <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Effort by tag</h3>
+        <span class="text-xs text-neutral-400">area = tracked time · click a tag to focus</span>
       </div>
+      {#if treemap.length === 0}
+        <div class="py-8 text-center text-sm text-neutral-400">No tracked time to map.</div>
+      {:else}
+        <div class="relative w-full overflow-hidden rounded-lg" style="aspect-ratio:16/9">
+          {#each treemap as r (r.name)}
+            {@const active = drill?.kind === "tag" && drill.key === r.name}
+            {@const dim = drill?.kind === "tag" && !active}
+            {@const big = r.w > 12 && r.h > 10}
+            <button
+              type="button"
+              class="absolute flex flex-col justify-end overflow-hidden rounded-md border-2 border-white p-1.5 text-left text-white transition-[transform,opacity] duration-500 dark:border-neutral-900 {dim ? 'opacity-30' : ''} {active ? 'ring-2 ring-inset ring-black/60 dark:ring-white/70' : ''}"
+              style="left:{r.x}%;top:{r.y}%;width:{r.w}%;height:{r.h}%;background:{r.color}"
+              title={`${r.name} · ${fmtWork(Math.round(r.value)) || "0m"}`}
+              onclick={() => drillTag(r.name)}
+            >
+              {#if big}
+                <span class="text-xs font-bold leading-tight [text-shadow:0_1px_2px_rgba(0,0,0,.35)]">{r.name}</span>
+                <span class="text-[10.5px] opacity-90 [text-shadow:0_1px_2px_rgba(0,0,0,.35)]">{fmtWork(Math.round(r.value)) || "0m"}</span>
+              {/if}
+            </button>
+          {/each}
+        </div>
+      {/if}
     </div>
 
     <!-- Table -->
     <div class="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-      <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
-        Tasks in period <span class="font-normal text-neutral-400">({cur.length})</span>
-      </h3>
-      <p class="mb-3 text-xs text-neutral-400">The raw material for a report</p>
+      {#if drill}
+        <div class="mb-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm" style="background: color-mix(in srgb, var(--accent,#4f46e5) 12%, transparent); border-color: color-mix(in srgb, var(--accent,#4f46e5) 30%, transparent)">
+          <span class="text-neutral-600 dark:text-neutral-300">Focused on {drill.kind}: <b style="color:var(--accent,#4f46e5)">{drill.label}</b></span>
+          <button type="button" class="ml-auto rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-xs font-medium text-neutral-600 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300" onclick={resetDrill}>← Back to overview</button>
+        </div>
+      {/if}
+      <div class="mb-3 flex items-baseline gap-2">
+        <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Tasks <span class="font-normal text-neutral-400">({cur.filter(drillMatch).length})</span></h3>
+        <span class="text-xs text-neutral-400">click a row for detail</span>
+      </div>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-neutral-200 text-left text-[11px] uppercase tracking-wide text-neutral-400 dark:border-neutral-700">
-              <th class="px-2.5 py-2 font-semibold">Task</th>
-              <th class="px-2.5 py-2 font-semibold">Tags</th>
-              <th class="px-2.5 py-2 font-semibold">Status</th>
-              <th class="px-2.5 py-2 font-semibold">Created</th>
-              <th class="px-2.5 py-2 font-semibold">Work</th>
-              <th class="px-2.5 py-2 font-semibold">Cycle</th>
+              <th class="px-2.5 py-2 font-semibold">Task</th><th class="px-2.5 py-2 font-semibold">Tags</th>
+              <th class="px-2.5 py-2 font-semibold">Status</th><th class="px-2.5 py-2 font-semibold">Created</th>
+              <th class="px-2.5 py-2 font-semibold">Work</th><th class="px-2.5 py-2 font-semibold">Cycle</th>
             </tr>
           </thead>
           <tbody>
             {#if tableRows.length === 0}
-              <tr><td colspan="6" class="py-8 text-center text-sm text-neutral-400">No tasks in this period.</td></tr>
+              <tr><td colspan="6" class="py-8 text-center text-sm text-neutral-400">No tasks.</td></tr>
             {:else}
               {#each tableRows as t (t.id)}
-                <tr class="border-b border-neutral-100 dark:border-neutral-800/70">
+                <tr class="cursor-pointer border-b border-neutral-100 transition-colors hover:bg-neutral-50 dark:border-neutral-800/70 dark:hover:bg-neutral-800/40" onclick={() => app.selectTodo(t.id)}>
                   <td class="px-2.5 py-2 text-neutral-800 dark:text-neutral-200">{t.text}</td>
                   <td class="px-2.5 py-2">
                     <span class="inline-flex flex-wrap gap-1">
@@ -469,13 +474,13 @@
                     </span>
                   </td>
                   <td class="px-2.5 py-2">
-                    <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11.5px] font-semibold" style="background:{STATUS_META[t.status].color}1f;color:{STATUS_META[t.status].color}">
-                      <span class="h-1.5 w-1.5 rounded-full" style="background:{STATUS_META[t.status].color}"></span>{STATUS_META[t.status].label}
+                    <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11.5px] font-semibold" style="background:{STATUS[t.status].color}1f;color:{STATUS[t.status].color}">
+                      <span class="h-1.5 w-1.5 rounded-full" style="background:{STATUS[t.status].color}"></span>{STATUS[t.status].label}
                     </span>
                   </td>
                   <td class="whitespace-nowrap px-2.5 py-2 tabular-nums text-neutral-500 dark:text-neutral-400">{niceDate(t.createdAt.slice(0, 10))}</td>
                   <td class="whitespace-nowrap px-2.5 py-2 tabular-nums text-neutral-500 dark:text-neutral-400">{fmtWork(t.workSeconds) || "—"}</td>
-                  <td class="whitespace-nowrap px-2.5 py-2 tabular-nums text-neutral-500 dark:text-neutral-400">{t.status === "done" ? (cycleDays(t) < 1 ? "<1d" : cycleDays(t) + "d") : "—"}</td>
+                  <td class="whitespace-nowrap px-2.5 py-2 tabular-nums text-neutral-500 dark:text-neutral-400">{cycle(t)}</td>
                 </tr>
               {/each}
             {/if}

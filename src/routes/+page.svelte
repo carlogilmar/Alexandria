@@ -25,8 +25,6 @@
   import StoryboardView from "$lib/components/StoryboardView.svelte";
   import SecondaryPane from "$lib/components/SecondaryPane.svelte";
 
-  let inspectorTodo = $derived(app.selectedTodo());
-
   // Split (reference) pane: draggable divider between the main + reference pane.
   let splitFraction = $state(0.55);
   let mainRow: HTMLDivElement | undefined = $state();
@@ -313,9 +311,9 @@
   <AddEntityModal onClose={() => (app.addModalOpen = false)} />
 {/if}
 
-{#if app.view === "list" && inspectorTodo}
-  {#key inspectorTodo.id}
-    <Inspector todo={inspectorTodo} />
+{#if app.detailTodo}
+  {#key app.detailTodo.id}
+    <Inspector todo={app.detailTodo} />
   {/key}
 {/if}
 

@@ -15,6 +15,7 @@ import {
   archiveList,
   restoreList,
   setListPinned,
+  getTodo,
   createTodo,
   toggleTodo,
   setTodoStatus,
@@ -336,6 +337,10 @@ class AppStore {
   activityStats = $state<ActivityDay[]>([]);
 
   selectedTodoId = $state<number | null>(null);
+  // The full Todo shown in the detail modal. Set by selectTodo (from the open
+  // list, or fetched by id when opened from the Dashboard where no list is
+  // loaded). The Inspector renders whenever this is non-null, on any view.
+  detailTodo = $state<Todo | null>(null);
   selectedTodoTags = $state<Tag[]>([]);
   allTags = $state<Tag[]>([]);
 
@@ -478,6 +483,9 @@ class AppStore {
   // so a later back() can return. No-op while restoring (suppressNav) and when
   // the destination would duplicate the current top of stack.
   private recordNav() {
+    // Any real navigation closes an open task detail modal (it renders on
+    // `detailTodo` regardless of view, so it must not linger across a nav).
+    this.detailTodo = null;
     if (this.suppressNav) return;
     const loc = this.snapshotLoc();
     if (!loc) return;
@@ -1804,20 +1812,29 @@ class AppStore {
 
   async goToHit(hit: TodoHit) {
     await this.select(hit.listId);
-    this.selectedTodoId = hit.id;
-    await this.refreshSelectedTags();
+    await this.selectTodo(hit.id);
     this.clearSearch();
   }
 
   // ---- Inspector (selected todo) ----
 
+  // Open (or close, with null) the task detail modal. Resolves the full Todo
+  // from the open list when present, else fetches it by id — so the modal opens
+  // from the Dashboard (where no list is loaded) as well as the list view.
   async selectTodo(id: number | null) {
     this.selectedTodoId = id;
     if (id === null) {
+      this.detailTodo = null;
       this.selectedTodoTags = [];
-    } else {
-      await this.refreshSelectedTags();
+      return;
     }
+    this.detailTodo = this.todos.find((t) => t.id === id) ?? (await getTodo(id));
+    await this.refreshSelectedTags();
+  }
+
+  // Keep the open detail modal in sync when a mutation returns a fresh row.
+  private patchDetail(updated: Todo) {
+    if (this.detailTodo && this.detailTodo.id === updated.id) this.detailTodo = updated;
   }
 
   async refreshSelectedTags() {
@@ -1832,6 +1849,7 @@ class AppStore {
     if (this.selectedTodoId === null) return;
     const updated = await updateTodo(this.selectedTodoId, { notes });
     this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t));
+    this.patchDetail(updated);
   }
 
   async updateSelectedText(text: string) {
@@ -1840,6 +1858,7 @@ class AppStore {
     if (!trimmed) return;
     const updated = await updateTodo(this.selectedTodoId, { text: trimmed });
     this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t));
+    this.patchDetail(updated);
   }
 
   async addTagToSelected(name: string) {
@@ -2060,6 +2079,7 @@ class AppStore {
   async setTodoStatus(todo: Todo, status: TodoStatus) {
     const updated = await setTodoStatus(todo.id, status);
     this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t));
+    this.patchDetail(updated);
     await this.refreshLists();
   }
 
@@ -2067,6 +2087,7 @@ class AppStore {
   async setTodoWorkSeconds(todo: Todo, seconds: number) {
     const updated = await setTodoWorkSeconds(todo.id, Math.max(0, Math.round(seconds)));
     this.todos = this.todos.map((t) => (t.id === updated.id ? updated : t));
+    this.patchDetail(updated);
   }
 
   async editTodo(todo: Todo, text: string) {

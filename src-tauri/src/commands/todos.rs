@@ -14,6 +14,14 @@ pub(crate) async fn list_for(pool: &SqlitePool, list_id: i64) -> AppResult<Vec<T
     .map_err(Into::into)
 }
 
+pub(crate) async fn get(pool: &SqlitePool, id: i64) -> AppResult<Todo> {
+    sqlx::query_as::<_, Todo>("SELECT * FROM todos WHERE id = ?1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("todo {id}")))
+}
+
 pub(crate) async fn create(pool: &SqlitePool, list_id: i64, text: &str) -> AppResult<Todo> {
     if text.trim().is_empty() {
         return Err(AppError::BadInput("todo text cannot be empty".into()));
@@ -220,6 +228,11 @@ pub(crate) async fn reorder(
 #[tauri::command]
 pub async fn list_todos(state: State<'_, AppState>, list_id: i64) -> AppResult<Vec<Todo>> {
     list_for(&state.pool, list_id).await
+}
+
+#[tauri::command]
+pub async fn get_todo(state: State<'_, AppState>, id: i64) -> AppResult<Todo> {
+    get(&state.pool, id).await
 }
 
 #[tauri::command]

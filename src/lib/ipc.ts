@@ -224,6 +224,7 @@ export const setListPinned = (id: number, pinned: boolean) =>
 // Todos
 export const listTodos = (listId: number) =>
   invoke<Todo[]>("list_todos", { listId });
+export const getTodo = (id: number) => invoke<Todo>("get_todo", { id });
 export const createTodo = (listId: number, text: string) =>
   invoke<Todo>("create_todo", { listId, text });
 export const updateTodo = (id: number, patch: TodoPatch) =>

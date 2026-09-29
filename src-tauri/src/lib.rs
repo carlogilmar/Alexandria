@@ -33,6 +33,7 @@ pub fn run() {
             commands::lists::restore_list,
             commands::lists::set_list_pinned,
             commands::todos::list_todos,
+            commands::todos::get_todo,
             commands::todos::create_todo,
             commands::todos::update_todo,
             commands::todos::toggle_todo,
