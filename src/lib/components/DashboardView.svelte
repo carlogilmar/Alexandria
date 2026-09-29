@@ -109,13 +109,14 @@
     return { txt: `${d > 0 ? "▲" : "▼"} ${Math.abs(d)}%`, dir: d > 0 ? "up" : "down" };
   }
 
-  // Mosaic
-  let mosaic = $derived.by(() => {
-    const maxW = Math.max(1, ...cur.map((t) => t.workSeconds));
-    return [...cur]
-      .sort((a, b) => b.workSeconds - a.workSeconds)
-      .map((t) => ({ t, size: Math.round(20 + (t.workSeconds / maxW) * 36) }));
-  });
+  // Mosaic — uniform squares, all packed together into one figure, ordered by
+  // primary tag so same-tag colors naturally cluster (no labels; hover reveals
+  // the task + tags).
+  const primaryTag = (t: DashboardTask) => {
+    const tags = tagsByTodo.get(t.id) ?? [];
+    return tags.length ? tags[0].name : "￿"; // untagged clusters last
+  };
+  let mosaicTasks = $derived([...cur].sort((a, b) => primaryTag(a).localeCompare(primaryTag(b))));
   function taskColors(t: DashboardTask): string[] {
     return (tagsByTodo.get(t.id) ?? []).slice(0, 3).map((x) => tagColor(x));
   }
@@ -141,6 +142,42 @@
     return { map, max, total: days.reduce((s, d) => s + map[d], 0) };
   });
   let xLabelStep = $derived(Math.max(1, Math.ceil(days.length / 8)));
+
+  // Completed over time — cumulative done per day (by completion date).
+  const BW = 520, BH = 176, BPAD = 26;
+  let burnup = $derived.by(() => {
+    const perDay: Record<string, number> = {};
+    for (const d of days) perDay[d] = 0;
+    for (const t of cur)
+      if (t.status === "done" && t.completedAt) {
+        const cd = t.completedAt.slice(0, 10);
+        if (cd in perDay) perDay[cd]++;
+      }
+    let cum = 0;
+    const pts = days.map((d) => (cum += perDay[d]));
+    const total = cum, max = Math.max(1, cum), n = days.length;
+    const bx = (i: number) => BPAD + (n <= 1 ? 0 : i * ((BW - BPAD - 8) / (n - 1)));
+    const by = (v: number) => BH - 22 - (v / max) * (BH - 44);
+    const line = pts.map((v, i) => `${bx(i)},${by(v)}`).join(" ");
+    const area = `${bx(0)},${BH - 22} ${line} ${bx(n - 1)},${BH - 22}`;
+    const step = Math.max(1, Math.ceil(n / 6));
+    const labels = days.map((d, i) => ({ x: bx(i), show: i % step === 0, txt: niceDate(d) }));
+    return { total, line, area, endX: bx(n - 1), endY: by(cum), labels };
+  });
+
+  // Effort by weekday — tracked time summed per weekday (Mon–Sun), tile style.
+  const WK_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  let weekday = $derived.by(() => {
+    const s = [0, 0, 0, 0, 0, 0, 0];
+    for (const t of cur) {
+      const rd = refDate(t);
+      if (!rd) continue;
+      const dow = (new Date(rd + "T00:00:00").getDay() + 6) % 7;
+      s[dow] += t.workSeconds;
+    }
+    const total = s.reduce((a, b) => a + b, 0), mx = Math.max(...s);
+    return { s, max: Math.max(1, mx), total, peak: total > 0 ? s.indexOf(mx) : -1 };
+  });
 
   // Treemap (squarified) by tag, area = tracked time
   function squarify(items: { name: string; value: number; color: string }[], w: number, h: number) {
@@ -175,6 +212,13 @@
     }
     return rects;
   }
+  // Theme-cohesive shades: the accent mixed with a deep ink, stepped by rank, so
+  // cells stay in the theme family (not the tag colors) and keep white text legible.
+  const TM_MIX = [100, 84, 70, 58, 48, 40, 34, 28, 24, 20];
+  function tmShade(i: number): string {
+    const p = TM_MIX[Math.min(i, TM_MIX.length - 1)];
+    return `color-mix(in srgb, var(--accent, #4f46e5) ${p}%, #0f172a)`;
+  }
   let treemap = $derived.by(() => {
     const agg = new Map<string, number>();
     let untag = 0;
@@ -183,13 +227,12 @@
       if (tags.length === 0) { untag += t.workSeconds; continue; }
       for (const tg of tags) agg.set(tg.name, (agg.get(tg.name) ?? 0) + t.workSeconds / tags.length);
     }
-    const items = [...agg.entries()]
-      .map(([name, value]) => ({ name, value, color: tagColor({ id: 0, color: allTagNames.find((x) => x.name === name)?.color ?? null }) }))
-      .filter((i) => i.value > 0);
-    if (untag > 0) items.push({ name: "untagged", value: untag, color: "var(--st-empty)" });
+    const items = [...agg.entries()].map(([name, value]) => ({ name, value })).filter((i) => i.value > 0);
     items.sort((a, b) => b.value - a.value);
-    if (!items.length) return [];
-    return squarify(items, 100, 100).map((r) => ({ ...r, value: agg.get(r.name) ?? untag }));
+    const colored = items.map((it, i) => ({ ...it, color: tmShade(i) }));
+    if (untag > 0) colored.push({ name: "untagged", value: untag, color: "#334155" });
+    if (!colored.length) return [];
+    return squarify(colored, 100, 100).map((r) => ({ ...r, value: agg.get(r.name) ?? untag }));
   });
 
   function drillDay(d: string) {
@@ -203,23 +246,37 @@
     drill = cur0 && cur0.kind === "tag" && cur0.key === name ? null : { kind: "tag", key: name, label: `#${name}` };
   }
 
-  // Table (drill-filtered)
+  // Table (drill-filtered) — compact status labels so the pill fits a row.
   const STATUS: Record<TodoStatus, { label: string; color: string }> = {
-    open: { label: "To do", color: "#3b82f6" },
-    wip: { label: "In progress", color: "#f59e0b" },
+    open: { label: "Open", color: "#3b82f6" },
+    wip: { label: "WIP", color: "#f59e0b" },
     done: { label: "Done", color: "#10b981" },
   };
+  const STATUS_RANK: Record<TodoStatus, number> = { wip: 0, open: 1, done: 2 };
+  let sortKey = $state<"recent" | "status" | "tag">("recent");
+  function firstTag(t: DashboardTask): string {
+    const tags = tagsByTodo.get(t.id) ?? [];
+    return tags.length ? tags[0].name : "￿"; // untagged sorts last
+  }
   function drillMatch(t: DashboardTask): boolean {
     const d = drill;
     if (!d) return true;
     if (d.kind === "day") return refDate(t) === d.key;
     return (tagsByTodo.get(t.id) ?? []).some((x) => x.name === d.key);
   }
-  let tableRows = $derived(
-    cur.filter(drillMatch)
-      .sort((a, b) => (b.completedAt ?? b.createdAt).localeCompare(a.completedAt ?? a.createdAt))
-      .slice(0, 80),
-  );
+  let tableRows = $derived.by(() => {
+    const rows = cur.filter(drillMatch);
+    const recent = (a: DashboardTask, b: DashboardTask) =>
+      (b.completedAt ?? b.createdAt).localeCompare(a.completedAt ?? a.createdAt);
+    if (sortKey === "status")
+      rows.sort((a, b) => STATUS_RANK[a.status] - STATUS_RANK[b.status] || recent(a, b));
+    else if (sortKey === "tag")
+      rows.sort((a, b) => firstTag(a).localeCompare(firstTag(b)) || recent(a, b));
+    else rows.sort(recent);
+    return rows.slice(0, 80);
+  });
+  const fmtWorkShort = (sec: number) =>
+    sec <= 0 ? "" : sec >= 3600 ? `${Math.round((sec / 3600) * 10) / 10}h` : `${Math.round(sec / 60)}m`;
   function cycle(t: DashboardTask): string {
     if (t.status !== "done" || !t.completedAt) return "—";
     const d = Math.round((new Date(t.completedAt.slice(0, 10)).getTime() - new Date(t.createdAt.slice(0, 10)).getTime()) / DAY);
@@ -362,47 +419,129 @@
       {@render kpiCard("Tracked time", fmtWork(kpi.workSec) || "0m", `${(kpi.workSec / 3600).toFixed(1)} hours`, null)}
     </div>
 
-    <!-- Task mosaic -->
+    {#if cur.length === 0}
+      <div class="rounded-xl border border-dashed border-neutral-300 bg-white p-12 text-center dark:border-neutral-700 dark:bg-neutral-900">
+        <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-neutral-400 dark:bg-neutral-800">
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-6 w-6"><path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm3 3a1 1 0 000 2h8a1 1 0 100-2H6zm0 4a1 1 0 100 2h5a1 1 0 100-2H6z"/></svg>
+        </div>
+        <p class="text-sm font-medium text-neutral-700 dark:text-neutral-200">No tasks in this period yet</p>
+        <p class="mt-1 text-xs text-neutral-400">Try a wider range, clear any tag filters, or start tracking a task — the charts will fill in here.</p>
+      </div>
+    {:else}
+
+    <!-- Task mosaic — grouped by tag; a check marks completed tasks -->
     <div class="mb-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
       <div class="mb-3 flex items-baseline gap-2">
         <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Tasks this period</h3>
-        <span class="text-xs text-neutral-400">{cur.length} · size = tracked time · color = tags · click to open</span>
+        <span class="text-xs text-neutral-400">{cur.length} · color = tags · ✓ = done · hover for detail · click to open</span>
       </div>
-      {#if mosaic.length === 0}
-        <div class="py-8 text-center text-sm text-neutral-400">No tasks in this period.</div>
-      {:else}
-        <div class="flex flex-wrap items-center gap-1.5">
-          {#each mosaic as m (m.t.id)}
-            <button
-              type="button"
-              class="rounded-[5px] shadow-[inset_0_0_0_1px_rgba(0,0,0,.06)] transition-transform hover:scale-110 hover:shadow-md {mosaicDim(m.t) ? 'opacity-20' : ''}"
-              style="width:{m.size}px;height:{m.size}px;background:{squareBg(taskColors(m.t))}"
-              title={`${m.t.text}\n${(tagsByTodo.get(m.t.id) ?? []).map((x) => x.name).join(', ') || 'no tags'} · ${fmtWork(m.t.workSeconds) || '0m'}`}
-              aria-label={m.t.text}
-              onclick={() => app.selectTodo(m.t.id)}
-            ></button>
-          {/each}
-        </div>
-      {/if}
-    </div>
-
-    <!-- Tracked time per day -->
-    <div class="mb-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-      <div class="mb-3 flex items-baseline gap-2">
-        <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Tracked time per day</h3>
-        <span class="text-xs text-neutral-400">peak {fmtWork(timePerDay.max) || "0m"} · total {fmtWork(timePerDay.total) || "0m"} · click a bar to focus</span>
-      </div>
-      <div class="flex h-40 items-end gap-1 pt-2">
-        {#each days as d (d)}
-          {@const h = Math.round((timePerDay.map[d] / timePerDay.max) * 100)}
-          {@const active = drill?.kind === "day" && drill.key === d}
-          {@const dim = drill?.kind === "day" && !active}
-          <button type="button" class="flex h-full min-w-0 flex-1 flex-col items-center justify-end" title={`${niceDate(d)} · ${fmtWork(timePerDay.map[d]) || "0m"}`} onclick={() => drillDay(d)}>
-            <span class="w-[70%] max-w-[26px] rounded-t transition-[height,opacity] duration-500 {dim ? 'opacity-25' : active ? 'opacity-100 ring-2 ring-[var(--accent,#4f46e5)]/50' : 'opacity-80 hover:opacity-100'}" style="height:{h}%;background:var(--accent,#4f46e5)"></span>
-            <span class="mt-1 whitespace-nowrap text-[9px] text-neutral-400">{days.indexOf(d) % xLabelStep === 0 ? niceDate(d) : ""}</span>
+      <div class="flex flex-wrap gap-px">
+        {#each mosaicTasks as t (t.id)}
+          <button
+            type="button"
+            class="relative h-4 w-4 transition-transform hover:z-10 hover:scale-150 {mosaicDim(t) ? 'opacity-20' : ''}"
+            style="background:{squareBg(taskColors(t))}"
+            title={`${t.text}\n${(tagsByTodo.get(t.id) ?? []).map((x) => x.name).join(', ') || 'no tags'} · ${fmtWork(t.workSeconds) || '0m'} · ${STATUS[t.status].label}`}
+            aria-label={t.text}
+            onclick={() => app.selectTodo(t.id)}
+          >
+            {#if t.status === "done"}
+              <svg viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="3.2" class="absolute inset-0 m-auto h-2.5 w-2.5" style="filter:drop-shadow(0 0 1px rgba(0,0,0,.7))"><path stroke-linecap="round" stroke-linejoin="round" d="M4 10.5l4 4 8-9"/></svg>
+            {/if}
           </button>
         {/each}
       </div>
+    </div>
+
+    <!-- Tracked time per day  +  Effort by weekday -->
+    <div class="mb-4 grid gap-4 lg:grid-cols-2">
+      <div class="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <div class="mb-3 flex flex-wrap items-baseline gap-2">
+          <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Tracked time per day</h3>
+          <span class="text-xs text-neutral-400">peak {fmtWork(timePerDay.max) || "0m"} · click a bar to focus</span>
+        </div>
+        {#if timePerDay.total === 0}
+          <div class="py-10 text-center text-sm text-neutral-400">
+            No time tracked in this period yet.<br />
+            <span class="text-xs text-neutral-400 dark:text-neutral-500">Start a task (▶) to begin tracking.</span>
+          </div>
+        {:else}
+          <div class="flex h-40 items-end gap-1 pt-2">
+            {#each days as d, i (d)}
+              {@const val = timePerDay.map[d]}
+              {@const h = Math.round((val / timePerDay.max) * 100)}
+              {@const active = drill?.kind === "day" && drill.key === d}
+              {@const dim = drill?.kind === "day" && !active}
+              <button type="button" class="flex h-full min-w-0 flex-1 flex-col items-center justify-end" title={`${niceDate(d)} · ${fmtWork(val) || "0m"}`} onclick={() => drillDay(d)}>
+                {#if val > 0 && h < 30}
+                  <span class="mb-0.5 whitespace-nowrap text-[9px] font-semibold tabular-nums text-neutral-500 dark:text-neutral-400">{fmtWorkShort(val)}</span>
+                {/if}
+                <span class="relative flex w-[80%] max-w-[30px] justify-center rounded-t transition-[height,opacity] duration-500 {dim ? 'opacity-25' : active ? 'opacity-100 ring-2 ring-[var(--accent,#4f46e5)]/50' : 'opacity-85 hover:opacity-100'}" style="height:{h}%;background:var(--accent,#4f46e5)">
+                  {#if val > 0 && h >= 30}
+                    <span class="absolute top-1 text-[9px] font-bold tabular-nums text-white">{fmtWorkShort(val)}</span>
+                  {/if}
+                </span>
+                <span class="mt-1 whitespace-nowrap text-[9px] text-neutral-400">{i % xLabelStep === 0 ? niceDate(d) : ""}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+
+      <div class="flex flex-col rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <div class="mb-3 flex flex-wrap items-baseline gap-2">
+          <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Effort by weekday</h3>
+          <span class="text-xs text-neutral-400">tracked time per weekday</span>
+        </div>
+        {#if weekday.total === 0}
+          <div class="flex flex-1 items-center justify-center py-10 text-center text-sm text-neutral-400">No tracked time yet.</div>
+        {:else}
+          <div class="flex flex-1 flex-col justify-center">
+            <div class="grid grid-cols-7 gap-2">
+              {#each WK_NAMES as nm, i (nm)}
+                {@const sec = weekday.s[i]}
+                {@const peak = i === weekday.peak}
+                <div class="rounded-xl border p-2 text-center transition-colors {peak ? '' : 'border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-800/40'}"
+                  style={peak ? "border-color:var(--accent,#4f46e5);background:color-mix(in srgb, var(--accent,#4f46e5) 12%, transparent)" : ""}>
+                  <div class="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{nm}</div>
+                  <div class="my-1.5 text-sm font-extrabold tabular-nums {sec ? '' : 'text-neutral-300 dark:text-neutral-600'}" style={sec ? "color:var(--accent,#4f46e5)" : ""}>{sec ? fmtWorkShort(sec) : "–"}</div>
+                  <div class="h-1.5 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-700/60">
+                    <div class="h-full rounded-full transition-[width] duration-500" style="width:{Math.round((sec / weekday.max) * 100)}%;background:var(--accent,#4f46e5)"></div>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </div>
+    </div>
+
+    <!-- Completed over time -->
+    <div class="mb-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+      <div class="mb-3 flex flex-wrap items-baseline gap-2">
+        <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Completed over time</h3>
+        <span class="text-xs text-neutral-400">cumulative tasks done this period</span>
+      </div>
+      {#if burnup.total === 0}
+        <div class="py-10 text-center text-sm text-neutral-400">Nothing completed in this period yet.</div>
+      {:else}
+        <svg viewBox="0 0 {BW} {BH}" class="w-full overflow-visible">
+          <defs>
+            <linearGradient id="burnGrad" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stop-color="var(--accent,#4f46e5)" stop-opacity="0.28" />
+              <stop offset="1" stop-color="var(--accent,#4f46e5)" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <line x1={BPAD} y1={BH - 22} x2={BW} y2={BH - 22} class="stroke-neutral-200 dark:stroke-neutral-700" />
+          <polygon points={burnup.area} fill="url(#burnGrad)" />
+          <polyline points={burnup.line} fill="none" stroke="var(--accent,#4f46e5)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+          <circle cx={burnup.endX} cy={burnup.endY} r="4" fill="var(--accent,#4f46e5)" />
+          <text x={burnup.endX} y={burnup.endY - 9} class="fill-neutral-800 dark:fill-neutral-100" font-size="12" font-weight="700" text-anchor="end">{burnup.total} done</text>
+          {#each burnup.labels as l, i (i)}
+            {#if l.show}<text x={l.x} y={BH - 5} class="fill-neutral-400" font-size="10" text-anchor="middle">{l.txt}</text>{/if}
+          {/each}
+        </svg>
+      {/if}
     </div>
 
     <!-- Treemap -->
@@ -444,9 +583,20 @@
           <button type="button" class="ml-auto rounded-md border border-neutral-200 bg-white px-2.5 py-1 text-xs font-medium text-neutral-600 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300" onclick={resetDrill}>← Back to overview</button>
         </div>
       {/if}
-      <div class="mb-3 flex items-baseline gap-2">
+      <div class="mb-3 flex flex-wrap items-center gap-2">
         <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Tasks <span class="font-normal text-neutral-400">({cur.filter(drillMatch).length})</span></h3>
         <span class="text-xs text-neutral-400">click a row for detail</span>
+        <div class="ml-auto flex items-center gap-1 text-xs">
+          <span class="text-neutral-400">Sort</span>
+          {#each [["recent", "Recent"], ["status", "Status"], ["tag", "Tag"]] as opt (opt[0])}
+            <button
+              type="button"
+              class="rounded-md px-2 py-1 font-medium transition-colors {sortKey === opt[0] ? 'text-white' : 'bg-neutral-100 text-neutral-500 hover:text-neutral-800 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100'}"
+              style={sortKey === opt[0] ? "background-color: var(--accent, #4f46e5)" : ""}
+              onclick={() => (sortKey = opt[0] as "recent" | "status" | "tag")}
+            >{opt[1]}</button>
+          {/each}
+        </div>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -488,6 +638,7 @@
         </table>
       </div>
     </div>
+    {/if}
   {/if}
   </div>
 </main>
