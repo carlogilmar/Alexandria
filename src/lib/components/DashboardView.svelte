@@ -2,6 +2,8 @@
   import { app } from "$lib/stores/app.svelte";
   import type { DashboardTask, TodoTag, TodoStatus } from "$lib/ipc";
   import { fmtWork, tagColor, taskTitleHtml } from "$lib/tasktime";
+  import { mountBubbleField, type BubbleTask, type BubbleField } from "$lib/bubblefield";
+  import { theme } from "$lib/stores/theme.svelte";
 
   // ----- date helpers -----
   const DAY = 86400000;
@@ -179,71 +181,38 @@
     return { s, max: Math.max(1, mx), total, peak: total > 0 ? s.indexOf(mx) : -1 };
   });
 
-  // Treemap (squarified) by tag, area = tracked time
-  function squarify(items: { name: string; value: number; color: string }[], w: number, h: number) {
-    const rects: { name: string; color: string; x: number; y: number; w: number; h: number }[] = [];
-    const total = items.reduce((s, i) => s + i.value, 0) || 1;
-    const scale = (w * h) / total;
-    let rest = items.map((i) => ({ ...i, a: i.value * scale }));
-    let cur2 = { x: 0, y: 0, w, h };
-    const worst = (row: { a: number }[], len: number) => {
-      const sum = row.reduce((s, r) => s + r.a, 0);
-      const mx = Math.max(...row.map((r) => r.a)), mn = Math.min(...row.map((r) => r.a));
-      return Math.max((len * len * mx) / (sum * sum), (sum * sum) / (len * len * mn));
-    };
-    while (rest.length) {
-      let row: (typeof rest) = [];
-      const len = Math.min(cur2.w, cur2.h);
-      while (rest.length) {
-        const nx = [...row, rest[0]];
-        if (row.length === 0 || worst(nx, len) <= worst(row, len)) row.push(rest.shift()!);
-        else break;
-      }
-      const sum = row.reduce((s, r) => s + r.a, 0);
-      if (cur2.w >= cur2.h) {
-        const sw = sum / cur2.h; let oy = cur2.y;
-        for (const r of row) { const rh = r.a / sw; rects.push({ name: r.name, color: r.color, x: cur2.x, y: oy, w: sw, h: rh }); oy += rh; }
-        cur2 = { x: cur2.x + sw, y: cur2.y, w: cur2.w - sw, h: cur2.h };
-      } else {
-        const sh = sum / cur2.w; let ox = cur2.x;
-        for (const r of row) { const rw = r.a / sh; rects.push({ name: r.name, color: r.color, x: ox, y: cur2.y, w: rw, h: sh }); ox += rw; }
-        cur2 = { x: cur2.x, y: cur2.y + sh, w: cur2.w, h: cur2.h - sh };
-      }
-    }
-    return rects;
+  // Task bubble field — a full-width canvas physics sim (see $lib/bubblefield).
+  // Bubbles size by tracked time, colour by status (theme accent). The sim is
+  // (re)mounted only when the task SET changes, so a drill/hover re-render doesn't
+  // reset the drift. Click a bubble → open the task detail modal.
+  let bubbleCanvas: HTMLCanvasElement | undefined = $state();
+  let bubbleField = $state<BubbleField | null>(null);
+  function escText(s: string): string {
+    return s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c);
   }
-  // Theme-cohesive shades: the accent mixed with a deep ink, stepped by rank, so
-  // cells stay in the theme family (not the tag colors) and keep white text legible.
-  const TM_MIX = [100, 84, 70, 58, 48, 40, 34, 28, 24, 20];
-  function tmShade(i: number): string {
-    const p = TM_MIX[Math.min(i, TM_MIX.length - 1)];
-    return `color-mix(in srgb, var(--accent, #4f46e5) ${p}%, #0f172a)`;
+  function bubbleTip(t: BubbleTask): string {
+    const tags = tagsByTodo.get(t.id) ?? [];
+    const chips = tags.length
+      ? tags.map((x) => `<span class="md-stages-tmag" style="color:${tagColor(x)}">${escText(x.name)}</span>`).join(" ")
+      : '<span class="md-stages-nod">no tags</span>';
+    return `<b>${escText(t.text)}</b>${chips}<div class="md-stages-nod" style="font-style:normal;margin-top:3px">${fmtWork(t.workSeconds) || "0m"} · ${STATUS[t.status].label}</div>`;
   }
-  let treemap = $derived.by(() => {
-    const agg = new Map<string, number>();
-    let untag = 0;
-    for (const t of cur) {
-      const tags = tagsByTodo.get(t.id) ?? [];
-      if (tags.length === 0) { untag += t.workSeconds; continue; }
-      for (const tg of tags) agg.set(tg.name, (agg.get(tg.name) ?? 0) + t.workSeconds / tags.length);
-    }
-    const items = [...agg.entries()].map(([name, value]) => ({ name, value })).filter((i) => i.value > 0);
-    items.sort((a, b) => b.value - a.value);
-    const colored = items.map((it, i) => ({ ...it, color: tmShade(i) }));
-    if (untag > 0) colored.push({ name: "untagged", value: untag, color: "#334155" });
-    if (!colored.length) return [];
-    return squarify(colored, 100, 100).map((r) => ({ ...r, value: agg.get(r.name) ?? untag }));
+  $effect(() => {
+    const list: BubbleTask[] = cur.map((t) => ({ id: t.id, text: t.text, status: t.status, workSeconds: t.workSeconds }));
+    // Re-mount when the resolved theme / tint changes so the bubbles pick up the
+    // new accent colour (they read it once at mount).
+    void theme.resolved; void theme.sidebarTint;
+    const el = bubbleCanvas;
+    if (!el || list.length === 0) return;
+    const sim = mountBubbleField(el, list, { onOpen: (id) => app.selectTodo(id), tipHtml: bubbleTip });
+    bubbleField = sim;
+    return () => { sim.destroy(); bubbleField = null; };
   });
 
   function drillDay(d: string) {
     if (timePerDay.map[d] <= 0 && !drill) return;
     const cur0 = drill;
     drill = cur0 && cur0.kind === "day" && cur0.key === d ? null : { kind: "day", key: d, label: niceDate(d) };
-  }
-  function drillTag(name: string) {
-    if (name === "untagged") return;
-    const cur0 = drill;
-    drill = cur0 && cur0.kind === "tag" && cur0.key === name ? null : { kind: "tag", key: name, label: `#${name}` };
   }
 
   // Table (drill-filtered) — compact status labels so the pill fits a row.
@@ -453,6 +422,32 @@
       </div>
     </div>
 
+    <!-- Task bubble field (canvas physics) -->
+    <div class="mb-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+      <div class="mb-3 flex flex-wrap items-baseline gap-2">
+        <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Task field</h3>
+        <span class="text-xs text-neutral-400">size = tracked time · colour = status · drag or click to open · pinch / ⌘-scroll or the buttons to zoom</span>
+      </div>
+      <div class="relative w-full" style="height:340px">
+        <canvas bind:this={bubbleCanvas} class="absolute inset-0 h-full w-full" style="touch-action:none;cursor:grab"></canvas>
+        <div class="absolute right-2 top-2 flex flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white/90 shadow-sm backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/90">
+          <button type="button" class="flex h-7 w-7 items-center justify-center text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:hover:bg-neutral-800 dark:hover:text-neutral-100" title="Zoom in" aria-label="Zoom in" onclick={() => bubbleField?.zoomBy(1.25)}>
+            <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M9 4a1 1 0 012 0v4h4a1 1 0 110 2h-4v4a1 1 0 11-2 0v-4H5a1 1 0 110-2h4V4z"/></svg>
+          </button>
+          <button type="button" class="flex h-7 w-7 items-center justify-center border-t border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:border-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-100" title="Zoom out" aria-label="Zoom out" onclick={() => bubbleField?.zoomBy(0.8)}>
+            <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M5 9a1 1 0 000 2h10a1 1 0 100-2H5z"/></svg>
+          </button>
+          <button type="button" class="flex h-7 w-7 items-center justify-center border-t border-neutral-200 text-[10px] font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:border-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-100" title="Reset zoom" aria-label="Reset zoom" onclick={() => bubbleField?.reset()}>1:1</button>
+        </div>
+      </div>
+      <div class="mt-3 flex flex-wrap items-center gap-4 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+        <span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full border border-dashed border-neutral-400"></span>Not started / to do</span>
+        <span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-full" style="background:color-mix(in srgb, var(--accent,#4f46e5) 58%, white)"></span>In progress</span>
+        <span class="inline-flex items-center gap-1.5"><span class="grid h-3 w-3 place-items-center rounded-full text-[7px] font-bold text-white" style="background:var(--accent,#4f46e5)">✓</span>Done</span>
+        <span class="text-neutral-400 dark:text-neutral-500">· bigger = more tracked time</span>
+      </div>
+    </div>
+
     <!-- Tracked time per day  +  Effort by weekday -->
     <div class="mb-4 grid gap-4 lg:grid-cols-2">
       <div class="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
@@ -541,37 +536,6 @@
             {#if l.show}<text x={l.x} y={BH - 5} class="fill-neutral-400" font-size="10" text-anchor="middle">{l.txt}</text>{/if}
           {/each}
         </svg>
-      {/if}
-    </div>
-
-    <!-- Treemap -->
-    <div class="mb-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-      <div class="mb-3 flex items-baseline gap-2">
-        <h3 class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Effort by tag</h3>
-        <span class="text-xs text-neutral-400">area = tracked time · click a tag to focus</span>
-      </div>
-      {#if treemap.length === 0}
-        <div class="py-8 text-center text-sm text-neutral-400">No tracked time to map.</div>
-      {:else}
-        <div class="relative w-full overflow-hidden rounded-lg" style="aspect-ratio:16/9">
-          {#each treemap as r (r.name)}
-            {@const active = drill?.kind === "tag" && drill.key === r.name}
-            {@const dim = drill?.kind === "tag" && !active}
-            {@const big = r.w > 12 && r.h > 10}
-            <button
-              type="button"
-              class="absolute flex flex-col justify-end overflow-hidden rounded-md border-2 border-white p-1.5 text-left text-white transition-[transform,opacity] duration-500 dark:border-neutral-900 {dim ? 'opacity-30' : ''} {active ? 'ring-2 ring-inset ring-black/60 dark:ring-white/70' : ''}"
-              style="left:{r.x}%;top:{r.y}%;width:{r.w}%;height:{r.h}%;background:{r.color}"
-              title={`${r.name} · ${fmtWork(Math.round(r.value)) || "0m"}`}
-              onclick={() => drillTag(r.name)}
-            >
-              {#if big}
-                <span class="text-xs font-bold leading-tight [text-shadow:0_1px_2px_rgba(0,0,0,.35)]">{r.name}</span>
-                <span class="text-[10.5px] opacity-90 [text-shadow:0_1px_2px_rgba(0,0,0,.35)]">{fmtWork(Math.round(r.value)) || "0m"}</span>
-              {/if}
-            </button>
-          {/each}
-        </div>
       {/if}
     </div>
 
