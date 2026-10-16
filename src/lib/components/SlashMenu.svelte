@@ -85,6 +85,8 @@
     "\n```linkchips See also\n[Weather Pipeline Blueprint](blueprint:1)\n[Message Operations Decoupling](note:21)\n```\n";
   const STAGES =
     "\n```stages Product Roadmap\n# Discovery\n- User interviews *3: sessions to validate the problem\n- Market scan\n# Design\n- Wireframes\n- Prototype *2\n# Build\n- Frontend *4\n- Backend *3\n- Infra\n# Launch\n- Beta\n- GA *5: public release\n```\n";
+  const TIMELINE =
+    "\n```timeline Product Roadmap\n- 2024 Q1 | Discovery : user interviews & market scan - done\n- 2024 Q2 | Design : prototypes & validation - done\n- 2024 Q3 | Build : core engineering - current\n- 2024 Q4 | Launch : GA release - upcoming\n```\n";
 
   // Grouped by `cat` (the array order == menu order, so category headers appear
   // when the category changes).
@@ -121,6 +123,7 @@
     { id: "compare", label: "Before / after", icon: "⇄", cat: "PR blocks", keywords: "compare before after diff old new change crossfade", snippet: COMPARE },
     // — Charts & visuals —
     { id: "stages", label: "Stages tree", icon: "🫧", cat: "Charts & visuals", keywords: "stages tree strata milestones bubbles roadmap phases haeckel magnitude timeline plan", snippet: STAGES },
+    { id: "timeline", label: "Timeline", icon: "🕰️", cat: "Charts & visuals", keywords: "timeline milestones roadmap phases dates schedule history progress chronology plan", snippet: TIMELINE },
     { id: "blueprint", label: "Blueprint (diagram)", icon: "🗺", cat: "Charts & visuals", keywords: "blueprint diagram nodes boxes graph connect arrows dsl", snippet: BLUEPRINT },
     { id: "diagram", label: "Diagram", icon: "📈", cat: "Charts & visuals", keywords: "mermaid flowchart graph", snippet: MERMAID },
     { id: "cards", label: "Cards", icon: "▤", cat: "Charts & visuals", keywords: "dashboard links tiles heading section", snippet: CARDS },

@@ -11,6 +11,7 @@
     countWords,
     toggleTaskInSource,
     stepProgressInSource,
+    setTimelineStatusInSource,
     toggleSectionInSource,
     replaceLinesInSource,
   } from "$lib/markdownit";
@@ -89,9 +90,19 @@
   const btnCls =
     "inline-flex items-center gap-1 rounded-md border border-neutral-200/70 bg-white/60 px-2 py-0.5 text-[11px] text-neutral-600 transition-colors hover:bg-neutral-100 dark:border-neutral-700/70 dark:bg-neutral-900/40 dark:text-neutral-300 dark:hover:bg-neutral-800";
 
+  // Set when a timeline status click persists a new source we've ALREADY applied
+  // to the DOM in place — so the value round-trip doesn't re-render the preview
+  // (which would replay every block's entrance animation). Holds that source.
+  let tlLiveSource: string | null = null;
+
   $effect(() => {
-    // Sync external value when not actively editing.
-    if (!editing) draft = value;
+    // Sync external value when not actively editing — but skip our own in-place
+    // timeline edit coming back through `value` (the DOM is already up to date).
+    const v = value;
+    if (editing) return;
+    if (v === tlLiveSource) return;
+    draft = v;
+    tlLiveSource = null;
   });
 
   let rendered = $derived(
@@ -196,6 +207,10 @@
 
   function startEditing() {
     if (readOnly) return;
+    // Ensure the buffer reflects the latest source (incl. any in-place timeline
+    // edits that skipped the value→draft sync above).
+    draft = tlLiveSource ?? value;
+    tlLiveSource = null;
     editing = true;
     queueMicrotask(() => textarea?.focus());
   }
@@ -375,6 +390,15 @@
         if (Number.isFinite(idx)) void stepProgress(idx, delta);
         return;
       }
+      // Timeline status: cycle the matching milestone's status in the source
+      // (upcoming→current→done) and persist — a bead or its detail badge.
+      const tl = target.closest<HTMLElement>("[data-timeline]");
+      if (tl) {
+        e.preventDefault();
+        const idx = Number(tl.dataset.timeline);
+        if (Number.isFinite(idx)) void cycleTimeline(idx, tl);
+        return;
+      }
       // Collapsible section header: flip the `>`/`>>` marker in the source and
       // persist (so the open/closed status survives edit → view). A link inside
       // the heading falls through to the anchor handling below.
@@ -442,6 +466,68 @@
     const next = stepProgressInSource(draft, idx, delta);
     if (next === null) return;
     draft = next;
+    await onCommit(next);
+  }
+
+  // Timeline status cycling updates ONLY the clicked block's DOM in place and
+  // persists the new source — without reassigning `draft`, so `{@html rendered}`
+  // isn't rebuilt (which would flash the whole note + replay every animation).
+  const TL_CHK =
+    `<svg viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="md-tl-chk"><path d="M4 10.5l4 4 8-9"/></svg>`;
+  const TL_ORDER = ["upcoming", "current", "done"] as const;
+  async function cycleTimeline(idx: number, el: HTMLElement) {
+    const container = el.closest<HTMLElement>(".md-timeline");
+    if (!container) return;
+    const src = tlLiveSource ?? draft;
+    const next = setTimelineStatusInSource(src, idx);
+    if (next === null) return;
+
+    const node = container.querySelector<HTMLElement>(`.md-tl-node[data-timeline="${idx}"]`);
+    const cur = node?.classList.contains("is-done")
+      ? "done"
+      : node?.classList.contains("is-current")
+        ? "current"
+        : "upcoming";
+    const ns = TL_ORDER[(TL_ORDER.indexOf(cur) + 1) % 3];
+
+    // node + its check
+    if (node) {
+      node.classList.remove("is-done", "is-current", "is-upcoming");
+      node.classList.add("is-" + ns);
+      const dot = node.querySelector(".md-tl-dot");
+      if (dot) dot.innerHTML = ns === "done" ? TL_CHK : "";
+    }
+    // detail badge + its row
+    const badge = container.querySelector<HTMLElement>(`.md-tl-badge[data-timeline="${idx}"]`);
+    if (badge) {
+      badge.classList.remove("b-done", "b-current", "b-up");
+      badge.classList.add(ns === "done" ? "b-done" : ns === "current" ? "b-current" : "b-up");
+      badge.textContent = ns === "done" ? "Done" : ns === "current" ? "Current" : "Upcoming";
+      const item = badge.closest(".md-tl-item");
+      if (item) {
+        item.classList.remove("is-done", "is-current", "is-upcoming");
+        item.classList.add("is-" + ns);
+      }
+    }
+    // progress line + header count (recompute from the DOM)
+    const nodes = [...container.querySelectorAll<HTMLElement>(".md-tl-node")];
+    let pIdx = -1;
+    nodes.forEach((nd, i) => { if (nd.classList.contains("is-current")) pIdx = i; });
+    if (pIdx < 0) nodes.forEach((nd, i) => { if (nd.classList.contains("is-done")) pIdx = i; });
+    const prog = container.querySelector<HTMLElement>(".md-tl-prog");
+    if (prog) {
+      prog.style.animation = "none";
+      prog.style.transition = "width .4s cubic-bezier(.2,.8,.2,1)";
+      prog.style.width = pIdx < 0 ? "0%" : nodes[pIdx].style.left || "0%";
+    }
+    const doneN = nodes.filter((nd) => nd.classList.contains("is-done")).length;
+    const meta = container.querySelector(".md-bhead-meta");
+    if (meta) {
+      const nn = nodes.length;
+      meta.textContent = `${nn} milestone${nn === 1 ? "" : "s"}${doneN ? ` · ${doneN} done` : ""}`;
+    }
+
+    tlLiveSource = next;
     await onCommit(next);
   }
 

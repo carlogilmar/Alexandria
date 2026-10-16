@@ -420,7 +420,38 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 71 (Task polish follow-ups — four task-facing tweaks, no migration. (1) MANUAL
+Last updated: end of Sprint 73 (The `timeline` block — a custom powered-markdown timeline (an original
+alternative to mermaid's), mocked up first. SYNTAX: `` ```timeline <title> `` then one milestone per line
+`- <date> | <title> : <description> - <status>` (status = done|current|upcoming, optional). RENDER
+(`renderTimeline` in markdownit.ts, synchronous, theme-ACCENT coloured): a horizontal RAIL of beads with
+labels alternating above/below, an accent progress line that DRAWS IN (CSS keyframes) to the current
+milestone + staggered bead pop-in; done = accent+✓, current = accent+pulse ring, upcoming = hollow; plus a
+DETAIL section below (card per milestone). DYNAMIC STATUS: on an editable note, clicking a bead/badge cycles
+the status and rewrites the fence source via `setTimelineStatusInSource(src,index)` (scans `- ` lines inside
+```timeline fences, document-ordered `data-timeline` index like progress steppers). KEY FLASH FIX: instead
+of `draft=next` (which rebuilds the whole `{@html}` preview + replays every animation), `cycleTimeline`
+(MarkdownEditor) mutates ONLY that block's DOM in place (bead/✓, badge+row, progress width, header count)
+and persists via onCommit WITHOUT touching `draft`; a `tlLiveSource` guard makes the value→draft sync skip
+our own change, and `startEditing` re-seeds from the latest source. CSS `.md-timeline*` (accent + light/dark
+tokens, reduced-motion safe). Slash "Timeline" + FormattingHelp. No backend/migration; svelte-check + build
+pass. See documentation/SPRINT73.md. — earlier: Sprint 72 (The DASHBOARD, evolved — reshaped the Sprint-70
+dashboard into a custom interactive performance view, built on Sprint 69 task timing/status/tags; one tiny
+read-only backend command, NO migration. OPEN-TASK-FROM-ANYWHERE: `get_todo(id)` (commands/todos.rs) + a
+shared store `detailTodo` — `selectTodo(id)` resolves the full Todo from the open list OR fetches it, so the
+Inspector renders on ANY view (`+page.svelte` keys on `app.detailTodo`); mutations `patchDetail`, `recordNav`
+clears it. `DashboardView.svelte`: range presets (default THIS WEEK) + custom; Count-by (Planned vs Completed
+day) with hint; scalable "Tags ▾" dropdown; 4 KPIs (Completed Δ, Planned, Completion %, Tracked time) in the
+theme accent; a MOSAIC (uniform squares packed + ordered by tag, ✓ on done, click opens); TRACKED TIME per day
+(labelled bars + empty state, click to drill); EFFORT BY WEEKDAY (7 tiles, peak highlighted); COMPLETED OVER
+TIME (cumulative line); a task TABLE (sort recent/status/tag, short Open/WIP/Done pills, rows open the detail
+modal); cross-filter drill + "Back to overview"; Copy-as-image. FLAGSHIP: the TASK FIELD bubble viz
+(`$lib/bubblefield.ts`, canvas physics like stages) REPLACED the treemap — size = tracked time (sqrt, seed
+bubble for not-started), colour = status from the theme accent (done+✓ / WIP lighter-accent+pulse / open
+outline; accent resolved via `canvas.style.color=var(--accent)` so hex/rgb/HSL all work — raw-token parsing
+had turned it red), gentle drift + collision, hover tooltip, click-opens-task, drag, and ZOOM+PAN (⌘/pinch
+wheel so plain scroll still scrolls the page, + buttons); remounts only when the task set or theme changes.
+Also folded in: task-title `` `code` `` BADGES on read surfaces (`taskTitleHtml`/`.task-badge`), Focus-mode
+WIP section, Home always-visible Start. See documentation/SPRINT72.md. — earlier: Sprint 71 (Task polish follow-ups — four task-facing tweaks, no migration. (1) MANUAL
 WORK TIME: `set_todo_work_seconds(id, seconds)` (commands/todos.rs) sets the accumulator directly and, if
 the task is WIP, restarts `wip_started_at=now` so the new total takes effect immediately; rejects
 negatives. In the task detail modal the tracked-time readout is a button ("add time" + pencil when zero)

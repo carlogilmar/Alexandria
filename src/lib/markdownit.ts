@@ -171,6 +171,9 @@ export function createMarkdownIt(): MarkdownIt {
     if (info === "stages" || info.startsWith("stages ")) {
       return renderStages(tokens[idx].content, rawInfo.slice(6).trim(), md);
     }
+    if (info === "timeline" || info.startsWith("timeline ")) {
+      return renderTimeline(tokens[idx].content, rawInfo.slice(8).trim(), md, env);
+    }
     // Every other fenced block gets a GitHub-style copy button. The button is
     // static HTML (no per-instance handler survives `{@html}` re-renders); a
     // single delegated document listener — installCodeCopy — handles the click
@@ -502,6 +505,158 @@ function blockHeader(
     (meta ? `<span class="md-bhead-meta">${esc(meta)}</span>` : "") +
     `</div>`
   );
+}
+
+// ```timeline renderer — a custom horizontal timeline: a rail of milestone
+// beads (status-coloured, theme accent) with a drawn-in progress line, plus a
+// synced detail section below. DSL, one milestone per line:
+//   - <date> | <title> : <description> - <status>
+// `status` ∈ done | current | upcoming (optional; default upcoming). When
+// rendered interactively (notes), the beads + badges cycle the status and
+// rewrite the source (see setTimelineStatusInSource), like task checkboxes.
+type TLMilestone = {
+  date: string;
+  title: string;
+  desc: string;
+  status: "done" | "current" | "upcoming";
+};
+const TL_STATUS_RE = /\s-\s*(done|current|upcoming)\s*$/i;
+function parseTimeline(source: string): TLMilestone[] {
+  const out: TLMilestone[] = [];
+  for (const raw of source.split("\n")) {
+    const line = raw.trim();
+    if (!line.startsWith("-")) continue;
+    let body = line.replace(/^-\s*/, "");
+    let status: TLMilestone["status"] = "upcoming";
+    const sm = TL_STATUS_RE.exec(body);
+    if (sm) {
+      status = sm[1].toLowerCase() as TLMilestone["status"];
+      body = body.slice(0, sm.index);
+    }
+    let date = "", title = body.trim(), desc = "";
+    const pipe = body.indexOf("|");
+    if (pipe >= 0) { date = body.slice(0, pipe).trim(); body = body.slice(pipe + 1); }
+    const colon = body.indexOf(":");
+    if (colon >= 0) { title = body.slice(0, colon).trim(); desc = body.slice(colon + 1).trim(); }
+    else { title = body.trim(); }
+    if (!title && !date) continue;
+    out.push({ date, title, desc, status });
+  }
+  return out;
+}
+
+function renderTimeline(
+  source: string,
+  fenceTitle: string,
+  md: MarkdownIt,
+  env?: Record<string, unknown>,
+): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  const miles = parseTimeline(source);
+  const interactive = env?.progressInteractive === true;
+  // Document-ordered index across every ```timeline fence (matches the source
+  // scan in setTimelineStatusInSource), like progress steppers / task boxes.
+  const base = (env?.timelineCount as number) ?? 0;
+  if (env) env.timelineCount = base + miles.length;
+
+  if (!miles.length) {
+    return `<div class="md-timeline md-timeline-empty">Add milestones — one per line: <code>- date | title : description - status</code></div>`;
+  }
+  const n = miles.length;
+  const PAD = 9;
+  const xPct = (i: number) => (n === 1 ? 50 : PAD + i * ((100 - 2 * PAD) / (n - 1)));
+  let pIdx = miles.findIndex((m) => m.status === "current");
+  if (pIdx < 0) for (let i = 0; i < n; i++) if (miles[i].status === "done") pIdx = i;
+  const progW = pIdx < 0 ? 0 : xPct(pIdx);
+  const doneN = miles.filter((m) => m.status === "done").length;
+
+  const CHK =
+    `<svg viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="md-tl-chk"><path d="M4 10.5l4 4 8-9"/></svg>`;
+  const nodes = miles
+    .map((m, i) => {
+      const up = i % 2 === 0;
+      const gi = base + i;
+      const inner =
+        `<span class="md-tl-stem"></span>` +
+        `<span class="md-tl-label"><span class="md-tl-date">${esc(m.date)}</span>` +
+        `<span class="md-tl-title">${md.renderInline(m.title)}</span></span>` +
+        `<span class="md-tl-dot">${m.status === "done" ? CHK : ""}</span>`;
+      const cls = `md-tl-node ${up ? "up" : "down"} is-${m.status}`;
+      const style = `left:${xPct(i).toFixed(2)}%;animation-delay:${(0.2 + i * 0.08).toFixed(2)}s`;
+      return interactive
+        ? `<button type="button" class="${cls}" style="${style}" data-timeline="${gi}" title="Click to change status">${inner}</button>`
+        : `<div class="${cls}" style="${style}">${inner}</div>`;
+    })
+    .join("");
+
+  const LABEL = { done: "Done", current: "Current", upcoming: "Upcoming" };
+  const items = miles
+    .map((m, i) => {
+      const gi = base + i;
+      const badge = interactive
+        ? `<button type="button" class="md-tl-badge b-${m.status}" data-timeline="${gi}" title="Click to change status">${LABEL[m.status]}</button>`
+        : `<span class="md-tl-badge b-${m.status}">${LABEL[m.status]}</span>`;
+      return (
+        `<div class="md-tl-item is-${m.status}">` +
+        `<div class="md-tl-icol"><span class="md-tl-idate">${esc(m.date)}</span>` +
+        `<span class="md-tl-inum">Milestone ${i + 1}</span></div>` +
+        `<div class="md-tl-main"><span class="md-tl-ititle">${md.renderInline(m.title)}</span>` +
+        (m.desc ? `<span class="md-tl-idesc">${md.renderInline(m.desc)}</span>` : "") +
+        `</div>` +
+        badge +
+        `</div>`
+      );
+    })
+    .join("");
+
+  return (
+    `<div class="md-timeline">` +
+    blockHeader(
+      fenceTitle || "Timeline",
+      "",
+      `${n} milestone${n === 1 ? "" : "s"}${doneN ? ` · ${doneN} done` : ""}`,
+      md,
+    ) +
+    `<div class="md-tl-railwrap"><div class="md-tl-rail" style="width:max(100%, ${n * 150}px)">` +
+    `<div class="md-tl-base"></div>` +
+    `<div class="md-tl-prog" style="width:${progW.toFixed(2)}%"></div>` +
+    nodes +
+    `</div></div>` +
+    `<div class="md-tl-details">${items}</div>` +
+    `</div>`
+  );
+}
+
+// Cycle the Nth timeline milestone's status (upcoming→current→done→upcoming) in
+// the raw source and return the new source, or null if not found. Scans only
+// lines inside ```timeline fences, in document order (mirrors toggleTaskInSource).
+export function setTimelineStatusInSource(src: string, index: number): string | null {
+  const lines = src.split("\n");
+  let inFence = false;
+  let count = -1;
+  const order = ["upcoming", "current", "done"];
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i];
+    if (/^\s*```/.test(t)) {
+      const info = t.replace(/^\s*```/, "").trim().toLowerCase();
+      if (!inFence && info.startsWith("timeline")) inFence = true;
+      else if (inFence) inFence = false;
+      continue;
+    }
+    if (inFence && /^\s*-\s+/.test(t)) {
+      count++;
+      if (count === index) {
+        const m = TL_STATUS_RE.exec(t);
+        const cur = m ? m[1].toLowerCase() : "upcoming";
+        const bodyEnd = m ? m.index : t.length;
+        const stembase = t.slice(0, bodyEnd).replace(/\s+$/, "");
+        const next = order[(order.indexOf(cur) + 1) % 3];
+        lines[i] = next === "upcoming" ? stembase : `${stembase} - ${next}`;
+        return lines.join("\n");
+      }
+    }
+  }
+  return null;
 }
 
 // ```cards renderer. Cards are separated by a `---` line; each card is
