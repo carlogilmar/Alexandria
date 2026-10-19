@@ -2483,6 +2483,31 @@ html.dark .md-stages-modal-close {
   cursor: grab;
 }
 
+/* Week planner — drag ghost + drop-target highlight. */
+.planner-ghost {
+  position: fixed;
+  z-index: 80;
+  pointer-events: none;
+  max-width: 440px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--accent, #4f46e5);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html.dark .planner-ghost { background: #151a23; color: #e7ecf3; }
+.planner-sec.drop {
+  border-color: var(--accent, #4f46e5) !important;
+  background: color-mix(in srgb, var(--accent, #4f46e5) 9%, var(--surface, #fff)) !important;
+}
+html.dark .planner-sec.drop {
+  background: color-mix(in srgb, var(--accent, #4f46e5) 14%, #0d1017) !important;
+}
+
 /* ------------------------------------------------------------------ */
 /* Timeline block (```timeline) — theme-accent colored.               */
 /* ------------------------------------------------------------------ */

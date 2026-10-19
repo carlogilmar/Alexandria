@@ -86,6 +86,7 @@ import {
   tagsForTodo,
   listTodoTags,
   getDashboard,
+  getWeek,
   listTags,
   addTagToTodo,
   removeTagFromTodo,
@@ -181,6 +182,7 @@ import {
   type Todo,
   type TodoStatus,
   type DashboardData,
+  type WeekData,
   type TodoHit,
   type WeeklyActivity,
 } from "$lib/ipc";
@@ -234,6 +236,7 @@ type NavLoc =
         | "feedback"
         | "activity"
         | "dashboard"
+        | "planner"
         | "flashdeck"
         | "blueprints"
         | "storyboards"
@@ -251,6 +254,7 @@ class AppStore {
     | "feedback-board"
     | "activity"
     | "dashboard"
+    | "planner"
     | "flashdeck"
     | "blueprints"
     | "blueprint"
@@ -469,6 +473,7 @@ class AppStore {
       case "feedback":
       case "activity":
       case "dashboard":
+      case "planner":
       case "flashdeck":
       case "blueprints":
       case "storyboards":
@@ -537,6 +542,9 @@ class AppStore {
           break;
         case "dashboard":
           await this.openDashboard();
+          break;
+        case "planner":
+          await this.openPlanner();
           break;
         case "flashdeck":
           await this.openFlashDeck();
@@ -2599,6 +2607,77 @@ class AppStore {
     } finally {
       this.dashboardLoading = false;
     }
+  }
+
+  // ---- Week planner (Sprint 74) ----
+
+  week = $state<WeekData | null>(null);
+  weekLoading = $state(false);
+  private weekFrom = "";
+  private weekTo = "";
+
+  async openPlanner() {
+    this.recordNav();
+    this.view = "planner";
+    this.selected = null;
+    this.todos = [];
+    this.selectedTodoId = null;
+    this.selectedTodoTags = [];
+    this.selectedNote = null;
+  }
+
+  async loadWeek(from: string, to: string) {
+    this.weekFrom = from;
+    this.weekTo = to;
+    this.weekLoading = true;
+    try {
+      this.week = await getWeek(from, to);
+    } catch (e) {
+      this.error = String(e);
+    } finally {
+      this.weekLoading = false;
+    }
+  }
+
+  private async reloadWeek() {
+    if (this.weekFrom) await this.loadWeek(this.weekFrom, this.weekTo);
+  }
+
+  // Add a task to a given day — creating that day's list if it doesn't exist yet
+  // (idempotent per date; an explicit planning action, cf. "Pull to today").
+  async addWeekTask(date: string, text: string) {
+    const t = text.trim();
+    if (!t) return;
+    const list = await createList(defaultListTitleForDate(date), date);
+    await createTodo(list.id, t);
+    await this.reloadWeek();
+    await this.refreshLists();
+  }
+
+  async addWeekBacklogTask(text: string) {
+    const t = text.trim();
+    if (!t) return;
+    const id = await this.ensureBacklog();
+    await createTodo(id, t);
+    await this.reloadWeek();
+    await this.refreshLists();
+  }
+
+  // Move a task onto a day (creating its list if needed) or into the backlog.
+  async moveWeekTask(todoId: number, target: string) {
+    const listId =
+      target === "backlog"
+        ? await this.ensureBacklog()
+        : (await createList(defaultListTitleForDate(target), target)).id;
+    await moveTodo(todoId, listId);
+    await this.reloadWeek();
+    await this.refreshLists();
+  }
+
+  async toggleWeekTodo(todo: Todo) {
+    await toggleTodo(todo.id);
+    await this.reloadWeek();
+    await this.refreshLists();
   }
 }
 

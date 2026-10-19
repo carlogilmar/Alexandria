@@ -46,6 +46,7 @@ pub fn run() {
             commands::tags::tags_for_todo,
             commands::tags::list_todo_tags,
             commands::search::get_dashboard,
+            commands::search::get_week,
             commands::tags::add_tag_to_todo,
             commands::tags::remove_tag_from_todo,
             commands::export::export_list_md,

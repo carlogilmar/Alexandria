@@ -16,6 +16,7 @@
         { keys: "⌘ 7", label: "Split view — reference pane" },
         { keys: "⌘ 8", label: "Random sidebar theme" },
         { keys: "⌘ 9", label: "Dashboard — task performance" },
+        { keys: "⌘ 0", label: "Week planner — plan Mon–Fri + backlog" },
       ],
     },
     {

@@ -98,6 +98,25 @@ pub struct DashboardData {
     pub tags: Vec<TodoTag>,
 }
 
+// Week planner (Sprint 74): the weekday lists in range + the backlog, their
+// todos, and tag links — grouped client-side by list id.
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct WeekListInfo {
+    pub id: i64,
+    pub date: String,
+    pub title: String,
+    pub is_backlog: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WeekData {
+    pub lists: Vec<WeekListInfo>,
+    pub todos: Vec<Todo>,
+    pub tags: Vec<TodoTag>,
+}
+
 #[derive(Debug, Clone, Serialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct TodoHit {

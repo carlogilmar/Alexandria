@@ -1,7 +1,7 @@
 use crate::commands::AppState;
 use crate::db::models::{
     ActivityDay, DashboardData, DashboardTask, DayStats, MirrorData, MirrorList, MirrorPoint,
-    Stats, TodoHit, TodoTag, WeeklyActivity,
+    Stats, Todo, TodoHit, TodoTag, WeekData, WeekListInfo, WeeklyActivity,
 };
 use crate::error::AppResult;
 use sqlx::SqlitePool;
@@ -391,6 +391,57 @@ pub async fn get_dashboard(
     dashboard(&state.pool, &from, &to).await
 }
 
+// ---------- Week planner (Sprint 74) ----------
+
+// The non-archived weekday lists whose date is in [from, to], PLUS the backlog,
+// with all their todos and tag links — grouped client-side by list id. The
+// predicate is shared across the three queries.
+pub(crate) async fn week(pool: &SqlitePool, from: &str, to: &str) -> AppResult<WeekData> {
+    let lists = sqlx::query_as::<_, WeekListInfo>(
+        "SELECT id, date, title, is_backlog FROM lists
+          WHERE archived = 0
+            AND ((is_backlog = 0 AND date >= ?1 AND date <= ?2) OR is_backlog = 1)
+          ORDER BY is_backlog ASC, date ASC",
+    )
+    .bind(from)
+    .bind(to)
+    .fetch_all(pool)
+    .await?;
+
+    let todos = sqlx::query_as::<_, Todo>(
+        "SELECT td.* FROM todos td JOIN lists l ON l.id = td.list_id
+          WHERE l.archived = 0
+            AND ((l.is_backlog = 0 AND l.date >= ?1 AND l.date <= ?2) OR l.is_backlog = 1)
+          ORDER BY td.position ASC, td.id ASC",
+    )
+    .bind(from)
+    .bind(to)
+    .fetch_all(pool)
+    .await?;
+
+    let tags = sqlx::query_as::<_, TodoTag>(
+        "SELECT tt.todo_id AS todo_id, t.id AS id, t.name AS name, t.color AS color
+           FROM todo_tags tt
+           JOIN tags  t  ON t.id = tt.tag_id
+           JOIN todos td ON td.id = tt.todo_id
+           JOIN lists l  ON l.id = td.list_id
+          WHERE l.archived = 0
+            AND ((l.is_backlog = 0 AND l.date >= ?1 AND l.date <= ?2) OR l.is_backlog = 1)
+          ORDER BY t.name ASC",
+    )
+    .bind(from)
+    .bind(to)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(WeekData { lists, todos, tags })
+}
+
+#[tauri::command]
+pub async fn get_week(state: State<'_, AppState>, from: String, to: String) -> AppResult<WeekData> {
+    week(&state.pool, &from, &to).await
+}
+
 // ---------- Tests ----------
 
 #[cfg(test)]
@@ -405,6 +456,25 @@ mod tests {
             .fetch_one(pool)
             .await
             .unwrap()
+    }
+
+    #[tokio::test]
+    async fn week_returns_weekday_lists_plus_backlog() {
+        let pool = test_pool().await;
+        let mon = lists::create(&pool, "Mon", "2026-05-11").await.unwrap();
+        todos::create(&pool, mon.id, "mon task").await.unwrap();
+        // Out of range (next week).
+        let far = lists::create(&pool, "Far", "2026-05-25").await.unwrap();
+        todos::create(&pool, far.id, "far").await.unwrap();
+        // Backlog (always included).
+        let bl = lists::backlog(&pool).await.unwrap();
+        todos::create(&pool, bl.id, "someday").await.unwrap();
+
+        let data = week(&pool, "2026-05-11", "2026-05-15").await.unwrap();
+        assert!(data.lists.iter().any(|l| l.id == mon.id && !l.is_backlog));
+        assert!(data.lists.iter().any(|l| l.is_backlog));
+        assert!(!data.lists.iter().any(|l| l.id == far.id), "next week excluded");
+        assert_eq!(data.todos.len(), 2, "mon task + backlog task");
     }
 
     #[tokio::test]

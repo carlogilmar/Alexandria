@@ -124,7 +124,7 @@ destination, add a string to the union, add a `route` case, add a
 sidebar button.
 
 Current view values: `home · list · note · index ·
-mirror · feedback · feedback-board · activity · dashboard · flashdeck ·
+mirror · feedback · feedback-board · activity · dashboard · planner · flashdeck ·
 blueprints · blueprint · storyboards · storyboard · passwords`.
 
 UI labels diverge from internal names where renames happened — the
@@ -420,7 +420,24 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 73 (The `timeline` block — a custom powered-markdown timeline (an original
+Last updated: end of Sprint 74 (The WEEK PLANNER — a new `planner` view (⌘0) for planning tasks across
+Mon–Fri, not just today (weekends excluded by request); mocked up first, VERTICAL layout chosen so long
+task text reads in full. Backend read-only `get_week(from,to)` (commands/search.rs; models
+`WeekData`/`WeekListInfo`; 1 test; NO migration) returns the non-archived weekday lists in range + the
+backlog, with their todos + tag links (grouped client-side). Store `planner` view + `week` state +
+`loadWeek`; planning WRITES reuse existing plumbing — `addWeekTask(date,text)` = `createList`(idempotent per
+date) + `createTodo` (a day's list is created only on first add, never by viewing), `addWeekBacklogTask`,
+`moveWeekTask(todoId, date|"backlog")` via `move_todo`, `toggleWeekTodo`; each reloads the week +
+refreshLists. `PlannerView.svelte`: Mon–Fri full-width stacked sections + a distinct accent-tinted dashed
+BACKLOG section; today highlighted (ring + pill), past dimmed; compact single-line task rows (ellipsis, full
+text on hover/click, `taskTitleHtml` badges, tags, grip); a bold accent count pill per section; pointer DRAG
+& DROP between days/backlog (floating ghost + drop highlight, like the kanban); inline ＋add per day; checkbox
+completes; clicking a task opens the REAL Inspector modal (`app.selectTodo`) and the week reloads on close.
+PLACEMENT (per author): the entry is in the SIDEBAR, not the TopNav — the old full-width Today's-list +
+Backlog buttons became a grouped row of three ICON-ONLY buttons (Today · Backlog · Planner) with tooltips +
+active highlight + uncut corner COUNT BADGES (today's count, backlog pending, and `weekTotal` = tasks across
+the week); TopNav Planner icon removed; ⌘0 + palette + HelpModal also open it. 99 cargo tests + svelte-check
++ build pass. See documentation/SPRINT74.md. — earlier: Sprint 73 (The `timeline` block — a custom powered-markdown timeline (an original
 alternative to mermaid's), mocked up first. SYNTAX: `` ```timeline <title> `` then one milestone per line
 `- <date> | <title> : <description> - <status>` (status = done|current|upcoming, optional). RENDER
 (`renderTimeline` in markdownit.ts, synchronous, theme-ACCENT coloured): a horizontal RAIL of beads with

@@ -14,6 +14,7 @@
   import FeedbackBoardView from "$lib/components/FeedbackBoardView.svelte";
   import ActivityView from "$lib/components/ActivityView.svelte";
   import DashboardView from "$lib/components/DashboardView.svelte";
+  import PlannerView from "$lib/components/PlannerView.svelte";
   import FlashDeckView from "$lib/components/FlashDeckView.svelte";
   import BlueprintView from "$lib/components/BlueprintView.svelte";
   import TopNav from "$lib/components/TopNav.svelte";
@@ -76,6 +77,7 @@
     "feedback-board": "Feedback",
     activity: "Activity",
     dashboard: "Dashboard",
+    planner: "Planner",
     flashdeck: "Flash Deck",
     blueprints: "Library",
     blueprint: "Blueprints",
@@ -165,6 +167,10 @@
       case "9": // Dashboard
         e.preventDefault();
         app.openDashboard();
+        break;
+      case "0": // Week planner
+        e.preventDefault();
+        app.openPlanner();
         break;
     }
   }
@@ -256,6 +262,8 @@
       <ActivityView />
     {:else if app.view === "dashboard"}
       <DashboardView />
+    {:else if app.view === "planner"}
+      <PlannerView />
     {:else if app.view === "flashdeck"}
       <FlashDeckView />
     {:else if app.view === "passwords"}

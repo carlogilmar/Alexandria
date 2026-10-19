@@ -78,6 +78,24 @@
     return candidates.reduce((a, b) => (b.id < a.id ? b : a));
   });
 
+  // Total tasks planned across the current week (Mon–Fri) — shown on the Planner
+  // button. Uses the list summaries already in the store (backlog is excluded
+  // from `app.lists`).
+  let weekTotal = $derived.by(() => {
+    const d = new Date(today + "T00:00:00");
+    const mon = new Date(d);
+    mon.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    const keys = new Set<string>();
+    for (let i = 0; i < 5; i++) {
+      const x = new Date(mon);
+      x.setDate(mon.getDate() + i);
+      keys.add(`${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`);
+    }
+    return app.lists
+      .filter((l) => !l.archived && keys.has(l.date))
+      .reduce((s, l) => s + (l.total || 0), 0);
+  });
+
   // ----- Unified Pinned list (Sprint 49) -----
   type PinKind = "note" | "blueprint" | "storyboard" | "board" | "flashcard";
   type Pin = {
@@ -193,10 +211,6 @@
       openPin(p);
     }
   }
-
-  let todayPct = $derived(
-    todaysList && todaysList.total > 0 ? Math.round((todaysList.done / todaysList.total) * 100) : 0,
-  );
 </script>
 
 <aside
@@ -253,71 +267,53 @@
         </button>
       {/each}
     {:else}
-      <!-- Today's list -->
-      {#if todaysList}
+      <!-- Today · Backlog · Planner — grouped icon buttons (tooltip = label) -->
+      {@const todayActive = app.view === "list" && todaysList != null && app.selected?.id === todaysList.id}
+      {@const backlogActive = app.view === "list" && (app.selected?.isBacklog ?? false)}
+      {@const plannerActive = app.view === "planner"}
+      {@const navBase = "relative flex h-11 flex-1 items-center justify-center rounded-xl border transition-colors"}
+      {@const navOn = "border-blue-500 bg-blue-50 dark:border-blue-500 dark:bg-blue-950"}
+      {@const navOff = "border-neutral-200 bg-white hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:bg-neutral-800"}
+      <div class="mb-3 flex gap-2" use:reveal={{ delay: 110 }}>
         <button
           type="button"
-          class="mb-2 flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition-colors"
-          class:border-blue-500={app.view === "list" && app.selected?.id === todaysList.id}
-          class:bg-blue-50={app.view === "list" && app.selected?.id === todaysList.id}
-          class:dark:bg-blue-950={app.view === "list" && app.selected?.id === todaysList.id}
-          class:border-neutral-200={!(app.view === "list" && app.selected?.id === todaysList.id)}
-          class:bg-white={!(app.view === "list" && app.selected?.id === todaysList.id)}
-          class:hover:bg-neutral-100={!(app.view === "list" && app.selected?.id === todaysList.id)}
-          class:dark:border-neutral-700={!(app.view === "list" && app.selected?.id === todaysList.id)}
-          class:dark:bg-neutral-900={!(app.view === "list" && app.selected?.id === todaysList.id)}
-          class:dark:hover:bg-neutral-800={!(app.view === "list" && app.selected?.id === todaysList.id)}
-          onclick={() => todaysList && app.select(todaysList.id)}
-          title="Today's list — ⌘N to create one for any day"
-          use:reveal={{ delay: 110 }}
+          class="{navBase} {todayActive ? navOn : navOff}"
+          onclick={() => (todaysList ? app.select(todaysList.id) : app.newList())}
+          title={todaysList ? `Today's list — ${todaysList.done}/${todaysList.total === 0 ? "—" : todaysList.total} done` : "Create today's list"}
+          aria-label="Today's list"
         >
-          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300">
-            <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path fill-rule="evenodd" d="M6 2a1 1 0 011 1v1h6V3a1 1 0 112 0v1h1a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h1V3a1 1 0 011-1zm-1 6v9h10V8H5z" clip-rule="evenodd"/></svg>
-          </span>
-          <div class="min-w-0 flex-1">
-            <p class="text-[10.5px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Today's list</p>
-            <p class="truncate text-xs font-medium text-neutral-700 dark:text-neutral-200">{todaysList.done}/{todaysList.total === 0 ? "—" : todaysList.total} {todaysList.total > 0 ? "done" : "empty"}</p>
-            {#if todaysList.total > 0}
-              <div class="mt-1 h-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
-                <div class="h-full rounded-full bg-emerald-500 transition-[width] duration-500 ease-out dark:bg-emerald-400" style="width: {todayPct}%"></div>
-              </div>
-            {/if}
-          </div>
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-blue-600 dark:text-blue-300"><path fill-rule="evenodd" d="M6 2a1 1 0 011 1v1h6V3a1 1 0 112 0v1h1a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h1V3a1 1 0 011-1zm-1 6v9h10V8H5z" clip-rule="evenodd"/></svg>
+          {#if todaysList && todaysList.total > 0}
+            <span class="absolute right-1 top-1 min-w-[16px] rounded-full bg-blue-600 px-1 text-center text-[10px] font-bold leading-4 text-white dark:bg-blue-500">{todaysList.total}</span>
+          {/if}
         </button>
-      {:else}
-        <button type="button" class="mb-2 flex w-full items-center gap-2 rounded-xl border border-dashed border-neutral-300/70 px-2.5 py-2.5 text-left text-xs text-neutral-500 transition-colors hover:bg-neutral-100/60 hover:text-neutral-700 dark:border-neutral-700/70 dark:text-neutral-400 dark:hover:bg-neutral-800/40 dark:hover:text-neutral-200" onclick={() => app.newList()} title="Create today's list" use:reveal={{ delay: 110 }}>
-          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 shrink-0"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-          Create today's list
-        </button>
-      {/if}
 
-      <!-- Backlog -->
-      <button
-        type="button"
-        class="mb-2 flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition-colors"
-        class:border-blue-500={app.view === "list" && app.selected?.isBacklog}
-        class:bg-blue-50={app.view === "list" && app.selected?.isBacklog}
-        class:dark:bg-blue-950={app.view === "list" && app.selected?.isBacklog}
-        class:border-neutral-200={!(app.view === "list" && app.selected?.isBacklog)}
-        class:bg-white={!(app.view === "list" && app.selected?.isBacklog)}
-        class:hover:bg-neutral-100={!(app.view === "list" && app.selected?.isBacklog)}
-        class:dark:border-neutral-700={!(app.view === "list" && app.selected?.isBacklog)}
-        class:dark:bg-neutral-900={!(app.view === "list" && app.selected?.isBacklog)}
-        class:dark:hover:bg-neutral-800={!(app.view === "list" && app.selected?.isBacklog)}
-        onclick={() => app.openBacklog()}
-        use:reveal={{ delay: 150 }}
-      >
-        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-300">
-          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-1 1H4a1 1 0 01-1-1V4z" /><path fill-rule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zm4 2a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
-        </span>
-        <div class="min-w-0 flex-1">
-          <p class="text-[10.5px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Backlog</p>
-          <p class="truncate text-xs font-medium text-neutral-700 dark:text-neutral-200">{app.backlogPending > 0 ? `${app.backlogPending} pending` : "empty"}</p>
-        </div>
-        {#if app.backlogPending > 0}
-          <span class="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-semibold text-violet-700 dark:bg-violet-900 dark:text-violet-200">{app.backlogPending}</span>
-        {/if}
-      </button>
+        <button
+          type="button"
+          class="{navBase} {backlogActive ? navOn : navOff}"
+          onclick={() => app.openBacklog()}
+          title={app.backlogPending > 0 ? `Backlog — ${app.backlogPending} pending` : "Backlog"}
+          aria-label="Backlog"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-violet-600 dark:text-violet-300"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-1 1H4a1 1 0 01-1-1V4z"/><path fill-rule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zm4 2a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+          {#if app.backlogPending > 0}
+            <span class="absolute right-1 top-1 min-w-[16px] rounded-full bg-violet-600 px-1 text-center text-[10px] font-bold leading-4 text-white dark:bg-violet-500">{app.backlogPending}</span>
+          {/if}
+        </button>
+
+        <button
+          type="button"
+          class="{navBase} {plannerActive ? navOn : navOff}"
+          onclick={() => app.openPlanner()}
+          title="Week planner — plan Mon–Fri (⌘0)"
+          aria-label="Week planner"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-teal-600 dark:text-teal-300"><path d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zM4 8h12v8H4V8zm2 2a1 1 0 000 2h3a1 1 0 100-2H6z"/></svg>
+          {#if weekTotal > 0}
+            <span class="absolute right-1 top-1 min-w-[16px] rounded-full bg-teal-600 px-1 text-center text-[10px] font-bold leading-4 text-white dark:bg-teal-500">{weekTotal}</span>
+          {/if}
+        </button>
+      </div>
 
       <!-- + Add -->
       <button type="button" title="Add a new entity — ⌘2" class="add-btn btn-accent mb-4 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-sm font-semibold shadow-sm transition-[transform,box-shadow] hover:shadow-md active:translate-y-px" onclick={() => (app.addModalOpen = true)} use:reveal={{ delay: 190 }}>

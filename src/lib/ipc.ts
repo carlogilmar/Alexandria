@@ -75,6 +75,19 @@ export type DashboardData = {
   tags: TodoTag[];
 };
 
+// Week planner (Sprint 74).
+export type WeekListInfo = {
+  id: number;
+  date: string;
+  title: string;
+  isBacklog: boolean;
+};
+export type WeekData = {
+  lists: WeekListInfo[];
+  todos: Todo[];
+  tags: TodoTag[];
+};
+
 export type TodoHit = {
   id: number;
   listId: number;
@@ -262,6 +275,8 @@ export const getActivityStats = () =>
   invoke<ActivityDay[]>("get_activity_stats");
 export const getDashboard = (from: string, to: string) =>
   invoke<DashboardData>("get_dashboard", { from, to });
+export const getWeek = (from: string, to: string) =>
+  invoke<WeekData>("get_week", { from, to });
 
 export const getMirror = () => invoke<MirrorData>("get_mirror");
 

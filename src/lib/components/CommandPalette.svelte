@@ -36,6 +36,7 @@
     { key: "go-feedback", group: "Go to", label: "Feedback", sub: "Kanban boards", run: () => app.openFeedback() },
     { key: "go-activity", group: "Go to", label: "Activity", sub: "When you've been working", hint: "⌘4", run: () => app.openActivity() },
     { key: "go-dashboard", group: "Go to", label: "Dashboard", sub: "Task performance over a period", hint: "⌘9", run: () => app.openDashboard() },
+    { key: "go-planner", group: "Go to", label: "Week planner", sub: "Plan tasks across the week (Mon–Fri) + backlog", hint: "⌘0", run: () => app.openPlanner() },
     { key: "go-deck", group: "Go to", label: "Flash Deck", sub: "Your flashcards", run: () => app.openFlashDeck() },
     { key: "go-blueprints", group: "Go to", label: "Blueprints", sub: "Design canvases for planning software", run: () => app.openBlueprints() },
     { key: "go-storyboards", group: "Go to", label: "Storyboards", sub: "Tiny diagram + note, page by page", run: () => app.openStoryboards() },
