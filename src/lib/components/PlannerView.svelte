@@ -25,6 +25,24 @@
   // Load the week whenever the range changes (mount + nav).
   $effect(() => { void app.loadWeek(fromKey, toKey); });
 
+  // Collapsible sections — only the current day is open by default.
+  let openState = $state<Record<string, boolean>>({});
+  const isOpen = (key: string) => openState[key] ?? key === todayKey;
+  function toggleSection(key: string) { openState = { ...openState, [key]: !isOpen(key) }; }
+  function expandAll() {
+    const n = { ...openState };
+    for (const d of weekDates) n[iso(d)] = true;
+    n.backlog = true;
+    openState = n;
+  }
+  function collapseAll() {
+    // Collapse everything except the current day.
+    const n = { ...openState };
+    for (const d of weekDates) n[iso(d)] = iso(d) === todayKey;
+    n.backlog = false;
+    openState = n;
+  }
+
   // Reload once the task detail modal closes, to pick up edits made there.
   let modalWasOpen = false;
   $effect(() => {
@@ -67,12 +85,15 @@
   function onChipDown(e: PointerEvent, todo: Todo) {
     if ((e.target as HTMLElement).closest("[data-check]")) return;
     if (e.button !== 0) return;
+    e.preventDefault(); // don't start a native text selection on drag
     const start = { x: e.clientX, y: e.clientY };
     let moved = false;
     const onMove = (ev: PointerEvent) => {
       if (!moved && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 5) {
         moved = true;
         dragId = todo.id;
+        document.body.classList.add("planner-dragging");
+        window.getSelection()?.removeAllRanges();
         ghost = document.createElement("div");
         ghost.className = "planner-ghost";
         ghost.textContent = todo.text;
@@ -92,6 +113,7 @@
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", onUp);
       ghost?.remove(); ghost = null;
+      document.body.classList.remove("planner-dragging");
       document.querySelectorAll(".planner-sec.drop").forEach((x) => x.classList.remove("drop"));
       dragId = null;
       if (moved) {
@@ -124,42 +146,52 @@
       Week planner
     </h1>
     <span class="text-sm text-neutral-500 dark:text-neutral-400">{rangeLabel}</span>
-    <div class="ml-auto flex items-center gap-1">
-      <button type="button" class="h-8 w-9 rounded-lg border border-neutral-200 bg-white text-neutral-500 transition-colors hover:text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400" title="Previous week" onclick={() => (weekOffset -= 1)}>‹</button>
-      <button type="button" class="h-8 rounded-lg border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300" onclick={() => (weekOffset = 0)}>This week</button>
-      <button type="button" class="h-8 w-9 rounded-lg border border-neutral-200 bg-white text-neutral-500 transition-colors hover:text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400" title="Next week" onclick={() => (weekOffset += 1)}>›</button>
+    <div class="ml-auto flex items-center gap-2.5">
+      <div class="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+        <button type="button" class="transition-colors hover:text-neutral-900 dark:hover:text-neutral-100" onclick={expandAll}>Expand all</button>
+        <span class="text-neutral-300 dark:text-neutral-600">·</span>
+        <button type="button" class="transition-colors hover:text-neutral-900 dark:hover:text-neutral-100" onclick={collapseAll} title="Collapse all except today">Collapse</button>
+      </div>
+      <span class="h-5 w-px bg-neutral-200 dark:bg-neutral-700"></span>
+      <div class="flex items-center gap-1">
+        <button type="button" class="h-8 w-9 rounded-lg border border-neutral-200 bg-white text-neutral-500 transition-colors hover:text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400" title="Previous week" onclick={() => (weekOffset -= 1)}>‹</button>
+        <button type="button" class="h-8 rounded-lg border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300" onclick={() => (weekOffset = 0)}>This week</button>
+        <button type="button" class="h-8 w-9 rounded-lg border border-neutral-200 bg-white text-neutral-500 transition-colors hover:text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400" title="Next week" onclick={() => (weekOffset += 1)}>›</button>
+      </div>
     </div>
   </div>
 
   <div class="flex flex-col gap-3">
     {#snippet section(key: string, label: string, dateLabel: string, todos: Todo[], isBacklog: boolean, isToday: boolean, isPast: boolean)}
+      {@const open = isOpen(key)}
       <div
-        class="planner-sec overflow-hidden rounded-xl border bg-white transition-colors dark:bg-neutral-900 {isToday ? 'today' : ''} {isBacklog ? 'backlog' : 'border-neutral-200 dark:border-neutral-800'} {isPast ? 'opacity-70' : ''}"
+        class="planner-sec overflow-hidden text-neutral-700 transition-colors dark:text-neutral-300 {isToday ? 'is-today' : ''} {isBacklog ? 'is-backlog' : ''} {isPast ? 'is-past' : ''}"
         data-day={key}
-        style={isBacklog ? "background: color-mix(in srgb, var(--accent,#4f46e5) 7%, var(--surface, #fff)); border: 1px dashed color-mix(in srgb, var(--accent,#4f46e5) 30%, transparent);" : isToday ? "border-color: color-mix(in srgb, var(--accent,#4f46e5) 55%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent,#4f46e5) 14%, transparent);" : ""}
       >
-        <div class="flex items-baseline gap-2.5 border-b border-neutral-100 px-4 py-2.5 dark:border-neutral-800" style={isBacklog ? "border-bottom-color: color-mix(in srgb, var(--accent,#4f46e5) 16%, transparent)" : ""}>
+        <button type="button" class="planner-head flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left {open ? 'border-b border-black/[0.06] dark:border-white/[0.06]' : ''}" onclick={() => toggleSection(key)} aria-expanded={open}>
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5 shrink-0 text-neutral-400 transition-transform dark:text-neutral-500 {open ? 'rotate-90' : ''}"><path fill-rule="evenodd" d="M7.3 4.3a1 1 0 011.4 0l5 5a1 1 0 010 1.4l-5 5a1 1 0 01-1.4-1.4L11.58 10 7.3 5.7a1 1 0 010-1.4z" clip-rule="evenodd"/></svg>
           <span class="inline-flex items-center gap-1.5 text-sm font-bold" style={isBacklog || isToday ? "color: var(--accent,#4f46e5)" : ""} class:text-neutral-800={!isBacklog && !isToday} class:dark:text-neutral-100={!isBacklog && !isToday}>
             {#if isBacklog}<svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5"><path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm0 2h12v6h-3l-1 2H8l-1-2H4V5z"/></svg>{/if}
             {label}
           </span>
-          <span class="text-xs tabular-nums text-neutral-400">{dateLabel}</span>
+          <span class="text-xs tabular-nums text-neutral-400 dark:text-neutral-500">{dateLabel}</span>
           {#if isToday}<span class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white" style="background: var(--accent,#4f46e5)">Today</span>{/if}
-          <span class="ml-auto rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums" style="color: var(--accent,#4f46e5); background: color-mix(in srgb, var(--accent,#4f46e5) 13%, transparent)">
+          <span class="ml-auto rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums" style="color: var(--accent,#4f46e5); background: color-mix(in srgb, var(--accent,#4f46e5) 15%, transparent)">
             {#if isBacklog}{todos.length}{:else}{todos.filter((t) => t.completed).length}/{todos.length}{/if}
           </span>
-        </div>
+        </button>
 
-        <div class="px-2 py-1">
+        {#if open}
+        <div class="flex flex-col gap-1.5 px-2.5 pb-2.5 pt-1.5">
           {#if todos.length === 0}
-            <div class="m-1 rounded-lg border border-dashed border-neutral-200 py-2 text-center text-xs text-neutral-400 dark:border-neutral-700">
+            <div class="planner-empty py-3 text-center text-xs text-neutral-400 dark:text-neutral-500">
               No tasks yet — add one below{isBacklog ? "" : " or drag one here"}
             </div>
           {:else}
             {#each todos as todo (todo.id)}
               <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div
-                class="group flex cursor-grab select-none items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800/50 {dragId === todo.id ? 'opacity-40' : ''}"
+                class="planner-chip group flex cursor-grab select-none items-center gap-2.5 px-2.5 py-2 {dragId === todo.id ? 'opacity-40' : ''}"
                 title={todo.text}
                 onpointerdown={(e) => onChipDown(e, todo)}
               >
@@ -189,15 +221,18 @@
           {/if}
         </div>
 
-        <div class="flex items-center gap-1.5 px-3 py-1.5">
-          <span class="text-neutral-400">＋</span>
-          <input
-            class="flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-sm outline-none transition-colors placeholder:text-neutral-400 focus:border-[color-mix(in_srgb,var(--accent,#4f46e5)_40%,transparent)] focus:bg-neutral-50 dark:text-neutral-100 dark:focus:bg-neutral-800/50"
-            placeholder={isBacklog ? "Add to backlog…" : `Add a task to ${label}…`}
-            bind:value={drafts[key]}
-            onkeydown={(e) => { if (e.key === "Enter") submitAdd(key); }}
-          />
+        <div class="px-2.5 pb-2.5">
+          <div class="planner-add flex items-center gap-1.5 px-2 py-1">
+            <span class="text-neutral-400">＋</span>
+            <input
+              class="flex-1 bg-transparent px-1 py-1 text-sm outline-none placeholder:text-neutral-400 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+              placeholder={isBacklog ? "Add to backlog…" : `Add a task to ${label}…`}
+              bind:value={drafts[key]}
+              onkeydown={(e) => { if (e.key === "Enter") submitAdd(key); }}
+            />
+          </div>
         </div>
+        {/if}
       </div>
     {/snippet}
 

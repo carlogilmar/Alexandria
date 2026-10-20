@@ -2483,6 +2483,57 @@ html.dark .md-stages-modal-close {
   cursor: grab;
 }
 
+/* Week planner — gray day panels + white task cards (theme-aware), so tasks
+   read as distinct objects instead of a flat white expanse. */
+.planner-sec {
+  border: 1px solid #e6e9ef;
+  background: #eef0f4;
+  border-radius: 14px;
+}
+html.dark .planner-sec { border-color: #242b36; background: #141a22; }
+.planner-sec.is-past { opacity: 0.72; }
+.planner-sec.is-today {
+  background: color-mix(in srgb, var(--accent, #4f46e5) 8%, #eef0f4);
+  border-color: color-mix(in srgb, var(--accent, #4f46e5) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, #4f46e5) 15%, transparent);
+}
+html.dark .planner-sec.is-today { background: color-mix(in srgb, var(--accent, #4f46e5) 15%, #141a22); }
+.planner-sec.is-backlog {
+  background: color-mix(in srgb, var(--accent, #4f46e5) 6%, #eef0f4);
+  border: 1px dashed color-mix(in srgb, var(--accent, #4f46e5) 32%, transparent);
+}
+html.dark .planner-sec.is-backlog { background: color-mix(in srgb, var(--accent, #4f46e5) 13%, #141a22); }
+.planner-head { cursor: pointer; }
+.planner-head:hover { background: color-mix(in srgb, currentColor 5%, transparent); }
+
+.planner-chip {
+  border: 1px solid #e6e9ef;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 1px 1.5px rgba(16, 22, 38, 0.05);
+  transition: box-shadow 0.12s, transform 0.12s;
+}
+.planner-chip:hover { box-shadow: 0 5px 16px rgba(16, 22, 38, 0.1); }
+html.dark .planner-chip { border-color: #2a313c; background: #1b212b; box-shadow: none; }
+html.dark .planner-chip:hover { box-shadow: 0 5px 18px rgba(0, 0, 0, 0.45); }
+.planner-add {
+  border: 1px solid transparent;
+  background: color-mix(in srgb, #ffffff 55%, transparent);
+  border-radius: 9px;
+}
+html.dark .planner-add { background: rgba(255, 255, 255, 0.04); }
+.planner-add:focus-within { border-color: color-mix(in srgb, var(--accent, #4f46e5) 45%, transparent); background: #fff; }
+html.dark .planner-add:focus-within { background: #1b212b; }
+.planner-empty {
+  border: 1px dashed color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, #ffffff 35%, transparent);
+}
+html.dark .planner-empty { background: rgba(255, 255, 255, 0.02); }
+
+/* While dragging a planner task, suppress text selection everywhere. */
+body.planner-dragging, body.planner-dragging * { user-select: none !important; cursor: grabbing !important; }
+
 /* Week planner — drag ghost + drop-target highlight. */
 .planner-ghost {
   position: fixed;
