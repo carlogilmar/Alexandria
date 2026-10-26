@@ -98,6 +98,33 @@ pub struct DashboardData {
     pub tags: Vec<TodoTag>,
 }
 
+// The Hub (Sprint 75) — a tabbed knowledge index. Each hub page is one tab; a
+// unique entity separate from notes.
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct HubPage {
+    pub id: i64,
+    pub title: String,
+    pub body: String,
+    pub position: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HubPagePatch {
+    pub title: Option<String>,
+    pub body: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct HubMeta {
+    pub title: String,
+    pub subtitle: String,
+}
+
 // Week planner (Sprint 74): the weekday lists in range + the backlog, their
 // todos, and tag links — grouped client-side by list id.
 #[derive(Debug, Clone, Serialize, FromRow)]

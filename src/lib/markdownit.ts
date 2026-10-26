@@ -174,6 +174,12 @@ export function createMarkdownIt(): MarkdownIt {
     if (info === "timeline" || info.startsWith("timeline ")) {
       return renderTimeline(tokens[idx].content, rawInfo.slice(8).trim(), md, env);
     }
+    if (info === "hero" || info.startsWith("hero ")) {
+      return renderHero(tokens[idx].content, rawInfo.slice(4).trim(), md);
+    }
+    if (info === "tabs" || info.startsWith("tabs ")) {
+      return renderTabs(tokens[idx].content, md, env);
+    }
     // Every other fenced block gets a GitHub-style copy button. The button is
     // static HTML (no per-instance handler survives `{@html}` re-renders); a
     // single delegated document listener — installCodeCopy — handles the click
@@ -256,6 +262,7 @@ export function createMarkdownIt(): MarkdownIt {
   installBlockImageCopy();
   installGifSave();
   installSectionToggle();
+  installTabSwitch();
 
   return md;
 }
@@ -657,6 +664,204 @@ export function setTimelineStatusInSource(src: string, index: number): string | 
     }
   }
   return null;
+}
+
+// ```hero renderer — a styled theme-accent banner for the top of a Hub/index.
+// Title = fence info; body lines = the subtitle (inline markdown).
+function renderHero(content: string, title: string, md: MarkdownIt): string {
+  const sub = content.trim();
+  return (
+    `<div class="md-hero">` +
+    `<div class="md-hero-ico" aria-hidden="true">🗂️</div>` +
+    `<div class="md-hero-eyebrow">Knowledge base</div>` +
+    `<div class="md-hero-title">${md.utils.escapeHtml(title || "The Hub")}</div>` +
+    (sub ? `<div class="md-hero-sub">${md.renderInline(sub)}</div>` : "") +
+    `</div>`
+  );
+}
+
+// ```tabs renderer — named tabs (`# Name` starts a tab; its body runs to the
+// next `# ` or the fence end). Switching is a pure DOM toggle (installTabSwitch);
+// on an editable surface, ＋/rename/✕ controls rewrite the source (handled by
+// MarkdownEditor via addTabToSource / renameTabInSource / removeTabFromSource).
+function parseTabs(content: string): { name: string; body: string }[] {
+  const tabs: { name: string; body: string }[] = [];
+  let cur: { name: string; body: string[] } | null = null;
+  for (const line of content.split("\n")) {
+    const m = /^#\s+(.+?)\s*$/.exec(line);
+    if (m) {
+      if (cur) tabs.push({ name: cur.name, body: cur.body.join("\n") });
+      cur = { name: m[1], body: [] };
+    } else if (cur) {
+      cur.body.push(line);
+    }
+  }
+  if (cur) tabs.push({ name: cur.name, body: cur.body.join("\n") });
+  return tabs;
+}
+
+// One curated link rendered as a row (shared with ```links).
+function linkRowHtml(r: LinkRef, esc: (s: string) => string): string {
+  const attrs = r.external ? ' target="_blank" rel="noopener noreferrer"' : "";
+  return (
+    `<a class="md-link-row" href="${esc(r.href)}" style="--lc:${r.color}"${attrs}>` +
+    `<span class="md-link-ico">${r.icon}</span>` +
+    `<span class="md-link-label">${esc(r.label)}</span>` +
+    `<span class="md-link-kind">${esc(r.kindLabel)}</span>` +
+    `<span class="md-link-go">${LINK_GO}</span>` +
+    `</a>`
+  );
+}
+
+// Render a tab's body WITHOUT nesting fenced blocks (which would close the outer
+// ```tabs early): bare `[label](target)` lines become link ROWS, `##`/`###`
+// lines become subheads, blank lines break groups, everything else is a line of
+// inline markdown. Gives the curated-index look without fence nesting.
+const TAB_DOTS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#6366f1"];
+function renderTabBody(body: string, md: MarkdownIt): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  const linkLine = /^(?:[-*]\s+|\d+[.)]\s+)?\[[^\]]+\]\(\s*[^)\s]+\s*\)$/;
+  let html = "";
+  let buf: string[] = [];
+  const flush = () => {
+    if (!buf.length) return;
+    const refs = parseEntityLinks(buf.join("\n"));
+    if (refs.length) html += `<div class="md-tab-links">${refs.map((r) => linkRowHtml(r, esc)).join("")}</div>`;
+    buf = [];
+  };
+  for (const raw of body.split("\n")) {
+    const line = raw.trim();
+    if (!line) { flush(); continue; }
+    if (linkLine.test(line)) { buf.push(line); continue; }
+    flush();
+    const sh = /^#{2,6}\s+(.+)/.exec(line);
+    if (sh) html += `<div class="md-tab-subhead">${md.renderInline(sh[1])}</div>`;
+    else html += `<p class="md-tab-text">${md.renderInline(line)}</p>`;
+  }
+  flush();
+  return html;
+}
+
+function renderTabs(
+  source: string,
+  md: MarkdownIt,
+  env?: Record<string, unknown>,
+): string {
+  const esc = (s: string) => md.utils.escapeHtml(s);
+  const tabs = parseTabs(source);
+  const interactive = env?.progressInteractive === true;
+  const b = (env?.tabsCount as number) ?? 0;
+  if (env) env.tabsCount = b + 1;
+
+  if (!tabs.length) {
+    return `<div class="md-tabs md-tabs-empty">Add a tab with <code># Name</code> inside the <code>\`\`\`tabs</code> block.</div>`;
+  }
+  const bar =
+    tabs
+      .map((t, i) => {
+        const nLinks = parseEntityLinks(t.body).length;
+        return (
+          `<button type="button" class="md-tab${i === 0 ? " md-tab-on" : ""}" data-tab="${b}:${i}">` +
+          `<span class="md-tab-dot" style="background:${TAB_DOTS[i % TAB_DOTS.length]}"></span>` +
+          `<span class="md-tab-name">${esc(t.name)}</span>` +
+          (nLinks ? `<span class="md-tab-count">${nLinks}</span>` : "") +
+          (interactive ? `<span class="md-tab-x" data-tab-remove="${b}:${i}" title="Remove tab" role="button">✕</span>` : "") +
+          `</button>`
+        );
+      })
+      .join("") +
+    (interactive ? `<button type="button" class="md-tab-add" data-tab-add="${b}" title="Add a tab">＋ Tab</button>` : "");
+
+  const panels = tabs
+    .map((t, i) => {
+      const inner = renderTabBody(t.body, md) ||
+        `<p class="md-tab-blank">This category is empty — click Edit (⌘E) to add links &amp; notes.</p>`;
+      return `<div class="md-tab-panel${i === 0 ? " md-tab-on" : ""}" data-panel="${b}:${i}">${inner}</div>`;
+    })
+    .join("");
+
+  return `<div class="md-tabs" data-tabs="${b}"><div class="md-tabbar">${bar}</div><div class="md-tab-panels">${panels}</div></div>`;
+}
+
+// ----- tab source edits (operate on the whole note source; blocks + tabs are
+// counted in document order, matching the data-tab* indices). -----
+// Returns the [start,end) line range of the body of the `block`-th ```tabs fence.
+function tabsFenceRange(lines: string[], block: number): [number, number] | null {
+  let inFence = false, b = -1, start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const isFence = /^\s*```/.test(lines[i]);
+    if (!isFence) continue;
+    const info = lines[i].replace(/^\s*```/, "").trim().toLowerCase();
+    if (!inFence && (info === "tabs" || info.startsWith("tabs "))) {
+      inFence = true; b++;
+      if (b === block) start = i + 1;
+    } else if (inFence) {
+      inFence = false;
+      if (b === block) return [start, i];
+    }
+  }
+  return null;
+}
+export function addTabToSource(src: string, block: number, name: string): string | null {
+  const lines = src.split("\n");
+  const r = tabsFenceRange(lines, block);
+  if (!r) return null;
+  // Insert a new tab heading just before the fence's closing ```.
+  lines.splice(r[1], 0, `# ${name}`, "");
+  return lines.join("\n");
+}
+export function renameTabInSource(src: string, block: number, tab: number, name: string): string | null {
+  const lines = src.split("\n");
+  const r = tabsFenceRange(lines, block);
+  if (!r) return null;
+  let t = -1;
+  for (let i = r[0]; i < r[1]; i++) {
+    if (/^#\s+/.test(lines[i])) {
+      t++;
+      if (t === tab) { lines[i] = `# ${name}`; return lines.join("\n"); }
+    }
+  }
+  return null;
+}
+export function removeTabFromSource(src: string, block: number, tab: number): string | null {
+  const lines = src.split("\n");
+  const r = tabsFenceRange(lines, block);
+  if (!r) return null;
+  let t = -1, from = -1, to = r[1];
+  for (let i = r[0]; i < r[1]; i++) {
+    if (/^#\s+/.test(lines[i])) {
+      t++;
+      if (t === tab) from = i;
+      else if (from >= 0) { to = i; break; }
+    }
+  }
+  if (from < 0) return null;
+  lines.splice(from, to - from);
+  return lines.join("\n");
+}
+
+let tabSwitchInstalled = false;
+function installTabSwitch(): void {
+  if (tabSwitchInstalled || typeof document === "undefined") return;
+  tabSwitchInstalled = true;
+  document.addEventListener("click", (e) => {
+    const target = e.target as Element | null;
+    const tab = target?.closest?.(".md-tab") as HTMLElement | null;
+    if (!tab) return;
+    // ＋/✕ are handled by the editor (source edits); don't switch on those.
+    if (target?.closest?.("[data-tab-add],[data-tab-remove]")) return;
+    const key = tab.dataset.tab;
+    const block = tab.closest(".md-tabs");
+    if (!key || !block) return;
+    e.preventDefault();
+    const idx = key.split(":")[1];
+    block.querySelectorAll(".md-tab").forEach((el) =>
+      el.classList.toggle("md-tab-on", (el as HTMLElement).dataset.tab === key),
+    );
+    block.querySelectorAll(".md-tab-panel").forEach((el) =>
+      el.classList.toggle("md-tab-on", (el as HTMLElement).dataset.panel?.split(":")[1] === idx),
+    );
+  }, true);
 }
 
 // ```cards renderer. Cards are separated by a `---` line; each card is

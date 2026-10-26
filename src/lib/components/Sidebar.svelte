@@ -244,6 +244,18 @@
     </button>
   </div>
 
+  <button
+    type="button"
+    class="mb-3 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition-[transform,box-shadow,filter] hover:-translate-y-px hover:shadow-md hover:brightness-105 active:translate-y-0"
+    style={`background-image: linear-gradient(135deg, var(--accent, #4f46e5), color-mix(in srgb, var(--accent, #4f46e5) 45%, #7c3aed));${app.view === "hub" ? " box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent, #4f46e5) 35%, transparent), 0 4px 14px rgba(16,22,38,.14);" : ""}`}
+    onclick={() => app.openHub()}
+    title="The Hub — your editable knowledge index"
+    use:reveal={{ delay: 55 }}
+  >
+    <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 shrink-0"><path d="M3 5a2 2 0 012-2h3l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2V5z"/></svg>
+    The Hub
+  </button>
+
   <div class="mb-2 px-1" use:reveal={{ delay: 70 }}>
     <input bind:this={searchInput} bind:value={query} type="search" placeholder="Search todos…" title="Searches todos. Press ⌘K to search everything." class="w-full rounded-md border border-neutral-300/60 bg-white/60 px-2 py-1 text-xs outline-none transition-shadow placeholder:text-neutral-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700/60 dark:bg-neutral-900/40 dark:text-neutral-100 dark:placeholder:text-neutral-500" />
     <button type="button" class="mt-1 flex w-full items-center justify-center gap-1 rounded-md px-2 py-1 text-[11px] text-neutral-400 transition-colors hover:bg-neutral-200/50 hover:text-neutral-600 dark:text-neutral-500 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-300" onclick={() => (app.paletteOpen = true)}>

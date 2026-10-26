@@ -75,6 +75,18 @@ export type DashboardData = {
   tags: TodoTag[];
 };
 
+// The Hub (Sprint 75) — tabbed knowledge index; pages are a unique entity.
+export type HubPage = {
+  id: number;
+  title: string;
+  body: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+};
+export type HubPagePatch = { title?: string; body?: string };
+export type HubMeta = { title: string; subtitle: string };
+
 // Week planner (Sprint 74).
 export type WeekListInfo = {
   id: number;
@@ -277,6 +289,20 @@ export const getDashboard = (from: string, to: string) =>
   invoke<DashboardData>("get_dashboard", { from, to });
 export const getWeek = (from: string, to: string) =>
   invoke<WeekData>("get_week", { from, to });
+
+// Hub (Sprint 75)
+export const listHubPages = () => invoke<HubPage[]>("list_hub_pages");
+export const createHubPage = (title: string) =>
+  invoke<HubPage>("create_hub_page", { title });
+export const updateHubPage = (id: number, patch: HubPagePatch) =>
+  invoke<HubPage>("update_hub_page", { id, patch });
+export const deleteHubPage = (id: number) =>
+  invoke<void>("delete_hub_page", { id });
+export const reorderHubPages = (orderedIds: number[]) =>
+  invoke<void>("reorder_hub_pages", { orderedIds });
+export const getHubMeta = () => invoke<HubMeta>("get_hub_meta");
+export const updateHubMeta = (title: string, subtitle: string) =>
+  invoke<HubMeta>("update_hub_meta", { title, subtitle });
 
 export const getMirror = () => invoke<MirrorData>("get_mirror");
 

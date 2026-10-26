@@ -15,6 +15,7 @@
   import ActivityView from "$lib/components/ActivityView.svelte";
   import DashboardView from "$lib/components/DashboardView.svelte";
   import PlannerView from "$lib/components/PlannerView.svelte";
+  import HubView from "$lib/components/HubView.svelte";
   import FlashDeckView from "$lib/components/FlashDeckView.svelte";
   import BlueprintView from "$lib/components/BlueprintView.svelte";
   import TopNav from "$lib/components/TopNav.svelte";
@@ -78,6 +79,7 @@
     activity: "Activity",
     dashboard: "Dashboard",
     planner: "Planner",
+    hub: "The Hub",
     flashdeck: "Flash Deck",
     blueprints: "Library",
     blueprint: "Blueprints",
@@ -182,7 +184,11 @@
   {#if !app.sidebarCollapsed}
     <Sidebar />
   {/if}
-  <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+  <div
+    class="flex min-w-0 flex-1 flex-col overflow-hidden transition-colors"
+    class:bg-neutral-100={app.view === "hub"}
+    class:dark:bg-neutral-950={app.view === "hub"}
+  >
     <!-- Reserved top toolbar row: holds the nav menu so it never overlaps the
          content's own top-right controls (Edit, pin, etc.). Drag region too. -->
     <div
@@ -264,6 +270,8 @@
       <DashboardView />
     {:else if app.view === "planner"}
       <PlannerView />
+    {:else if app.view === "hub"}
+      <HubView />
     {:else if app.view === "flashdeck"}
       <FlashDeckView />
     {:else if app.view === "passwords"}

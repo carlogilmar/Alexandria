@@ -12,6 +12,9 @@
     toggleTaskInSource,
     stepProgressInSource,
     setTimelineStatusInSource,
+    addTabToSource,
+    renameTabInSource,
+    removeTabFromSource,
     toggleSectionInSource,
     replaceLinesInSource,
   } from "$lib/markdownit";
@@ -41,6 +44,9 @@
     // Render the preview only — no editing (used by the reference pane so a note
     // renders identically to the main pane without being editable there).
     readOnly?: boolean;
+    // Disable the per-block hover "edit this block" pencil (whole-doc editing via
+    // the FAB / ⌘E still works) — used by the Hub, which edits as one page.
+    noBlockEdit?: boolean;
   };
 
   let {
@@ -53,6 +59,7 @@
     floatingEdit = false,
     floatingContained = false,
     readOnly = false,
+    noBlockEdit = false,
   }: Props = $props();
 
   // Position class for the floating Edit/Done FAB.
@@ -302,7 +309,7 @@
     }, 240);
   }
   function onPreviewMove(e: MouseEvent) {
-    if (readOnly || blockEdit || editing) return;
+    if (readOnly || blockEdit || editing || noBlockEdit) return;
     const el = (e.target as HTMLElement).closest<HTMLElement>(
       "[data-line][data-end-line]",
     );
@@ -397,6 +404,22 @@
         e.preventDefault();
         const idx = Number(tl.dataset.timeline);
         if (Number.isFinite(idx)) void cycleTimeline(idx, tl);
+        return;
+      }
+      // Hub tabs: add / remove (rename is inline on double-click, below).
+      // (No window.prompt/confirm — unsupported in the Tauri webview.)
+      const tabAdd = target.closest<HTMLElement>("[data-tab-add]");
+      if (tabAdd) {
+        e.preventDefault();
+        const b = Number(tabAdd.dataset.tabAdd);
+        if (Number.isFinite(b)) void addTab(b);
+        return;
+      }
+      const tabRem = target.closest<HTMLElement>("[data-tab-remove]");
+      if (tabRem) {
+        e.preventDefault();
+        const [b, t] = (tabRem.dataset.tabRemove || "").split(":").map(Number);
+        if (Number.isFinite(b) && Number.isFinite(t)) void removeTab(b, t);
         return;
       }
       // Collapsible section header: flip the `>`/`>>` marker in the source and
@@ -529,6 +552,68 @@
 
     tlLiveSource = next;
     await onCommit(next);
+  }
+
+  // Hub tab structural edits — rewrite the ```tabs source and persist.
+  async function addTab(b: number) {
+    const next = addTabToSource(draft, b, "New tab");
+    if (next === null) return;
+    draft = next;
+    await onCommit(next);
+  }
+  async function removeTab(b: number, t: number) {
+    const next = removeTabFromSource(draft, b, t);
+    if (next === null) return;
+    draft = next;
+    await onCommit(next);
+  }
+  async function renameTab(b: number, t: number, name: string) {
+    const next = renameTabInSource(draft, b, t, name);
+    if (next === null) return;
+    draft = next;
+    await onCommit(next);
+  }
+  // Double-click a tab → inline rename via contentEditable (prompt() is a no-op
+  // in the Tauri webview, so we edit the label in place instead).
+  function onPreviewDblClick(e: MouseEvent) {
+    if (readOnly) return;
+    const target = e.target as HTMLElement;
+    const tab = target.closest<HTMLElement>(".md-tab");
+    if (!tab || !tab.dataset.tab || target.closest("[data-tab-remove]")) return;
+    const nameEl = tab.querySelector<HTMLElement>(".md-tab-name");
+    if (!nameEl) return;
+    e.preventDefault();
+    const [b, t] = tab.dataset.tab.split(":").map(Number);
+    const orig = nameEl.textContent ?? "";
+    nameEl.contentEditable = "true";
+    nameEl.spellcheck = false;
+    nameEl.focus();
+    const sel = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(nameEl);
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    let done = false;
+    const finish = (save: boolean) => {
+      if (done) return;
+      done = true;
+      nameEl.removeEventListener("keydown", onKey);
+      nameEl.removeEventListener("blur", onBlur);
+      const name = (nameEl.textContent ?? "").trim();
+      nameEl.contentEditable = "false";
+      if (save && name && name !== orig && Number.isFinite(b) && Number.isFinite(t)) {
+        void renameTab(b, t, name); // re-renders from the new source
+      } else {
+        nameEl.textContent = orig; // revert
+      }
+    };
+    const onKey = (ke: KeyboardEvent) => {
+      if (ke.key === "Enter") { ke.preventDefault(); finish(true); }
+      else if (ke.key === "Escape") { ke.preventDefault(); finish(false); }
+    };
+    const onBlur = () => finish(true);
+    nameEl.addEventListener("keydown", onKey);
+    nameEl.addEventListener("blur", onBlur);
   }
 
   async function toggleSection(idx: number) {
@@ -863,12 +948,13 @@
         style="min-height: {minHeight};"
         class="markdown-body w-full overflow-x-hidden rounded-md px-3 py-2 text-sm leading-relaxed text-neutral-800 dark:text-neutral-200"
         onclick={onPreviewClick}
+        ondblclick={onPreviewDblClick}
         onmousemove={onPreviewMove}
         onkeydown={() => {}}
       >
         {@html rendered}
       </div>
-      {#if blockPencilTop !== null && !blockEdit && !readOnly}
+      {#if blockPencilTop !== null && !blockEdit && !readOnly && !noBlockEdit}
         <button
           type="button"
           onmousedown={(e) => e.preventDefault()}

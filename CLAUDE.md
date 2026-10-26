@@ -124,7 +124,7 @@ destination, add a string to the union, add a `route` case, add a
 sidebar button.
 
 Current view values: `home · list · note · index ·
-mirror · feedback · feedback-board · activity · dashboard · planner · flashdeck ·
+mirror · feedback · feedback-board · activity · dashboard · planner · hub · flashdeck ·
 blueprints · blueprint · storyboards · storyboard · passwords`.
 
 UI labels diverge from internal names where renames happened — the
@@ -261,7 +261,7 @@ Clicking an orb navigates to its entity. The Garden (`GardenView` +
 
 ### Migrations
 
-Files in `src-tauri/migrations/0001_…sql` … `0030_…sql`, monotonically
+Files in `src-tauri/migrations/0001_…sql` … `0031_…sql`, monotonically
 numbered, applied at startup. To add one:
 
 1. Create `00NN_<short_name>.sql`.
@@ -302,6 +302,12 @@ numbered, applied at startup. To add one:
   with it — notes never embedded.)
 - `index_doc`: legacy single-row markdown summary, preserved for data
   safety but unused in UI.
+- `hub_pages` + `hub_meta`: **The Hub** (Sprint 75, migration `0031`) — a tabbed,
+  editable knowledge index. `hub_pages(id, title, body, position, …)` is one row
+  per tab (each a full markdown document), reordered by `position`; `hub_meta`
+  (single row `id=1`) holds the hero `title`/`subtitle`. A UNIQUE entity, distinct
+  from `notes` — never surfaced in Library/pins/search. `commands/hub.rs`,
+  `HubView.svelte`, view `hub`. See documentation/SPRINT75.md.
 - `map_nodes` + `map_edges`: **REMOVED in Sprint 40** (migration `0021`
   drops both). The Alexandria master-map canvas is gone; Blueprints
   replaced it. Historical description of what they held: `kind` was one of
@@ -420,7 +426,25 @@ numbered, applied at startup. To add one:
 4. Run `pnpm tauri dev` once to confirm migrations apply cleanly on
    your machine.
 
-Last updated: end of Sprint 74 (The WEEK PLANNER — a new `planner` view (⌘0) for planning tasks across
+Last updated: end of Sprint 75 (The HUB — a new `hub` destination: an editable, tabbed knowledge index the
+user curates, distinct from Home (untouched) and the auto Library. Tabs are their OWN ENTITY (`hub_pages`),
+separate from notes — never in Library/pins/search. Migration `0031_hub.sql`: `hub_pages(id,title,body,
+position,created_at,updated_at)` (one row per tab, each a full markdown doc) + single-row `hub_meta(title,
+subtitle)` for the hero (seeded). Backend `commands/hub.rs` (list/create/update{title,body}/delete/reorder +
+get/set meta; models HubPage/HubPagePatch/HubMeta; 3 tests). Store: `hub` view + `hubPages`/`hubMeta`/
+`hubActiveId` + loadHub/addHubPage/renameHubPage/saveHubPageBody/removeHubPage/reorderHubPages/saveHubMeta.
+`HubView.svelte`: an accent HERO (double-click title/subtitle to edit → hub_meta); a TAB BAR of pills from
+hub_pages (click opens, double-click renames inline via contentEditable, ✕ deletes active, DRAG reorders,
+＋ Tab creates); the active tab's content is a real MarkdownEditor (keyed per page, floatingEdit + ⌘E,
+noBlockEdit) bound to that page's body — so FULL markdown + every powered block works (each tab is its own
+document). Sidebar "The Hub" button under the logo (centered, accent→violet gradient); command-palette entry;
+the Hub tints the whole content column gray (conditional in +page.svelte). New `noBlockEdit` prop on
+MarkdownEditor hides the per-block pencil. PIVOT (important): v1 stored the Hub as `index_doc` markdown with
+NEW `` ```hero `` + `` ```tabs `` blocks + in-place source edits, but (1) FENCE NESTING broke it (a `` ``` ``
+block inside `` ```tabs `` closes it early) and (2) window.prompt/confirm are no-ops in the Tauri webview — so
+it moved to the structured `hub_pages` entity. The `` ```hero ``/`` ```tabs `` blocks remain in markdownit.ts
+as general blocks (Hub no longer uses them); `index_doc` untouched (legacy/unused). 102 cargo tests +
+svelte-check + build pass. See documentation/SPRINT75.md. — earlier: Sprint 74 (The WEEK PLANNER — a new `planner` view (⌘0) for planning tasks across
 Mon–Fri, not just today (weekends excluded by request); mocked up first, VERTICAL layout chosen so long
 task text reads in full. Backend read-only `get_week(from,to)` (commands/search.rs; models
 `WeekData`/`WeekListInfo`; 1 test; NO migration) returns the non-archived weekday lists in range + the

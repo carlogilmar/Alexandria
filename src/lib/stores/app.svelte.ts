@@ -87,6 +87,13 @@ import {
   listTodoTags,
   getDashboard,
   getWeek,
+  listHubPages,
+  createHubPage,
+  updateHubPage,
+  deleteHubPage,
+  reorderHubPages,
+  getHubMeta,
+  updateHubMeta,
   listTags,
   addTagToTodo,
   removeTagFromTodo,
@@ -183,6 +190,8 @@ import {
   type TodoStatus,
   type DashboardData,
   type WeekData,
+  type HubPage,
+  type HubMeta,
   type TodoHit,
   type WeeklyActivity,
 } from "$lib/ipc";
@@ -237,6 +246,7 @@ type NavLoc =
         | "activity"
         | "dashboard"
         | "planner"
+        | "hub"
         | "flashdeck"
         | "blueprints"
         | "storyboards"
@@ -255,6 +265,7 @@ class AppStore {
     | "activity"
     | "dashboard"
     | "planner"
+    | "hub"
     | "flashdeck"
     | "blueprints"
     | "blueprint"
@@ -474,6 +485,7 @@ class AppStore {
       case "activity":
       case "dashboard":
       case "planner":
+      case "hub":
       case "flashdeck":
       case "blueprints":
       case "storyboards":
@@ -545,6 +557,9 @@ class AppStore {
           break;
         case "planner":
           await this.openPlanner();
+          break;
+        case "hub":
+          await this.openHub();
           break;
         case "flashdeck":
           await this.openFlashDeck();
@@ -821,6 +836,71 @@ class AppStore {
   async saveIndex(body: string) {
     if (body === this.indexDoc.body) return;
     this.indexDoc = await updateIndexDoc(body);
+  }
+
+  // ---- The Hub (Sprint 75) — a tabbed knowledge index; pages are their own
+  // entity (hub_pages), separate from notes. ----
+  hubPages = $state<HubPage[]>([]);
+  hubMeta = $state<HubMeta>({ title: "My Knowledge Base", subtitle: "" });
+  hubActiveId = $state<number | null>(null);
+
+  async openHub() {
+    this.recordNav();
+    this.view = "hub";
+    this.selected = null;
+    this.todos = [];
+    this.selectedTodoId = null;
+    this.selectedTodoTags = [];
+    this.selectedNote = null;
+    await this.loadHub();
+  }
+
+  async loadHub() {
+    try {
+      [this.hubMeta, this.hubPages] = await Promise.all([getHubMeta(), listHubPages()]);
+      if (this.hubActiveId === null || !this.hubPages.some((p) => p.id === this.hubActiveId)) {
+        this.hubActiveId = this.hubPages[0]?.id ?? null;
+      }
+    } catch (e) {
+      this.error = String(e);
+    }
+  }
+
+  async addHubPage() {
+    const page = await createHubPage("New tab");
+    this.hubPages = [...this.hubPages, page];
+    this.hubActiveId = page.id;
+  }
+
+  async renameHubPage(id: number, title: string) {
+    const t = title.trim();
+    if (!t) return;
+    const updated = await updateHubPage(id, { title: t });
+    this.hubPages = this.hubPages.map((p) => (p.id === id ? updated : p));
+  }
+
+  async saveHubPageBody(id: number, body: string) {
+    const updated = await updateHubPage(id, { body });
+    this.hubPages = this.hubPages.map((p) => (p.id === id ? updated : p));
+  }
+
+  async removeHubPage(id: number) {
+    await deleteHubPage(id);
+    const idx = this.hubPages.findIndex((p) => p.id === id);
+    this.hubPages = this.hubPages.filter((p) => p.id !== id);
+    if (this.hubActiveId === id) {
+      this.hubActiveId = this.hubPages[Math.max(0, idx - 1)]?.id ?? this.hubPages[0]?.id ?? null;
+    }
+  }
+
+  async reorderHubPages(orderedIds: number[]) {
+    const byId = new Map(this.hubPages.map((p) => [p.id, p] as const));
+    this.hubPages = orderedIds.map((id) => byId.get(id)).filter((p): p is HubPage => !!p);
+    await reorderHubPages(orderedIds);
+  }
+
+  async saveHubMeta(title: string, subtitle: string) {
+    this.hubMeta = await updateHubMeta(title, subtitle);
   }
 
   // ---- The Mirror ----

@@ -2560,6 +2560,71 @@ html.dark .planner-sec.drop {
 }
 
 /* ------------------------------------------------------------------ */
+/* Hub blocks — ```hero (accent banner) + ```tabs (wrapping pills).    */
+/* ------------------------------------------------------------------ */
+.md-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  padding: 26px 26px 24px;
+  margin: 0.9rem 0;
+  color: #fff;
+  background: linear-gradient(120deg, var(--accent, #4f46e5), color-mix(in srgb, var(--accent, #4f46e5) 58%, #ffffff));
+}
+.md-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 140% at 85% -20%, rgba(255, 255, 255, 0.28), transparent 55%);
+  pointer-events: none;
+}
+.md-hero-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; opacity: 0.85; }
+.md-hero-title {
+  font-family: ui-serif, "Iowan Old Style", Palatino, Georgia, serif;
+  font-weight: 600; font-size: 30px; letter-spacing: -0.01em; margin-top: 8px; line-height: 1.1;
+}
+.md-hero-sub { margin-top: 7px; font-size: 15px; line-height: 1.5; opacity: 0.94; max-width: 62ch; position: relative; }
+.md-hero-sub a { color: #fff; text-decoration: underline; }
+.md-hero-eyebrow, .md-hero-title, .md-hero-sub { position: relative; z-index: 1; }
+.md-hero-ico { position: absolute; right: 18px; bottom: -14px; font-size: 92px; line-height: 1; opacity: 0.18; pointer-events: none; }
+
+.md-tabs {
+  --tb-line: #e6e9ef; --tb-surf: #ffffff; --tb-surf2: #f6f8fa; --tb-ink2: #5b6472; --tb-ink3: #949cab;
+  border: 1px solid var(--tb-line); border-radius: 14px; background: var(--tb-surf);
+  margin: 0.9rem 0; overflow: hidden;
+}
+html.dark .md-tabs { --tb-line: #262d38; --tb-surf: #12161d; --tb-surf2: #1a2029; --tb-ink2: #a2acbb; --tb-ink3: #6b7480; }
+.md-tabs-empty { padding: 14px; color: var(--tb-ink3); font-size: 0.85rem; }
+.md-tabbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; border-bottom: 1px solid var(--tb-line); background: var(--tb-surf2); }
+.md-tab {
+  border: 1px solid var(--tb-line); background: var(--tb-surf); color: var(--tb-ink2);
+  font: inherit; font-size: 13px; font-weight: 600; padding: 5px 12px; border-radius: 999px;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.12s;
+}
+.md-tab:hover { color: var(--tb-ink2); border-color: var(--tb-ink3); filter: brightness(0.98); }
+.md-tab.md-tab-on { background: var(--accent, #4f46e5); border-color: var(--accent, #4f46e5); color: #fff; }
+.md-tab-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.md-tab-count { font-size: 11px; font-weight: 700; color: var(--tb-ink3); }
+.md-tab.md-tab-on .md-tab-count { color: rgba(255, 255, 255, 0.85); }
+.md-tab-x { width: 15px; height: 15px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 9px; color: rgba(255, 255, 255, 0.72); }
+.md-tab:not(.md-tab-on) .md-tab-x { display: none; }
+.md-tab-x:hover { background: rgba(255, 255, 255, 0.28); color: #fff; }
+.md-tab-add { border: 1px dashed var(--tb-line); background: none; color: var(--tb-ink3); font: inherit; font-size: 13px; font-weight: 700; padding: 5px 11px; border-radius: 999px; cursor: pointer; transition: all 0.12s; }
+.md-tab-add:hover { color: var(--accent, #4f46e5); border-color: var(--accent, #4f46e5); }
+.md-tab-panels { padding: 16px 18px; }
+.md-tab-panel { display: none; }
+.md-tab-panel.md-tab-on { display: block; }
+.md-tab-panel > :first-child { margin-top: 0; }
+.md-tab-panel > :last-child { margin-bottom: 0; }
+.md-tab-blank { color: var(--tb-ink3); font-size: 0.85rem; }
+.md-tab-subhead { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--tb-ink3); margin: 16px 0 8px; }
+.md-tab-subhead:first-child { margin-top: 2px; }
+.md-tab-text { margin: 8px 0; color: var(--tb-ink2); font-size: 13.5px; }
+.md-tab-links { display: grid; gap: 8px; margin: 2px 0 6px; }
+.markdown-body .md-tab-links .md-link-row { border: 1px solid var(--tb-line); border-radius: 10px; }
+.markdown-body .md-tab-links .md-link-row:hover { box-shadow: 0 4px 14px rgba(16, 22, 38, 0.08); transform: translateX(2px); }
+
+/* ------------------------------------------------------------------ */
 /* Timeline block (```timeline) — theme-accent colored.               */
 /* ------------------------------------------------------------------ */
 .md-timeline {
